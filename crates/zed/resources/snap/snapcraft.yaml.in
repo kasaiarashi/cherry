@@ -1,23 +1,23 @@
-name: zed
-title: Zed
+name: cherry
+title: Cherry
 base: core24
 version: "$RELEASE_VERSION"
-summary: The editor for what's next
+summary: An Unreal Engine IDE built on Zed
 description: |
-  Zed is a modern open-source code editor, built from the ground up in Rust with
-  a GPU-accelerated renderer. We help you build software faster than ever before.
+  Cherry is an Unreal Engine IDE built on Zed, featuring GPU-accelerated
+  rendering and deep integration with Unreal Engine workflows.
 grade: stable
 confinement: classic
 compression: lzo
-website: https://zed.dev/
-source-code: https://github.com/zed-industries/zed
-issues: https://github.com/zed-industries/zed/issues
-contact: https://zed.dev/community-links#support-and-feedback
+website: https://github.com/kasaiarashi/cherry
+source-code: https://github.com/kasaiarashi/cherry
+issues: https://github.com/kasaiarashi/cherry/issues
+contact: https://github.com/kasaiarashi/cherry
 
 parts:
-  zed:
+  cherry:
     plugin: dump
-    source: "https://github.com/zed-industries/zed/releases/download/v$RELEASE_VERSION/zed-linux-x86_64.tar.gz"
+    source: "https://github.com/kasaiarashi/cherry/releases/download/v$RELEASE_VERSION/cherry-linux-x86_64.tar.gz"
 
     organize:
       # These renames seem to not be necessary, but it's tidier.
@@ -26,10 +26,10 @@ parts:
 
     stage-packages:
       - libasound2t64
-      # snapcraft has a lint that this is unused, but without it Zed exits with
+      # snapcraft has a lint that this is unused, but without it Cherry exits with
       # "Missing Vulkan entry points: LibraryLoadFailure" in blade_graphics.
       - libvulkan1
-      # snapcraft has a lint that this is unused, but without it Zed exits with
+      # snapcraft has a lint that this is unused, but without it Cherry exits with
       # "NoWaylandLib" when run with Wayland.
       - libwayland-client0
       - libxcb1
@@ -52,8 +52,8 @@ parts:
       - -usr/share/man
 
 apps:
-  zed:
-    command: usr/bin/zed
-    common-id: dev.zed.Zed
+  cherry:
+    command: usr/bin/cherry
+    common-id: kriaa.kasaiarashi.Cherry
     environment:
-      ZED_BUNDLE_TYPE: snap
+      CHERRY_BUNDLE_TYPE: snap

@@ -147,3 +147,40 @@ GPUI has had some changes to its APIs. Always write code using the new APIs:
 ## General guidelines
 
 - Use `./script/clippy` instead of `cargo clippy`
+
+# Cherry: Unreal Engine IDE
+
+Cherry is a Zed fork with integrated Unreal Engine development features.
+
+## Unreal-Specific Crates
+
+### cherry_link
+Location: `crates/cherry_link/`
+- Connection management for CherryLink UE plugin
+- Communicates with UE via TCP JSON-RPC 2.0 protocol (port 21567)
+- Manages play state, build status, and log streaming
+
+### unreal_toolbar
+Location: `crates/unreal_toolbar/`
+- Toolbar with PIE controls (play/stop), build, and debug buttons
+- Build configuration dropdown
+- Connection status indicator
+
+### unreal_panel
+Location: `crates/unreal_panel/`
+- Bottom dock panel for Unreal logs
+- Displays log messages with category and verbosity filtering
+- Auto-scroll functionality
+
+## CherryLink Protocol
+- TCP connection to `127.0.0.1:21567`
+- JSON-RPC 2.0 with 4-byte big-endian length prefix
+- Methods: `play/start`, `play/stop`, `play/pause`, `build/liveCoding`, `logging/subscribe`
+
+## Reference Files
+| Purpose | File |
+|---------|------|
+| Panel trait | `crates/workspace/src/dock.rs` |
+| Panel example | `crates/terminal_view/src/terminal_panel.rs` |
+| Title bar | `crates/title_bar/src/title_bar.rs` |
+| Actions pattern | `crates/zed_actions/src/lib.rs` |

@@ -27,6 +27,7 @@ members = [
     "crates/buffer_diff",
     "crates/call",
     "crates/channel",
+    "crates/cherry_link",
     "crates/cli",
     "crates/client",
     "crates/clock",
@@ -188,6 +189,8 @@ members = [
     "crates/ui_input",
     "crates/ui_macros",
     "crates/ui_prompt",
+    "crates/unreal_panel",
+    "crates/unreal_toolbar",
     "crates/util",
     "crates/util_macros",
     "crates/vercel",
@@ -265,6 +268,7 @@ breadcrumbs = { path = "crates/breadcrumbs" }
 buffer_diff = { path = "crates/buffer_diff" }
 call = { path = "crates/call" }
 channel = { path = "crates/channel" }
+cherry_link = { path = "crates/cherry_link" }
 cli = { path = "crates/cli" }
 client = { path = "crates/client" }
 clock = { path = "crates/clock" }
@@ -414,6 +418,8 @@ ui = { path = "crates/ui" }
 ui_input = { path = "crates/ui_input" }
 ui_macros = { path = "crates/ui_macros" }
 ui_prompt = { path = "crates/ui_prompt" }
+unreal_panel = { path = "crates/unreal_panel" }
+unreal_toolbar = { path = "crates/unreal_toolbar" }
 util = { path = "crates/util" }
 util_macros = { path = "crates/util_macros" }
 vercel = { path = "crates/vercel" }

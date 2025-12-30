@@ -1,0 +1,22 @@
+[package]
+name = "unreal_toolbar"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license = "GPL-3.0-or-later"
+description = "Unreal Engine toolbar for Cherry IDE"
+
+[lints]
+workspace = true
+
+[lib]
+path = "src/unreal_toolbar.rs"
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+cherry_link.workspace = true
+gpui.workspace = true
+settings.workspace = true
+ui.workspace = true
+workspace.workspace = true

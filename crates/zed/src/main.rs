@@ -641,6 +641,9 @@ fn main() {
         search::init(cx);
         vim::init(cx);
         terminal_view::init(cx);
+        unreal_panel::init(cx);
+        unreal_toolbar::init(cx);
+        cherry_link::init(cx);
         journal::init(app_state.clone(), cx);
         language_selector::init(cx);
         line_ending_selector::init(cx);
