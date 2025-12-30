@@ -474,6 +474,10 @@ pub fn initialize_workspace(
                 .unwrap_or(true)
         });
 
+        // Initialize UnrealToolbar
+        let toolbar = cx.new(|cx| unreal_toolbar::UnrealToolbar::new(workspace.weak_handle(), cx));
+        workspace.set_toolbar_item(toolbar.into(), window, cx);
+
         initialize_panels(prompt_builder.clone(), window, cx);
         register_actions(app_state.clone(), workspace, window, cx);
 

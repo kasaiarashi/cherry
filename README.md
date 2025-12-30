@@ -1,38 +1,63 @@
-# Zed
+# Cherry
 
-[![Zed](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/zed-industries/zed/main/assets/badge/v0.json)](https://zed.dev)
-[![CI](https://github.com/zed-industries/zed/actions/workflows/run_tests.yml/badge.svg)](https://github.com/zed-industries/zed/actions/workflows/run_tests.yml)
-
-Welcome to Zed, a high-performance, multiplayer code editor from the creators of [Atom](https://github.com/atom/atom) and [Tree-sitter](https://github.com/tree-sitter/tree-sitter).
+A fast, cross-platform IDE for Unreal Engine development.
 
 ---
 
-### Installation
+## About
 
-On macOS, Linux, and Windows you can [download Zed directly](https://zed.dev/download) or install Zed via your local package manager ([macOS](https://zed.dev/docs/installation#macos)/[Linux](https://zed.dev/docs/linux#installing-via-a-package-manager)/[Windows](https://zed.dev/docs/windows#package-managers)).
+Cherry is a high-performance code editor built specifically for Unreal Engine developers. It provides native UE integration with PIE controls, live coding builds, and real-time log streaming directly in the editor.
 
-Other platforms are not yet available:
+Cherry is a fork of [Zed](https://github.com/zed-industries/zed), the high-performance editor from the creators of Atom and Tree-sitter.
 
-- Web ([tracking issue](https://github.com/zed-industries/zed/issues/5396))
+## Features
 
-### Developing Zed
+- **Fast**: GPU-accelerated rendering with instant startup
+- **Cross-platform**: Native support for macOS, Linux, and Windows
+- **Unreal Integration**:
+  - PIE (Play-In-Editor) controls
+  - Live Coding build triggers
+  - Build configuration selector
+  - Real-time Unreal Engine log panel
+  - Connection status monitoring
+- **Modern Editor**: Full-featured code editing with LSP support, multi-cursor, and more
 
-- [Building Zed for macOS](./docs/src/development/macos.md)
-- [Building Zed for Linux](./docs/src/development/linux.md)
-- [Building Zed for Windows](./docs/src/development/windows.md)
+## Unreal Engine Setup
 
-### Contributing
+Cherry connects to Unreal Engine via the CherryLink plugin. Install the plugin in your UE project to enable:
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for ways you can contribute to Zed.
+- Play/Stop/Pause PIE sessions from the editor
+- Trigger Live Coding builds
+- Stream UE logs to the Cherry panel
+- Build configuration switching
 
-Also... we're hiring! Check out our [jobs](https://zed.dev/jobs) page for open roles.
+## Building from Source
 
-### Licensing
+### macOS
+```bash
+./script/bootstrap
+cargo build --release
+```
 
-License information for third party dependencies must be correctly provided for CI to pass.
+### Linux
+```bash
+./script/linux
+cargo build --release
+```
 
-We use [`cargo-about`](https://github.com/EmbarkStudios/cargo-about) to automatically comply with open source licenses. If CI is failing, check the following:
+### Windows
+```bash
+cargo build --release
+```
 
-- Is it showing a `no license specified` error for a crate you've created? If so, add `publish = false` under `[package]` in your crate's Cargo.toml.
-- Is the error `failed to satisfy license requirements` for a dependency? If so, first determine what license the project has and whether this system is sufficient to comply with this license's requirements. If you're unsure, ask a lawyer. Once you've verified that this system is acceptable add the license's SPDX identifier to the `accepted` array in `script/licenses/zed-licenses.toml`.
-- Is `cargo-about` unable to find the license for a dependency? If so, add a clarification field at the end of `script/licenses/zed-licenses.toml`, as specified in the [cargo-about book](https://embarkstudios.github.io/cargo-about/cli/generate/config.html#crate-configuration).
+See the [development docs](./docs/src/development/) for detailed build instructions.
+
+## License
+
+Cherry is licensed under GPL-3.0-or-later, the same license as Zed.
+
+License information for third party dependencies must be correctly provided for CI to pass. See the original [Zed repository](https://github.com/zed-industries/zed) for licensing details.
+
+## Acknowledgments
+
+Cherry is built on top of [Zed](https://github.com/zed-industries/zed) by Zed Industries. We thank the Zed team for creating such an excellent foundation.

@@ -1,11 +1,10 @@
-use crate::actions::{DebugStart, LiveCodingBuild, PieStart, PieStop};
 use cherry_link::{BuildConfiguration, CherryLinkConnection, PlayState};
 use gpui::{
-    div, prelude::*, px, App, Context, Entity, InteractiveElement, IntoElement, ParentElement,
-    Render, SharedString, StatefulInteractiveElement, Styled, Subscription, WeakEntity, Window,
+    div, prelude::*, App, Context, Corner, Entity, IntoElement, ParentElement,
+    Render, Styled, Subscription, WeakEntity, Window,
 };
 use ui::{
-    prelude::*, Button, ButtonStyle, IconButton, IconName, PopoverMenu, Tooltip,
+    prelude::*, Button, ButtonStyle, ContextMenu, IconButton, IconName, PopoverMenu, Tooltip,
 };
 use workspace::Workspace;
 
@@ -134,20 +133,41 @@ impl UnrealToolbar {
             }))
     }
 
-    fn render_config_dropdown(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_config_dropdown(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let selected = self.selected_config;
+        let this = cx.entity().downgrade();
 
-        Button::new("config-dropdown", selected.to_string())
-            .style(ButtonStyle::Subtle)
-            .tooltip(Tooltip::text("Build Configuration"))
-            .on_click(cx.listener(|this, _, window, cx| {
-                // Cycle through configurations for now
-                let configs = BuildConfiguration::all();
-                let current_idx = configs.iter().position(|c| *c == this.selected_config).unwrap_or(0);
-                let next_idx = (current_idx + 1) % configs.len();
-                this.selected_config = configs[next_idx];
-                cx.notify();
-            }))
+        PopoverMenu::new("config-dropdown")
+            .anchor(Corner::TopRight)
+            .trigger(
+                Button::new("config-trigger", selected.to_string())
+                    .style(ButtonStyle::Subtle)
+                    .icon(IconName::ChevronDown)
+                    .icon_size(IconSize::Small)
+                    .icon_color(Color::Muted)
+            )
+            .menu(move |window, cx| {
+                let this = this.clone();
+                Some(ContextMenu::build(window, cx, move |mut menu, _window, _cx| {
+                    for &config in BuildConfiguration::all() {
+                        let is_selected = config == selected;
+                        let this = this.clone();
+                        menu = menu.toggleable_entry(
+                            config.to_string(),
+                            is_selected,
+                            IconPosition::End,
+                            None,
+                            move |_window, cx| {
+                                this.update(cx, |toolbar, cx| {
+                                    toolbar.selected_config = config;
+                                    cx.notify();
+                                }).ok();
+                            },
+                        );
+                    }
+                    menu
+                }))
+            })
     }
 
     fn render_connection_status(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -185,6 +205,7 @@ impl Render for UnrealToolbar {
 
         div()
             .id("unreal-toolbar")
+            .w_full()
             .flex()
             .flex_row()
             .items_center()
@@ -194,35 +215,20 @@ impl Render for UnrealToolbar {
             .bg(cx.theme().colors().toolbar_background)
             .border_b_1()
             .border_color(cx.theme().colors().border)
+            // Spacer to push everything to the right
+            .child(div().flex_grow())
+            // All controls grouped together on the right
             .child(
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap_1()
+                    .gap_2()
+                    .child(self.render_connection_status(window, cx))
+                    .child(self.render_config_dropdown(window, cx))
                     .child(self.render_play_button(window, cx))
                     .child(self.render_build_button(window, cx))
                     .child(self.render_debug_button(window, cx))
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_1()
-                    .ml_2()
-                    .child(self.render_config_dropdown(window, cx))
-            )
-            .child(
-                div()
-                    .flex_grow()
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .child(self.render_connection_status(window, cx))
             )
             .into_any_element()
     }
