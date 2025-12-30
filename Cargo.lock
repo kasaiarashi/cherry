@@ -3076,6 +3076,7 @@ dependencies = [
  "futures 0.3.31",
  "gpui",
  "log",
+ "regex",
  "schemars",
  "serde",
  "serde_json",
@@ -12771,6 +12772,7 @@ name = "project_panel"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_link",
  "client",
  "collections",
  "command_palette_hooks",

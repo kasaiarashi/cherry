@@ -1,4 +1,5 @@
 mod project_panel_settings;
+pub mod solution_view;
 mod utils;
 
 use anyhow::{Context as _, Result};
@@ -141,6 +142,10 @@ pub struct ProjectPanel {
     last_reported_update: Instant,
     update_visible_entries_task: UpdateVisibleEntriesTask,
     state: State,
+    // Solution view mode
+    view_mode: solution_view::ProjectPanelViewMode,
+    solution_state: solution_view::SolutionViewState,
+    solution_scroll_handle: UniformListScrollHandle,
 }
 
 struct UpdateVisibleEntriesTask {
@@ -341,6 +346,8 @@ actions!(
         SelectPrevDirectory,
         /// Opens a diff view to compare two marked files.
         CompareMarkedFiles,
+        /// Toggles between file tree and solution view.
+        ToggleSolutionView,
     ]
 );
 
@@ -413,6 +420,14 @@ pub fn init(cx: &mut App) {
             if let Some(panel) = workspace.panel::<ProjectPanel>(cx) {
                 panel.update(cx, |panel, cx| {
                     panel.collapse_all_entries(action, window, cx);
+                });
+            }
+        });
+
+        workspace.register_action(|workspace, action: &ToggleSolutionView, window, cx| {
+            if let Some(panel) = workspace.panel::<ProjectPanel>(cx) {
+                panel.update(cx, |panel, cx| {
+                    panel.toggle_solution_view(action, window, cx);
                 });
             }
         });
@@ -784,6 +799,7 @@ impl ProjectPanel {
             .detach();
 
             let scroll_handle = UniformListScrollHandle::new();
+            let solution_scroll_handle = UniformListScrollHandle::new();
             let mut this = Self {
                 project: project.clone(),
                 hover_scroll_task: None,
@@ -820,6 +836,9 @@ impl ProjectPanel {
                     unfolded_dir_ids: Default::default(),
                 },
                 update_visible_entries_task: Default::default(),
+                view_mode: solution_view::ProjectPanelViewMode::default(),
+                solution_state: solution_view::SolutionViewState::new(),
+                solution_scroll_handle,
             };
             this.update_visible_entries(None, false, false, window, cx);
 
@@ -5573,6 +5592,165 @@ impl ProjectPanel {
             })
             .collect()
     }
+
+    // Solution view methods
+
+    pub fn toggle_solution_view(&mut self, _: &ToggleSolutionView, _window: &mut Window, cx: &mut Context<Self>) {
+        use solution_view::ProjectPanelViewMode;
+
+        match self.view_mode {
+            ProjectPanelViewMode::FileTree => {
+                // Try to find and load a solution file
+                if self.try_load_solution(cx) {
+                    self.view_mode = ProjectPanelViewMode::SolutionView;
+                    self.solution_state.update_visible_entries();
+                }
+            }
+            ProjectPanelViewMode::SolutionView => {
+                self.view_mode = ProjectPanelViewMode::FileTree;
+            }
+        }
+        cx.notify();
+    }
+
+    fn try_load_solution(&mut self, cx: &App) -> bool {
+        // Look for .sln file in any worktree
+        let project = self.project.read(cx);
+        for worktree in project.visible_worktrees(cx) {
+            let worktree = worktree.read(cx);
+            let abs_path = worktree.abs_path();
+            if let Some(sln_path) = cherry_link::find_solution_file(abs_path.as_ref()) {
+                if self.solution_state.load_solution(&sln_path).is_ok() {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn is_solution_view(&self) -> bool {
+        matches!(self.view_mode, solution_view::ProjectPanelViewMode::SolutionView)
+    }
+
+    fn render_solution_view(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        use ui::{h_flex, ListItem, ListItemSpacing};
+
+        let item_count = self.solution_state.visible_entries.len();
+        let entries = self.solution_state.visible_entries.clone();
+        let selection = self.solution_state.selection.clone();
+        let expanded_ids = self.solution_state.expanded_ids.clone();
+
+        v_flex()
+            .id("project-panel-solution")
+            .key_context("ProjectPanel")
+            .track_focus(&self.focus_handle)
+            .size_full()
+            .bg(cx.theme().colors().panel_background)
+            .child(
+                // Header with toggle button
+                h_flex()
+                    .w_full()
+                    .px_2()
+                    .py_1()
+                    .border_b_1()
+                    .border_color(cx.theme().colors().border)
+                    .justify_between()
+                    .child(
+                        Label::new("Solution View")
+                            .size(LabelSize::Small)
+                            .color(ui::Color::Muted),
+                    )
+                    .child(
+                        ui::IconButton::new("toggle-view", IconName::FileTree)
+                            .icon_size(ui::IconSize::Small)
+                            .tooltip(Tooltip::text("Switch to File Tree"))
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.toggle_solution_view(&ToggleSolutionView, window, cx);
+                            })),
+                    ),
+            )
+            .child(
+                uniform_list("solution-entries", item_count, {
+                    let selection = selection.clone();
+                    let expanded_ids = expanded_ids.clone();
+                    cx.processor(move |_this, range: Range<usize>, _window, cx| {
+                        let mut items = Vec::new();
+                        for ix in range {
+                            if let Some(entry) = entries.get(ix) {
+                                let entry = entry.clone();
+                                let is_selected = selection.as_ref() == Some(&entry.id());
+                                let is_expanded = expanded_ids.contains(&entry.id());
+                                let depth = entry.depth();
+                                let icon = entry.icon();
+                                let name = entry.name().to_string();
+                                let entry_id = entry.id();
+                                let is_expandable = entry.is_expandable();
+
+                                let item = ListItem::new(ix)
+                                    .indent_level(depth)
+                                    .indent_step_size(px(20.))
+                                    .spacing(ListItemSpacing::Sparse)
+                                    .toggle(if is_expandable {
+                                        Some(is_expanded)
+                                    } else {
+                                        None
+                                    })
+                                    .on_toggle(cx.listener({
+                                        let entry_id = entry_id.clone();
+                                        move |this, _, _, cx| {
+                                            this.solution_state.toggle_expanded(&entry_id);
+                                            this.solution_state.update_visible_entries();
+                                            cx.notify();
+                                        }
+                                    }))
+                                    .child(
+                                        h_flex()
+                                            .gap_1()
+                                            .child(Icon::new(icon).size(ui::IconSize::Small))
+                                            .child(Label::new(name).size(LabelSize::Small)),
+                                    )
+                                    .on_click(cx.listener({
+                                        let entry = entry.clone();
+                                        let entry_id = entry_id.clone();
+                                        move |this, event: &gpui::ClickEvent, window, cx| {
+                                            this.solution_state.selection = Some(entry_id.clone());
+                                            if event.click_count() == 2 {
+                                                // Double-click to open file
+                                                if let Some(path) = entry.file_path() {
+                                                    this.open_file_from_path(path, window, cx);
+                                                } else if entry.is_expandable() {
+                                                    this.solution_state.toggle_expanded(&entry_id);
+                                                    this.solution_state.update_visible_entries();
+                                                }
+                                            }
+                                            cx.notify();
+                                        }
+                                    }))
+                                    .toggle_state(is_selected);
+
+                                items.push(item.into_any_element());
+                            }
+                        }
+                        items
+                    })
+                })
+                .flex_grow()
+                .track_scroll(&self.solution_scroll_handle),
+            )
+    }
+
+    fn open_file_from_path(&mut self, path: &Path, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(workspace) = self.workspace.upgrade() else {
+            return;
+        };
+
+        let path = path.to_path_buf();
+
+        workspace.update(cx, |workspace, cx| {
+            workspace.open_abs_path(path, workspace::OpenOptions::default(), window, cx)
+                .detach_and_log_err(cx);
+        });
+    }
 }
 
 #[derive(Clone)]
@@ -5598,6 +5776,11 @@ fn item_width_estimate(depth: usize, item_text_chars: usize, is_symlink: bool) -
 
 impl Render for ProjectPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Branch on view mode
+        if self.is_solution_view() {
+            return self.render_solution_view(window, cx).into_any_element();
+        }
+
         let has_worktree = !self.state.visible_entries.is_empty();
         let project = self.project.read(cx);
         let panel_settings = ProjectPanelSettings::get_global(cx);
@@ -6135,6 +6318,7 @@ impl Render for ProjectPanel {
                     )
                     .with_priority(3)
                 }))
+                .into_any_element()
         } else {
             let focus_handle = self.focus_handle(cx);
 
@@ -6209,6 +6393,7 @@ impl Render for ProjectPanel {
                         ))
                     })
                 })
+                .into_any_element()
         }
     }
 }

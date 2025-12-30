@@ -909,6 +909,7 @@
     "context": "ProjectPanel",
     "use_key_equivalents": true,
     "bindings": {
+      "ctrl-s": "project_panel::ToggleSolutionView",
       "left": "project_panel::CollapseSelectedEntry",
       "cmd-left": "project_panel::CollapseAllEntries",
       "right": "project_panel::ExpandSelectedEntry",

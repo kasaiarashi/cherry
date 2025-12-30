@@ -843,6 +843,7 @@
   {
     "context": "ProjectPanel",
     "bindings": {
+      "alt-s": "project_panel::ToggleSolutionView",
       "left": "project_panel::CollapseSelectedEntry",
       "ctrl-left": "project_panel::CollapseAllEntries",
       "right": "project_panel::ExpandSelectedEntry",
