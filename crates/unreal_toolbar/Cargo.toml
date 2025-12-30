@@ -20,4 +20,5 @@ gpui.workspace = true
 log.workspace = true
 settings.workspace = true
 ui.workspace = true
+unreal_panel.workspace = true
 workspace.workspace = true

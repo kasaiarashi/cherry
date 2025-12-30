@@ -6,10 +6,13 @@ use gpui::{
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use ui::{
     prelude::*, Button, ButtonStyle, ContextMenu, IconButton, IconName, PopoverMenu, Tooltip,
 };
+use unreal_panel::BuildPanel;
 use workspace::Workspace;
 
 /// PIE (Play-In-Editor) modes
@@ -289,86 +292,146 @@ impl UnrealToolbar {
         let config = self.selected_config.clone();
         let arch = self.architecture_for_platform(&platform).to_string();
 
-        #[cfg(target_os = "windows")]
-        let mut cmd = Command::new("cmd");
-        #[cfg(target_os = "windows")]
-        {
-            cmd.arg("/C");
-            cmd.arg(&build_script);
+        // Set building flag
+        if let Ok(mut guard) = self.is_building.lock() {
+            *guard = true;
         }
 
-        #[cfg(not(target_os = "windows"))]
-        let mut cmd = Command::new(&build_script);
-
-        cmd.arg(&project_name);
-        cmd.arg(&platform);
-        cmd.arg(&config);
-        cmd.arg(format!("-Project={}", project_path.display()));
-        cmd.arg("-WaitMutex");
-        cmd.arg("-FromMsBuild");
-        cmd.arg(format!("-architecture={}", arch));
-
-        cmd.stdout(Stdio::piped());
-        cmd.stderr(Stdio::piped());
+        let is_building = self.is_building.clone();
+        let workspace = self.workspace.clone();
 
         log::info!("Starting build: {:?} {} {} {} -Project={}",
             build_script, project_name, platform, config, project_path.display());
 
-        match cmd.spawn() {
-            Ok(mut child) => {
-                log::info!("Build started successfully");
+        // Create channel for build output
+        let (tx, rx) = mpsc::channel::<BuildMessage>();
 
-                // Set building flag
-                if let Ok(mut guard) = self.is_building.lock() {
-                    *guard = true;
-                }
+        // Spawn background thread to run build and send output
+        let tx_clone = tx.clone();
+        thread::spawn(move || {
+            #[cfg(target_os = "windows")]
+            let mut cmd = Command::new("cmd");
+            #[cfg(target_os = "windows")]
+            {
+                cmd.arg("/C");
+                cmd.arg(&build_script);
+            }
 
-                let is_building = self.is_building.clone();
+            #[cfg(not(target_os = "windows"))]
+            let mut cmd = Command::new(&build_script);
 
-                // Take stdout and stderr
-                let stdout = child.stdout.take();
-                let stderr = child.stderr.take();
+            cmd.arg(&project_name);
+            cmd.arg(&platform);
+            cmd.arg(&config);
+            cmd.arg(format!("-Project={}", project_path.display()));
+            cmd.arg("-WaitMutex");
+            cmd.arg("-FromMsBuild");
+            cmd.arg(format!("-architecture={}", arch));
 
-                // Spawn background task to read output
-                self._build_task = Some(cx.background_executor().spawn(async move {
-                    // Read stdout in background
+            cmd.stdout(Stdio::piped());
+            cmd.stderr(Stdio::piped());
+
+            match cmd.spawn() {
+                Ok(mut child) => {
+                    let stdout = child.stdout.take();
+                    let stderr = child.stderr.take();
+
+                    // Read stdout
                     if let Some(stdout) = stdout {
                         let reader = BufReader::new(stdout);
                         for line in reader.lines().map_while(Result::ok) {
-                            log::info!("[Build] {}", line);
+                            let _ = tx_clone.send(BuildMessage::Line(line));
                         }
                     }
 
-                    // Read stderr in background
+                    // Read stderr
                     if let Some(stderr) = stderr {
                         let reader = BufReader::new(stderr);
                         for line in reader.lines().map_while(Result::ok) {
-                            log::warn!("[Build] {}", line);
+                            let _ = tx_clone.send(BuildMessage::Line(line));
                         }
                     }
 
-                    // Wait for process to finish
+                    // Wait for process
                     let success = child.wait().map(|s| s.success()).unwrap_or(false);
-
-                    // Clear building flag
-                    if let Ok(mut guard) = is_building.lock() {
-                        *guard = false;
-                    }
-
-                    if success {
-                        log::info!("Build completed successfully");
-                    } else {
-                        log::error!("Build failed");
-                    }
-                }));
-
-                cx.notify();
+                    let _ = tx_clone.send(BuildMessage::Finished(success));
+                }
+                Err(e) => {
+                    let _ = tx_clone.send(BuildMessage::Line(format!("Failed to start build: {}", e)));
+                    let _ = tx_clone.send(BuildMessage::Finished(false));
+                }
             }
-            Err(e) => {
-                log::error!("Failed to start build: {}", e);
+        });
+
+        // Spawn foreground task to receive messages and update panel
+        self._build_task = Some(cx.spawn(async move |_this, cx| {
+            // Notify build panel that build started
+            let _ = cx.update(|cx| {
+                let _ = workspace.update(cx, |workspace, cx| {
+                    if let Some(panel) = workspace.panel::<BuildPanel>(cx) {
+                        panel.update(cx, |panel: &mut BuildPanel, cx| {
+                            panel.start_build(cx);
+                        });
+                    }
+                });
+            });
+
+            // Process messages from build thread
+            loop {
+                // Check for messages
+                match rx.recv() {
+                    Ok(BuildMessage::Line(line)) => {
+                        let workspace = workspace.clone();
+                        let _ = cx.update(|cx| {
+                            let _ = workspace.update(cx, |workspace, cx| {
+                                if let Some(panel) = workspace.panel::<BuildPanel>(cx) {
+                                    panel.update(cx, |panel: &mut BuildPanel, cx| {
+                                        panel.add_line(line, cx);
+                                    });
+                                }
+                            });
+                        });
+                    }
+                    Ok(BuildMessage::Finished(success)) => {
+                        // Clear building flag
+                        if let Ok(mut guard) = is_building.lock() {
+                            *guard = false;
+                        }
+
+                        // Notify panel
+                        let _ = cx.update(|cx| {
+                            let _ = workspace.update(cx, |workspace, cx| {
+                                if let Some(panel) = workspace.panel::<BuildPanel>(cx) {
+                                    panel.update(cx, |panel: &mut BuildPanel, cx| {
+                                        panel.finish_build(success, cx);
+                                    });
+                                }
+                            });
+                        });
+                        break;
+                    }
+                    Err(_) => {
+                        // Channel closed, build must have finished
+                        if let Ok(mut guard) = is_building.lock() {
+                            *guard = false;
+                        }
+                        break;
+                    }
+                }
             }
-        }
+        }));
+
+        cx.notify();
     }
+}
+
+/// Messages sent from build thread to UI
+enum BuildMessage {
+    Line(String),
+    Finished(bool),
+}
+
+impl UnrealToolbar {
 
     fn is_connected(&self, cx: &App) -> bool {
         self.connection

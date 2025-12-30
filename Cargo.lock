@@ -18176,6 +18176,7 @@ dependencies = [
  "log",
  "settings",
  "ui",
+ "unreal_panel",
  "workspace",
 ]
 
