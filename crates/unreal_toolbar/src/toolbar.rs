@@ -1,6 +1,6 @@
 use cherry_link::{BuildConfiguration, CherryLinkConnection, PlayState};
 use gpui::{
-    div, prelude::*, App, Context, Corner, Entity, IntoElement, ParentElement,
+    div, prelude::*, px, App, Context, Corner, Entity, IntoElement, ParentElement,
     Render, Styled, Subscription, WeakEntity, Window,
 };
 use ui::{
@@ -8,11 +8,50 @@ use ui::{
 };
 use workspace::Workspace;
 
+/// PIE (Play-In-Editor) modes
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PieMode {
+    #[default]
+    SelectedViewport,
+    MobilePreview,
+    NewEditorWindow,
+    StandaloneGame,
+    VRPreview,
+    Simulate,
+}
+
+impl PieMode {
+    pub fn all() -> &'static [PieMode] {
+        &[
+            PieMode::SelectedViewport,
+            PieMode::MobilePreview,
+            PieMode::NewEditorWindow,
+            PieMode::StandaloneGame,
+            PieMode::VRPreview,
+            PieMode::Simulate,
+        ]
+    }
+}
+
+impl std::fmt::Display for PieMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PieMode::SelectedViewport => write!(f, "Selected Viewport"),
+            PieMode::MobilePreview => write!(f, "Mobile Preview"),
+            PieMode::NewEditorWindow => write!(f, "New Editor Window"),
+            PieMode::StandaloneGame => write!(f, "Standalone Game"),
+            PieMode::VRPreview => write!(f, "VR Preview"),
+            PieMode::Simulate => write!(f, "Simulate"),
+        }
+    }
+}
+
 /// Unreal Engine toolbar component
 pub struct UnrealToolbar {
     workspace: WeakEntity<Workspace>,
     connection: Option<Entity<CherryLinkConnection>>,
     selected_config: BuildConfiguration,
+    selected_pie_mode: PieMode,
     visible: bool,
     _subscriptions: Vec<Subscription>,
 }
@@ -23,6 +62,7 @@ impl UnrealToolbar {
             workspace,
             connection: None,
             selected_config: BuildConfiguration::default(),
+            selected_pie_mode: PieMode::default(),
             visible: true,
             _subscriptions: Vec::new(),
         }
@@ -73,65 +113,91 @@ impl UnrealToolbar {
             .unwrap_or_default()
     }
 
-    fn render_play_button(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    // ==================== PIE Section ====================
+
+    fn render_pie_play_pause(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let is_connected = self.is_connected(cx);
         let play_state = self.play_state(cx);
 
-        let (icon, tooltip, action_name) = match play_state {
-            PlayState::Playing | PlayState::Simulating => {
-                (IconName::Stop, "Stop PIE", "Stop")
-            }
-            PlayState::Paused => {
-                (IconName::PlayFilled, "Resume PIE", "Resume")
-            }
-            PlayState::Stopped => {
-                (IconName::PlayFilled, "Start PIE", "Play")
-            }
+        let (icon, tooltip) = match play_state {
+            PlayState::Playing | PlayState::Simulating => (IconName::DebugPause, "Pause PIE"),
+            PlayState::Paused => (IconName::PlayFilled, "Resume PIE"),
+            PlayState::Stopped => (IconName::PlayFilled, "Start PIE"),
         };
 
-        IconButton::new("pie-play", icon)
+        IconButton::new("pie-play-pause", icon)
             .icon_size(IconSize::Small)
             .disabled(!is_connected)
             .tooltip(Tooltip::text(tooltip))
-            .on_click(cx.listener(move |this, _, window, cx| {
+            .on_click(cx.listener(move |this, _, _window, cx| {
                 if let Some(connection) = &this.connection {
                     connection.update(cx, |conn, cx| {
                         match play_state {
-                            PlayState::Playing | PlayState::Simulating => conn.play_stop(cx),
-                            _ => conn.play_start(cx),
+                            PlayState::Playing | PlayState::Simulating => conn.play_pause(cx),
+                            PlayState::Paused => conn.play_resume(cx),
+                            PlayState::Stopped => conn.play_start(cx),
                         }
                     });
                 }
             }))
     }
 
-    fn render_build_button(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_pie_stop(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let is_connected = self.is_connected(cx);
+        let play_state = self.play_state(cx);
+        let is_playing = matches!(play_state, PlayState::Playing | PlayState::Simulating | PlayState::Paused);
 
-        IconButton::new("build", IconName::ToolHammer)
+        IconButton::new("pie-stop", IconName::Stop)
             .icon_size(IconSize::Small)
-            .disabled(!is_connected)
-            .tooltip(Tooltip::text("Live Coding Build"))
-            .on_click(cx.listener(|this, _, window, cx| {
+            .disabled(!is_connected || !is_playing)
+            .tooltip(Tooltip::text("Stop PIE"))
+            .on_click(cx.listener(|this, _, _window, cx| {
                 if let Some(connection) = &this.connection {
                     connection.update(cx, |conn, cx| {
-                        conn.build_live_coding(cx);
+                        conn.play_stop(cx);
                     });
                 }
             }))
     }
 
-    fn render_debug_button(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let is_connected = self.is_connected(cx);
+    fn render_pie_mode_dropdown(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let selected = self.selected_pie_mode;
+        let this = cx.entity().downgrade();
 
-        IconButton::new("debug", IconName::Debug)
-            .icon_size(IconSize::Small)
-            .disabled(!is_connected)
-            .tooltip(Tooltip::text("Start Debug Session"))
-            .on_click(cx.listener(|this, _, window, cx| {
-                // TODO: Implement debug action
-            }))
+        PopoverMenu::new("pie-mode-dropdown")
+            .anchor(Corner::TopRight)
+            .trigger(
+                Button::new("pie-mode-trigger", selected.to_string())
+                    .style(ButtonStyle::Subtle)
+                    .icon(IconName::ChevronDown)
+                    .icon_size(IconSize::Small)
+                    .icon_color(Color::Muted)
+            )
+            .menu(move |window, cx| {
+                let this = this.clone();
+                Some(ContextMenu::build(window, cx, move |mut menu, _window, _cx| {
+                    for &mode in PieMode::all() {
+                        let is_selected = mode == selected;
+                        let this = this.clone();
+                        menu = menu.toggleable_entry(
+                            mode.to_string(),
+                            is_selected,
+                            IconPosition::End,
+                            None,
+                            move |_window, cx| {
+                                this.update(cx, |toolbar, cx| {
+                                    toolbar.selected_pie_mode = mode;
+                                    cx.notify();
+                                }).ok();
+                            },
+                        );
+                    }
+                    menu
+                }))
+            })
     }
+
+    // ==================== Config Section ====================
 
     fn render_config_dropdown(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let selected = self.selected_config;
@@ -170,19 +236,53 @@ impl UnrealToolbar {
             })
     }
 
-    fn render_connection_status(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    // ==================== Launch Section ====================
+
+    fn render_launch_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        IconButton::new("launch", IconName::PlayFilled)
+            .icon_size(IconSize::Small)
+            .icon_color(Color::Success)
+            .tooltip(Tooltip::text("Launch Unreal Engine"))
+            .on_click(cx.listener(|_this, _, _window, _cx| {
+                // TODO: Launch UE with current project
+            }))
+    }
+
+    fn render_launch_debug_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        IconButton::new("launch-debug", IconName::Debug)
+            .icon_size(IconSize::Small)
+            .tooltip(Tooltip::text("Launch with Debugger"))
+            .on_click(cx.listener(|_this, _, _window, _cx| {
+                // TODO: Launch UE with debugger attached
+            }))
+    }
+
+    fn render_stop_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // This stops the entire UE process, not just PIE
+        IconButton::new("stop-ue", IconName::Stop)
+            .icon_size(IconSize::Small)
+            .icon_color(Color::Error)
+            .tooltip(Tooltip::text("Stop Unreal Engine"))
+            .on_click(cx.listener(|_this, _, _window, _cx| {
+                // TODO: Stop UE process
+            }))
+    }
+
+    // ==================== Status Section ====================
+
+    fn render_connection_status(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let is_connected = self.is_connected(cx);
         let (icon, color, tooltip) = if is_connected {
-            (IconName::Check, ui::Color::Success, "Connected to Unreal Engine")
+            (IconName::Check, Color::Success, "Connected to Unreal Engine")
         } else {
-            (IconName::XCircle, ui::Color::Error, "Disconnected from Unreal Engine")
+            (IconName::XCircle, Color::Error, "Disconnected from Unreal Engine")
         };
 
         IconButton::new("connection-status", icon)
             .icon_size(IconSize::Small)
             .icon_color(color)
             .tooltip(Tooltip::text(tooltip))
-            .on_click(cx.listener(|this, _, window, cx| {
+            .on_click(cx.listener(|this, _, _window, cx| {
                 if let Some(connection) = &this.connection {
                     let is_connected = connection.read(cx).is_connected();
                     connection.update(cx, |conn, cx| {
@@ -194,6 +294,15 @@ impl UnrealToolbar {
                     });
                 }
             }))
+    }
+
+    // ==================== Helpers ====================
+
+    fn render_separator(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .h(px(16.0))
+            .w(px(1.0))
+            .bg(cx.theme().colors().border)
     }
 }
 
@@ -217,19 +326,38 @@ impl Render for UnrealToolbar {
             .border_color(cx.theme().colors().border)
             // Spacer to push everything to the right
             .child(div().flex_grow())
-            // All controls grouped together on the right
+            // PIE Section: Play/Pause, Stop, Mode dropdown
             .child(
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap_2()
-                    .child(self.render_connection_status(window, cx))
-                    .child(self.render_config_dropdown(window, cx))
-                    .child(self.render_play_button(window, cx))
-                    .child(self.render_build_button(window, cx))
-                    .child(self.render_debug_button(window, cx))
+                    .gap_1()
+                    .child(self.render_pie_play_pause(window, cx))
+                    .child(self.render_pie_stop(window, cx))
+                    .child(self.render_pie_mode_dropdown(window, cx))
             )
+            // Separator
+            .child(self.render_separator(cx))
+            // Config Section: Build configuration dropdown
+            .child(self.render_config_dropdown(window, cx))
+            // Separator
+            .child(self.render_separator(cx))
+            // Launch Section: Launch, Debug, Stop
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_1()
+                    .child(self.render_launch_button(window, cx))
+                    .child(self.render_launch_debug_button(window, cx))
+                    .child(self.render_stop_button(window, cx))
+            )
+            // Separator
+            .child(self.render_separator(cx))
+            // Status Section: Connection status
+            .child(self.render_connection_status(window, cx))
             .into_any_element()
     }
 }
