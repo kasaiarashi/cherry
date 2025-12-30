@@ -542,6 +542,10 @@ pub enum Event {
         allow_preview: bool,
         split_direction: Option<SplitDirection>,
     },
+    SolutionLoaded {
+        engine_path: Option<std::path::PathBuf>,
+        project_path: Option<std::path::PathBuf>,
+    },
     Focus,
 }
 
@@ -5613,14 +5617,35 @@ impl ProjectPanel {
         cx.notify();
     }
 
-    fn try_load_solution(&mut self, cx: &App) -> bool {
+    fn try_load_solution(&mut self, cx: &mut Context<Self>) -> bool {
+        // Collect worktree paths first to avoid borrow conflicts
+        let worktree_paths: Vec<_> = {
+            let project = self.project.read(cx);
+            project.visible_worktrees(cx)
+                .map(|wt| wt.read(cx).abs_path().to_path_buf())
+                .collect()
+        };
+
         // Look for .sln file in any worktree
-        let project = self.project.read(cx);
-        for worktree in project.visible_worktrees(cx) {
-            let worktree = worktree.read(cx);
-            let abs_path = worktree.abs_path();
-            if let Some(sln_path) = cherry_link::find_solution_file(abs_path.as_ref()) {
+        for abs_path in worktree_paths {
+            if let Some(sln_path) = cherry_link::find_solution_file(&abs_path) {
                 if self.solution_state.load_solution(&sln_path).is_ok() {
+                    // Extract engine path and project path
+                    let engine_path = self.solution_state.engine_path();
+                    let project_path = cherry_link::find_uproject_path(&abs_path);
+
+                    // Update global UE project info
+                    if let Some(global) = cx.try_global::<cherry_link::UnrealProjectInfoGlobal>() {
+                        global.set_engine_path(engine_path.clone());
+                        global.set_project_path(project_path.clone());
+                    }
+
+                    // Emit event with solution info
+                    cx.emit(Event::SolutionLoaded {
+                        engine_path,
+                        project_path,
+                    });
+
                     return true;
                 }
             }

@@ -3,6 +3,9 @@ use gpui::{
     div, prelude::*, px, App, Context, Corner, Entity, IntoElement, ParentElement,
     Render, Styled, Subscription, WeakEntity, Window,
 };
+use std::path::PathBuf;
+use std::process::{Child, Command};
+use std::sync::{Arc, Mutex};
 use ui::{
     prelude::*, Button, ButtonStyle, ContextMenu, IconButton, IconName, PopoverMenu, Tooltip,
 };
@@ -54,10 +57,12 @@ pub struct UnrealToolbar {
     selected_pie_mode: PieMode,
     visible: bool,
     _subscriptions: Vec<Subscription>,
+    /// Running UE process
+    ue_process: Arc<Mutex<Option<Child>>>,
 }
 
 impl UnrealToolbar {
-    pub fn new(workspace: WeakEntity<Workspace>, cx: &mut Context<Self>) -> Self {
+    pub fn new(workspace: WeakEntity<Workspace>, _cx: &mut Context<Self>) -> Self {
         Self {
             workspace,
             connection: None,
@@ -65,6 +70,7 @@ impl UnrealToolbar {
             selected_pie_mode: PieMode::default(),
             visible: true,
             _subscriptions: Vec::new(),
+            ue_process: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -97,6 +103,126 @@ impl UnrealToolbar {
     pub fn set_selected_configuration(&mut self, config: BuildConfiguration, cx: &mut Context<Self>) {
         self.selected_config = config;
         cx.notify();
+    }
+
+    /// Get the engine path from global state
+    fn engine_path(&self, cx: &App) -> Option<PathBuf> {
+        cx.try_global::<cherry_link::UnrealProjectInfoGlobal>()
+            .and_then(|g| g.engine_path())
+    }
+
+    /// Get the project path from global state
+    fn project_path(&self, cx: &App) -> Option<PathBuf> {
+        cx.try_global::<cherry_link::UnrealProjectInfoGlobal>()
+            .and_then(|g| g.project_path())
+    }
+
+    /// Check if UE is currently running
+    pub fn is_ue_running(&self) -> bool {
+        if let Ok(guard) = self.ue_process.lock() {
+            if guard.is_some() {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Get the path to the Unreal Editor executable
+    fn get_editor_executable(&self, cx: &App) -> Option<PathBuf> {
+        let engine_path = self.engine_path(cx)?;
+
+        #[cfg(target_os = "windows")]
+        {
+            let exe_path = engine_path.join("Binaries/Win64/UnrealEditor.exe");
+            if exe_path.exists() {
+                return Some(exe_path);
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            let exe_path = engine_path.join("Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor");
+            if exe_path.exists() {
+                return Some(exe_path);
+            }
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            let exe_path = engine_path.join("Binaries/Linux/UnrealEditor");
+            if exe_path.exists() {
+                return Some(exe_path);
+            }
+        }
+
+        None
+    }
+
+    /// Launch Unreal Editor with the current project
+    pub fn launch_unreal_editor(&mut self, cx: &mut Context<Self>) {
+        let Some(editor_exe) = self.get_editor_executable(cx) else {
+            log::warn!("Unreal Editor executable not found");
+            return;
+        };
+
+        let mut cmd = Command::new(&editor_exe);
+
+        // Add project path as argument if available
+        if let Some(project_path) = self.project_path(cx) {
+            cmd.arg(project_path);
+        }
+
+        match cmd.spawn() {
+            Ok(child) => {
+                log::info!("Launched Unreal Editor: {:?}", editor_exe);
+                if let Ok(mut guard) = self.ue_process.lock() {
+                    *guard = Some(child);
+                }
+                cx.notify();
+            }
+            Err(e) => {
+                log::error!("Failed to launch Unreal Editor: {}", e);
+            }
+        }
+    }
+
+    /// Stop the running Unreal Editor process
+    pub fn stop_unreal_editor(&mut self, cx: &mut Context<Self>) {
+        if let Ok(mut guard) = self.ue_process.lock() {
+            if let Some(ref mut child) = *guard {
+                match child.kill() {
+                    Ok(_) => {
+                        log::info!("Stopped Unreal Editor process");
+                    }
+                    Err(e) => {
+                        log::error!("Failed to stop Unreal Editor: {}", e);
+                    }
+                }
+                *guard = None;
+            }
+        }
+        cx.notify();
+    }
+
+    /// Check and update process status
+    fn check_process_status(&mut self) {
+        if let Ok(mut guard) = self.ue_process.lock() {
+            if let Some(ref mut child) = *guard {
+                match child.try_wait() {
+                    Ok(Some(_status)) => {
+                        // Process has exited
+                        *guard = None;
+                    }
+                    Ok(None) => {
+                        // Process is still running
+                    }
+                    Err(e) => {
+                        log::error!("Error checking process status: {}", e);
+                        *guard = None;
+                    }
+                }
+            }
+        }
     }
 
     fn is_connected(&self, cx: &App) -> bool {
@@ -239,32 +365,50 @@ impl UnrealToolbar {
     // ==================== Launch Section ====================
 
     fn render_launch_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let has_engine = self.engine_path(cx).is_some();
+        let is_running = self.is_ue_running();
+
+        let tooltip = if !has_engine {
+            "No engine path configured"
+        } else if is_running {
+            "Unreal Engine is already running"
+        } else {
+            "Launch Unreal Engine"
+        };
+
         IconButton::new("launch", IconName::PlayFilled)
             .icon_size(IconSize::Small)
-            .icon_color(Color::Success)
-            .tooltip(Tooltip::text("Launch Unreal Engine"))
-            .on_click(cx.listener(|_this, _, _window, _cx| {
-                // TODO: Launch UE with current project
+            .icon_color(if has_engine && !is_running { Color::Success } else { Color::Muted })
+            .disabled(!has_engine || is_running)
+            .tooltip(Tooltip::text(tooltip))
+            .on_click(cx.listener(|this, _, _window, cx| {
+                this.launch_unreal_editor(cx);
             }))
     }
 
     fn render_launch_debug_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let has_engine = self.engine_path(cx).is_some();
+        let is_running = self.is_ue_running();
+
         IconButton::new("launch-debug", IconName::Debug)
             .icon_size(IconSize::Small)
-            .tooltip(Tooltip::text("Launch with Debugger"))
+            .disabled(!has_engine || is_running)
+            .tooltip(Tooltip::text("Launch with Debugger (not yet implemented)"))
             .on_click(cx.listener(|_this, _, _window, _cx| {
                 // TODO: Launch UE with debugger attached
             }))
     }
 
     fn render_stop_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // This stops the entire UE process, not just PIE
+        let is_running = self.is_ue_running();
+
         IconButton::new("stop-ue", IconName::Stop)
             .icon_size(IconSize::Small)
-            .icon_color(Color::Error)
+            .icon_color(if is_running { Color::Error } else { Color::Muted })
+            .disabled(!is_running)
             .tooltip(Tooltip::text("Stop Unreal Engine"))
-            .on_click(cx.listener(|_this, _, _window, _cx| {
-                // TODO: Stop UE process
+            .on_click(cx.listener(|this, _, _window, cx| {
+                this.stop_unreal_editor(cx);
             }))
     }
 
