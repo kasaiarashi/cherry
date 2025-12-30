@@ -292,6 +292,19 @@ impl UnrealToolbar {
         let config = self.selected_config.clone();
         let arch = self.architecture_for_platform(&platform).to_string();
 
+        // Parse configuration: "Development Editor" -> target suffix "Editor", config "Development"
+        // Configuration format from sln: "Development Editor", "DebugGame Editor", "Shipping", etc.
+        let is_editor_build = config.contains("Editor");
+        let base_config = config.replace(" Editor", "").replace("Editor", "");
+        let base_config = base_config.trim().to_string();
+
+        // Build target name: ProjectName + "Editor" suffix for editor builds
+        let target_name = if is_editor_build {
+            format!("{}Editor", project_name)
+        } else {
+            project_name.clone()
+        };
+
         // Set building flag
         if let Ok(mut guard) = self.is_building.lock() {
             *guard = true;
@@ -301,7 +314,7 @@ impl UnrealToolbar {
         let workspace = self.workspace.clone();
 
         log::info!("Starting build: {:?} {} {} {} -Project={}",
-            build_script, project_name, platform, config, project_path.display());
+            build_script, target_name, platform, base_config, project_path.display());
 
         // Create channel for build output
         let (tx, rx) = mpsc::channel::<BuildMessage>();
@@ -320,9 +333,9 @@ impl UnrealToolbar {
             #[cfg(not(target_os = "windows"))]
             let mut cmd = Command::new(&build_script);
 
-            cmd.arg(&project_name);
+            cmd.arg(&target_name);
             cmd.arg(&platform);
-            cmd.arg(&config);
+            cmd.arg(&base_config);
             cmd.arg(format!("-Project={}", project_path.display()));
             cmd.arg("-WaitMutex");
             cmd.arg("-FromMsBuild");
