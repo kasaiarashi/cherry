@@ -1,8 +1,10 @@
 mod connection;
+mod project_detection;
 mod protocol;
 mod settings;
 
 pub use connection::CherryLinkConnection;
+pub use project_detection::{find_uproject_name, find_uproject_path, is_unreal_project};
 pub use protocol::{BuildConfiguration, BuildStatus, LogMessage, PlayState};
 pub use settings::CherryLinkSettings;
 

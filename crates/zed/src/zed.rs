@@ -474,9 +474,16 @@ pub fn initialize_workspace(
                 .unwrap_or(true)
         });
 
-        // Initialize UnrealToolbar
-        let toolbar = cx.new(|cx| unreal_toolbar::UnrealToolbar::new(workspace.weak_handle(), cx));
-        workspace.set_toolbar_item(toolbar.into(), window, cx);
+        // Initialize UnrealToolbar if any worktree contains a UE project
+        let has_ue_project = workspace.visible_worktrees(cx).any(|worktree| {
+            let abs_path = worktree.read(cx).abs_path();
+            cherry_link::is_unreal_project(abs_path.as_ref())
+        });
+
+        if has_ue_project {
+            let toolbar = cx.new(|cx| unreal_toolbar::UnrealToolbar::new(workspace.weak_handle(), cx));
+            workspace.set_toolbar_item(toolbar.into(), window, cx);
+        }
 
         initialize_panels(prompt_builder.clone(), window, cx);
         register_actions(app_state.clone(), workspace, window, cx);
