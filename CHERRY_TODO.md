@@ -47,7 +47,7 @@ The toolbar renders but needs:
 
 Currently renders all logs inline:
 - [ ] Implement virtual list for performance (10k+ logs)
-- [ ] Auto-scroll to bottom when new logs arrive
+- [ ] Auto-scroll to bottom when new logs arrive (turn on/off, default is off)
 - [ ] Scroll position preservation when user scrolls up
 
 ---
