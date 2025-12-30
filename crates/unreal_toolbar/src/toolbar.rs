@@ -1,10 +1,11 @@
-use cherry_link::{BuildConfiguration, CherryLinkConnection, PlayState};
+use cherry_link::{CherryLinkConnection, PlayState};
 use gpui::{
     div, prelude::*, px, App, Context, Corner, Entity, IntoElement, ParentElement,
-    Render, Styled, Subscription, WeakEntity, Window,
+    Render, Styled, Subscription, Task, WeakEntity, Window,
 };
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-use std::process::{Child, Command};
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use ui::{
     prelude::*, Button, ButtonStyle, ContextMenu, IconButton, IconName, PopoverMenu, Tooltip,
@@ -53,12 +54,15 @@ impl std::fmt::Display for PieMode {
 pub struct UnrealToolbar {
     workspace: WeakEntity<Workspace>,
     connection: Option<Entity<CherryLinkConnection>>,
-    selected_config: BuildConfiguration,
+    selected_config: String,
+    selected_platform: String,
     selected_pie_mode: PieMode,
     visible: bool,
     _subscriptions: Vec<Subscription>,
-    /// Running UE process
-    ue_process: Arc<Mutex<Option<Child>>>,
+    /// Running build process flag
+    is_building: Arc<Mutex<bool>>,
+    /// Build output reader task
+    _build_task: Option<Task<()>>,
 }
 
 impl UnrealToolbar {
@@ -66,11 +70,13 @@ impl UnrealToolbar {
         Self {
             workspace,
             connection: None,
-            selected_config: BuildConfiguration::default(),
+            selected_config: "Development Editor".to_string(),
+            selected_platform: "Win64".to_string(),
             selected_pie_mode: PieMode::default(),
             visible: true,
             _subscriptions: Vec::new(),
-            ue_process: Arc::new(Mutex::new(None)),
+            is_building: Arc::new(Mutex::new(false)),
+            _build_task: None,
         }
     }
 
@@ -96,13 +102,48 @@ impl UnrealToolbar {
         cx.notify();
     }
 
-    pub fn selected_configuration(&self) -> BuildConfiguration {
-        self.selected_config
+    pub fn selected_configuration(&self) -> &str {
+        &self.selected_config
     }
 
-    pub fn set_selected_configuration(&mut self, config: BuildConfiguration, cx: &mut Context<Self>) {
+    pub fn selected_platform(&self) -> &str {
+        &self.selected_platform
+    }
+
+    pub fn set_selected_configuration(&mut self, config: String, cx: &mut Context<Self>) {
         self.selected_config = config;
         cx.notify();
+    }
+
+    pub fn set_selected_platform(&mut self, platform: String, cx: &mut Context<Self>) {
+        self.selected_platform = platform;
+        cx.notify();
+    }
+
+    fn configurations(&self, cx: &App) -> Vec<String> {
+        let configs = cx.try_global::<cherry_link::UnrealProjectInfoGlobal>()
+            .map(|g| g.configurations())
+            .unwrap_or_default();
+        if configs.is_empty() {
+            vec![
+                "Development Editor".to_string(),
+                "DebugGame Editor".to_string(),
+                "Shipping".to_string(),
+            ]
+        } else {
+            configs
+        }
+    }
+
+    fn platforms(&self, cx: &App) -> Vec<String> {
+        let platforms = cx.try_global::<cherry_link::UnrealProjectInfoGlobal>()
+            .map(|g| g.platforms())
+            .unwrap_or_default();
+        if platforms.is_empty() {
+            vec!["Win64".to_string()]
+        } else {
+            platforms
+        }
     }
 
     /// Get the engine path from global state
@@ -117,14 +158,9 @@ impl UnrealToolbar {
             .and_then(|g| g.project_path())
     }
 
-    /// Check if UE is currently running
-    pub fn is_ue_running(&self) -> bool {
-        if let Ok(guard) = self.ue_process.lock() {
-            if guard.is_some() {
-                return true;
-            }
-        }
-        false
+    /// Check if a build is currently running
+    pub fn is_building(&self) -> bool {
+        self.is_building.lock().map(|g| *g).unwrap_or(false)
     }
 
     /// Get the path to the Unreal Editor executable
@@ -173,11 +209,8 @@ impl UnrealToolbar {
         }
 
         match cmd.spawn() {
-            Ok(child) => {
+            Ok(_child) => {
                 log::info!("Launched Unreal Editor: {:?}", editor_exe);
-                if let Ok(mut guard) = self.ue_process.lock() {
-                    *guard = Some(child);
-                }
                 cx.notify();
             }
             Err(e) => {
@@ -186,41 +219,153 @@ impl UnrealToolbar {
         }
     }
 
-    /// Stop the running Unreal Editor process
-    pub fn stop_unreal_editor(&mut self, cx: &mut Context<Self>) {
-        if let Ok(mut guard) = self.ue_process.lock() {
-            if let Some(ref mut child) = *guard {
-                match child.kill() {
-                    Ok(_) => {
-                        log::info!("Stopped Unreal Editor process");
-                    }
-                    Err(e) => {
-                        log::error!("Failed to stop Unreal Editor: {}", e);
-                    }
-                }
-                *guard = None;
-            }
-        }
-        cx.notify();
+    /// Get the project name from the .uproject file
+    fn project_name(&self, cx: &App) -> Option<String> {
+        cx.try_global::<cherry_link::UnrealProjectInfoGlobal>()
+            .and_then(|g| g.project_path())
+            .and_then(|p| p.file_stem().map(|s| s.to_string_lossy().to_string()))
     }
 
-    /// Check and update process status
-    fn check_process_status(&mut self) {
-        if let Ok(mut guard) = self.ue_process.lock() {
-            if let Some(ref mut child) = *guard {
-                match child.try_wait() {
-                    Ok(Some(_status)) => {
-                        // Process has exited
-                        *guard = None;
-                    }
-                    Ok(None) => {
-                        // Process is still running
-                    }
-                    Err(e) => {
-                        log::error!("Error checking process status: {}", e);
-                        *guard = None;
-                    }
+    /// Get architecture string from platform
+    fn architecture_for_platform(&self, platform: &str) -> &'static str {
+        match platform {
+            "Win64" => "x64",
+            "Linux" => "x64",
+            "Mac" => "arm64",
+            _ => "x64",
+        }
+    }
+
+    /// Get the path to the Build.bat script
+    fn get_build_script(&self, cx: &App) -> Option<PathBuf> {
+        let engine_path = self.engine_path(cx)?;
+
+        #[cfg(target_os = "windows")]
+        {
+            let script = engine_path.join("Build/BatchFiles/Build.bat");
+            if script.exists() {
+                return Some(script);
+            }
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            let script = engine_path.join("Build/BatchFiles/Linux/Build.sh");
+            if script.exists() {
+                return Some(script);
+            }
+            let script = engine_path.join("Build/BatchFiles/Mac/Build.sh");
+            if script.exists() {
+                return Some(script);
+            }
+        }
+
+        None
+    }
+
+    /// Execute a build command
+    pub fn start_build(&mut self, cx: &mut Context<Self>) {
+        if self.is_building() {
+            log::warn!("Build already in progress");
+            return;
+        }
+
+        let Some(build_script) = self.get_build_script(cx) else {
+            log::warn!("Build script not found");
+            return;
+        };
+
+        let Some(project_name) = self.project_name(cx) else {
+            log::warn!("Project name not found");
+            return;
+        };
+
+        let Some(project_path) = self.project_path(cx) else {
+            log::warn!("Project path not found");
+            return;
+        };
+
+        let platform = self.selected_platform.clone();
+        let config = self.selected_config.clone();
+        let arch = self.architecture_for_platform(&platform).to_string();
+
+        #[cfg(target_os = "windows")]
+        let mut cmd = Command::new("cmd");
+        #[cfg(target_os = "windows")]
+        {
+            cmd.arg("/C");
+            cmd.arg(&build_script);
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        let mut cmd = Command::new(&build_script);
+
+        cmd.arg(&project_name);
+        cmd.arg(&platform);
+        cmd.arg(&config);
+        cmd.arg(format!("-Project={}", project_path.display()));
+        cmd.arg("-WaitMutex");
+        cmd.arg("-FromMsBuild");
+        cmd.arg(format!("-architecture={}", arch));
+
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+
+        log::info!("Starting build: {:?} {} {} {} -Project={}",
+            build_script, project_name, platform, config, project_path.display());
+
+        match cmd.spawn() {
+            Ok(mut child) => {
+                log::info!("Build started successfully");
+
+                // Set building flag
+                if let Ok(mut guard) = self.is_building.lock() {
+                    *guard = true;
                 }
+
+                let is_building = self.is_building.clone();
+
+                // Take stdout and stderr
+                let stdout = child.stdout.take();
+                let stderr = child.stderr.take();
+
+                // Spawn background task to read output
+                self._build_task = Some(cx.background_executor().spawn(async move {
+                    // Read stdout in background
+                    if let Some(stdout) = stdout {
+                        let reader = BufReader::new(stdout);
+                        for line in reader.lines().map_while(Result::ok) {
+                            log::info!("[Build] {}", line);
+                        }
+                    }
+
+                    // Read stderr in background
+                    if let Some(stderr) = stderr {
+                        let reader = BufReader::new(stderr);
+                        for line in reader.lines().map_while(Result::ok) {
+                            log::warn!("[Build] {}", line);
+                        }
+                    }
+
+                    // Wait for process to finish
+                    let success = child.wait().map(|s| s.success()).unwrap_or(false);
+
+                    // Clear building flag
+                    if let Ok(mut guard) = is_building.lock() {
+                        *guard = false;
+                    }
+
+                    if success {
+                        log::info!("Build completed successfully");
+                    } else {
+                        log::error!("Build failed");
+                    }
+                }));
+
+                cx.notify();
+            }
+            Err(e) => {
+                log::error!("Failed to start build: {}", e);
             }
         }
     }
@@ -326,13 +471,14 @@ impl UnrealToolbar {
     // ==================== Config Section ====================
 
     fn render_config_dropdown(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let selected = self.selected_config;
+        let selected = self.selected_config.clone();
+        let configs = self.configurations(cx);
         let this = cx.entity().downgrade();
 
         PopoverMenu::new("config-dropdown")
             .anchor(Corner::TopRight)
             .trigger(
-                Button::new("config-trigger", selected.to_string())
+                Button::new("config-trigger", selected.clone())
                     .style(ButtonStyle::Subtle)
                     .icon(IconName::ChevronDown)
                     .icon_size(IconSize::Small)
@@ -340,18 +486,64 @@ impl UnrealToolbar {
             )
             .menu(move |window, cx| {
                 let this = this.clone();
+                let selected = selected.clone();
+                let configs = configs.clone();
                 Some(ContextMenu::build(window, cx, move |mut menu, _window, _cx| {
-                    for &config in BuildConfiguration::all() {
-                        let is_selected = config == selected;
+                    for config in &configs {
+                        let is_selected = config == &selected;
                         let this = this.clone();
+                        let config = config.clone();
                         menu = menu.toggleable_entry(
-                            config.to_string(),
+                            config.clone(),
                             is_selected,
                             IconPosition::End,
                             None,
                             move |_window, cx| {
+                                let config = config.clone();
                                 this.update(cx, |toolbar, cx| {
                                     toolbar.selected_config = config;
+                                    cx.notify();
+                                }).ok();
+                            },
+                        );
+                    }
+                    menu
+                }))
+            })
+    }
+
+    fn render_platform_dropdown(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let selected = self.selected_platform.clone();
+        let platforms = self.platforms(cx);
+        let this = cx.entity().downgrade();
+
+        PopoverMenu::new("platform-dropdown")
+            .anchor(Corner::TopRight)
+            .trigger(
+                Button::new("platform-trigger", selected.clone())
+                    .style(ButtonStyle::Subtle)
+                    .icon(IconName::ChevronDown)
+                    .icon_size(IconSize::Small)
+                    .icon_color(Color::Muted)
+            )
+            .menu(move |window, cx| {
+                let this = this.clone();
+                let selected = selected.clone();
+                let platforms = platforms.clone();
+                Some(ContextMenu::build(window, cx, move |mut menu, _window, _cx| {
+                    for platform in &platforms {
+                        let is_selected = platform == &selected;
+                        let this = this.clone();
+                        let platform = platform.clone();
+                        menu = menu.toggleable_entry(
+                            platform.clone(),
+                            is_selected,
+                            IconPosition::End,
+                            None,
+                            move |_window, cx| {
+                                let platform = platform.clone();
+                                this.update(cx, |toolbar, cx| {
+                                    toolbar.selected_platform = platform;
                                     cx.notify();
                                 }).ok();
                             },
@@ -366,7 +558,7 @@ impl UnrealToolbar {
 
     fn render_launch_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let has_engine = self.engine_path(cx).is_some();
-        let is_running = self.is_ue_running();
+        let is_running = self.is_building();
 
         let tooltip = if !has_engine {
             "No engine path configured"
@@ -386,9 +578,36 @@ impl UnrealToolbar {
             }))
     }
 
+    fn render_build_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let has_engine = self.engine_path(cx).is_some();
+        let has_project = self.project_path(cx).is_some();
+        let is_running = self.is_building();
+
+        let tooltip = if !has_engine {
+            "No engine path configured"
+        } else if !has_project {
+            "No project path configured"
+        } else if is_running {
+            "Build/Process already running"
+        } else {
+            "Build Project"
+        };
+
+        let can_build = has_engine && has_project && !is_running;
+
+        IconButton::new("build", IconName::ToolHammer)
+            .icon_size(IconSize::Small)
+            .icon_color(if can_build { Color::Default } else { Color::Muted })
+            .disabled(!can_build)
+            .tooltip(Tooltip::text(tooltip))
+            .on_click(cx.listener(|this, _, _window, cx| {
+                this.start_build(cx);
+            }))
+    }
+
     fn render_launch_debug_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let has_engine = self.engine_path(cx).is_some();
-        let is_running = self.is_ue_running();
+        let is_running = self.is_building();
 
         IconButton::new("launch-debug", IconName::Debug)
             .icon_size(IconSize::Small)
@@ -400,15 +619,16 @@ impl UnrealToolbar {
     }
 
     fn render_stop_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let is_running = self.is_ue_running();
+        let is_running = self.is_building();
 
         IconButton::new("stop-ue", IconName::Stop)
             .icon_size(IconSize::Small)
             .icon_color(if is_running { Color::Error } else { Color::Muted })
             .disabled(!is_running)
-            .tooltip(Tooltip::text("Stop Unreal Engine"))
-            .on_click(cx.listener(|this, _, _window, cx| {
-                this.stop_unreal_editor(cx);
+            .tooltip(Tooltip::text("Stop Unreal Engine (not implemented)"))
+            .on_click(cx.listener(|_this, _, _window, _cx| {
+                // TODO: Implement stopping UE process
+                log::info!("Stop UE not implemented");
             }))
     }
 
@@ -483,8 +703,20 @@ impl Render for UnrealToolbar {
             )
             // Separator
             .child(self.render_separator(cx))
-            // Config Section: Build configuration dropdown
-            .child(self.render_config_dropdown(window, cx))
+            // Config Section: Build configuration and platform dropdowns
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .gap_1()
+                    .child(self.render_config_dropdown(window, cx))
+                    .child(self.render_platform_dropdown(window, cx))
+            )
+            // Separator
+            .child(self.render_separator(cx))
+            // Build Section
+            .child(self.render_build_button(window, cx))
             // Separator
             .child(self.render_separator(cx))
             // Launch Section: Launch, Debug, Stop

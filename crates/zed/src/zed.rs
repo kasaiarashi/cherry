@@ -72,7 +72,7 @@ use std::{
 };
 use terminal_view::terminal_panel::{self, TerminalPanel};
 use theme::{ActiveTheme, GlobalTheme, SystemAppearance, ThemeRegistry, ThemeSettings};
-use unreal_panel::UnrealPanel;
+use unreal_panel::{BuildPanel, UnrealPanel};
 use ui::{PopoverMenuHandle, prelude::*};
 use util::markdown::MarkdownString;
 use util::rel_path::RelPath;
@@ -671,6 +671,7 @@ fn initialize_panels(
         );
         let debug_panel = DebugPanel::load(workspace_handle.clone(), &mut cx.clone());
         let unreal_panel = UnrealPanel::load(workspace_handle.clone(), cx.clone());
+        let build_panel = BuildPanel::load(workspace_handle.clone(), cx.clone());
 
         async fn add_panel_when_ready(
             panel_task: impl Future<Output = anyhow::Result<Entity<impl workspace::Panel>>> + 'static,
@@ -696,6 +697,7 @@ fn initialize_panels(
             add_panel_when_ready(notification_panel, workspace_handle.clone(), cx.clone()),
             add_panel_when_ready(debug_panel, workspace_handle.clone(), cx.clone()),
             add_panel_when_ready(unreal_panel, workspace_handle.clone(), cx.clone()),
+            add_panel_when_ready(build_panel, workspace_handle.clone(), cx.clone()),
             initialize_agent_panel(workspace_handle.clone(), prompt_builder, cx.clone()).map(|r| r.log_err()),
             initialize_agents_panel(workspace_handle, cx.clone()).map(|r| r.log_err())
         );

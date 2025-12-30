@@ -846,6 +846,11 @@ impl ProjectPanel {
             };
             this.update_visible_entries(None, false, false, window, cx);
 
+            // Auto-detect and load solution on startup
+            if this.try_load_solution(cx) {
+                this.solution_state.update_visible_entries();
+            }
+
             this
         });
 
@@ -5634,10 +5639,16 @@ impl ProjectPanel {
                     let engine_path = self.solution_state.engine_path();
                     let project_path = cherry_link::find_uproject_path(&abs_path);
 
+                    // Get configurations and platforms from solution
+                    let configurations = self.solution_state.build_configurations();
+                    let platforms = self.solution_state.platforms();
+
                     // Update global UE project info
                     if let Some(global) = cx.try_global::<cherry_link::UnrealProjectInfoGlobal>() {
                         global.set_engine_path(engine_path.clone());
                         global.set_project_path(project_path.clone());
+                        global.set_configurations(configurations.clone());
+                        global.set_platforms(platforms.clone());
                     }
 
                     // Emit event with solution info

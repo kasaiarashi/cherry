@@ -29,6 +29,10 @@ pub struct UnrealProjectInfo {
     pub engine_path: Option<PathBuf>,
     /// Path to the .uproject file
     pub project_path: Option<PathBuf>,
+    /// Build configurations from solution (e.g., "Development Editor", "DebugGame")
+    pub configurations: Vec<String>,
+    /// Platforms from solution (e.g., "Win64", "Linux")
+    pub platforms: Vec<String>,
 }
 
 /// Thread-safe wrapper for UnrealProjectInfo
@@ -56,6 +60,26 @@ impl UnrealProjectInfoGlobal {
 
     pub fn project_path(&self) -> Option<PathBuf> {
         self.0.read().ok().and_then(|info| info.project_path.clone())
+    }
+
+    pub fn set_configurations(&self, configs: Vec<String>) {
+        if let Ok(mut info) = self.0.write() {
+            info.configurations = configs;
+        }
+    }
+
+    pub fn set_platforms(&self, platforms: Vec<String>) {
+        if let Ok(mut info) = self.0.write() {
+            info.platforms = platforms;
+        }
+    }
+
+    pub fn configurations(&self) -> Vec<String> {
+        self.0.read().ok().map(|info| info.configurations.clone()).unwrap_or_default()
+    }
+
+    pub fn platforms(&self) -> Vec<String> {
+        self.0.read().ok().map(|info| info.platforms.clone()).unwrap_or_default()
     }
 }
 

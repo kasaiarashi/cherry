@@ -10,8 +10,8 @@ use ui::IconName;
 /// View mode for the project panel
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ProjectPanelViewMode {
-    #[default]
     FileTree,
+    #[default]
     SolutionView,
 }
 
