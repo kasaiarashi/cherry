@@ -133,8 +133,19 @@ impl ParsedSolution {
 
     /// Detect the Unreal Engine path from project references
     pub fn detect_engine_path(&self) -> Option<PathBuf> {
+        let solution_dir = self.path.parent()?;
+
         for project in &self.projects {
-            let path_str = project.relative_path.to_string_lossy();
+            // Resolve relative path against solution directory
+            let absolute_path = solution_dir.join(&project.relative_path);
+
+            // Canonicalize to resolve .. and get absolute path
+            let canonical_path = match absolute_path.canonicalize() {
+                Ok(p) => p,
+                Err(_) => continue, // File might not exist, skip
+            };
+
+            let path_str = canonical_path.to_string_lossy();
             // Look for Engine paths like "W:\Softwares\UE_5.6\Engine\..."
             if let Some(idx) = path_str.find("Engine") {
                 if idx > 0 {
