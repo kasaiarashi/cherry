@@ -3,9 +3,10 @@ use anyhow::Result;
 use cherry_link::{CherryLinkConnection, LogMessage};
 use collections::VecDeque;
 use gpui::{
-    div, prelude::*, px, Action, App, AsyncWindowContext, Context, Entity, EventEmitter,
-    FocusHandle, Focusable, InteractiveElement, IntoElement, ParentElement, Pixels, Render,
-    SharedString, StatefulInteractiveElement, Styled, Subscription, Task, WeakEntity, Window,
+    div, prelude::*, px, uniform_list, Action, App, AsyncWindowContext, Context, Entity,
+    EventEmitter, FocusHandle, Focusable, InteractiveElement, IntoElement, ParentElement, Pixels,
+    Render, ScrollStrategy, SharedString, Styled, Subscription, UniformListScrollHandle,
+    WeakEntity, Window,
 };
 use ui::{h_flex, prelude::*, v_flex, Icon, IconName, Label};
 use workspace::{
@@ -24,6 +25,7 @@ pub struct UnrealPanel {
     width: Option<Pixels>,
     height: Option<Pixels>,
     auto_scroll: bool,
+    scroll_handle: UniformListScrollHandle,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -88,7 +90,8 @@ impl UnrealPanel {
             focus_handle: cx.focus_handle(),
             width: None,
             height: Some(px(300.0)),
-            auto_scroll: true,
+            auto_scroll: false,
+            scroll_handle: UniformListScrollHandle::new(),
             _subscriptions: Vec::new(),
         }
     }
@@ -112,41 +115,18 @@ impl UnrealPanel {
             self.logs.pop_front();
         }
         self.logs.push_back(entry);
+
+        // Auto-scroll to bottom when enabled
+        if self.auto_scroll && !self.logs.is_empty() {
+            self.scroll_handle.scroll_to_item(self.logs.len() - 1, ScrollStrategy::Bottom);
+        }
+
         cx.notify();
     }
 
     pub fn clear_logs(&mut self, cx: &mut Context<Self>) {
         self.logs.clear();
         cx.notify();
-    }
-
-    fn render_log_entry(&self, entry: &LogEntry, cx: &mut Context<Self>) -> impl IntoElement {
-        let verbosity_color = entry.verbosity.color();
-        let icon = entry.verbosity.icon();
-
-        h_flex()
-            .w_full()
-            .gap_2()
-            .px_2()
-            .py_0p5()
-            .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
-            .when_some(icon, |this, icon| {
-                this.child(
-                    Icon::new(icon)
-                        .size(IconSize::Small)
-                        .color(verbosity_color),
-                )
-            })
-            .child(
-                Label::new(entry.category.clone())
-                    .size(LabelSize::Small)
-                    .color(ui::Color::Muted),
-            )
-            .child(
-                Label::new(entry.message.clone())
-                    .size(LabelSize::Small)
-                    .color(verbosity_color),
-            )
     }
 
     fn render_toolbar(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -186,6 +166,7 @@ impl UnrealPanel {
                     .child(
                         ui::IconButton::new("toggle-autoscroll", IconName::ArrowDown)
                             .icon_size(IconSize::Small)
+                            .icon_color(if self.auto_scroll { ui::Color::Accent } else { ui::Color::Default })
                             .tooltip(ui::Tooltip::text(if self.auto_scroll {
                                 "Disable Auto-scroll"
                             } else {
@@ -257,7 +238,8 @@ impl Panel for UnrealPanel {
 
 impl Render for UnrealPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let log_entries: Vec<_> = self.logs.iter().cloned().collect();
+        let log_count = self.logs.len();
+        let logs: Vec<_> = self.logs.iter().cloned().collect();
         let theme_colors = cx.theme().colors().clone();
 
         v_flex()
@@ -268,36 +250,51 @@ impl Render for UnrealPanel {
             .bg(cx.theme().colors().panel_background)
             .child(self.render_toolbar(window, cx))
             .child(
-                v_flex()
+                div()
                     .flex_grow()
-                    .children(log_entries.into_iter().map(|entry| {
-                        let verbosity_color = entry.verbosity.color();
-                        let icon = entry.verbosity.icon();
+                    .overflow_hidden()
+                    .child(
+                        uniform_list(
+                            "log-list",
+                            log_count,
+                            move |range, _window, _cx| {
+                                let theme = theme_colors.clone();
+                                range
+                                    .filter_map(|ix| logs.get(ix).cloned())
+                                    .map(|entry| {
+                                        let verbosity_color = entry.verbosity.color();
+                                        let icon = entry.verbosity.icon();
 
-                        h_flex()
-                            .w_full()
-                            .gap_2()
-                            .px_2()
-                            .py_0p5()
-                            .hover(|style| style.bg(theme_colors.ghost_element_hover))
-                            .when_some(icon, |this, icon| {
-                                this.child(
-                                    Icon::new(icon)
-                                        .size(IconSize::Small)
-                                        .color(verbosity_color),
-                                )
-                            })
-                            .child(
-                                Label::new(entry.category.clone())
-                                    .size(LabelSize::Small)
-                                    .color(ui::Color::Muted),
-                            )
-                            .child(
-                                Label::new(entry.message.clone())
-                                    .size(LabelSize::Small)
-                                    .color(verbosity_color),
-                            )
-                    })),
+                                        h_flex()
+                                            .w_full()
+                                            .gap_2()
+                                            .px_2()
+                                            .py_0p5()
+                                            .hover(|style| style.bg(theme.ghost_element_hover))
+                                            .when_some(icon, |this, icon| {
+                                                this.child(
+                                                    Icon::new(icon)
+                                                        .size(IconSize::Small)
+                                                        .color(verbosity_color),
+                                                )
+                                            })
+                                            .child(
+                                                Label::new(entry.category.clone())
+                                                    .size(LabelSize::Small)
+                                                    .color(ui::Color::Muted),
+                                            )
+                                            .child(
+                                                Label::new(entry.message.clone())
+                                                    .size(LabelSize::Small)
+                                                    .color(verbosity_color),
+                                            )
+                                    })
+                                    .collect()
+                            },
+                        )
+                        .flex_grow()
+                        .track_scroll(&self.scroll_handle),
+                    ),
             )
     }
 }
