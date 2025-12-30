@@ -1170,6 +1170,7 @@ pub struct Workspace {
     modal_layer: Entity<ModalLayer>,
     toast_layer: Entity<ToastLayer>,
     titlebar_item: Option<AnyView>,
+    toolbar_item: Option<AnyView>,
     notifications: Notifications,
     suppressed_notifications: HashSet<NotificationId>,
     project: Entity<Project>,
@@ -1591,6 +1592,7 @@ impl Workspace {
             modal_layer,
             toast_layer,
             titlebar_item: None,
+            toolbar_item: None,
             notifications: Notifications::default(),
             suppressed_notifications: HashSet::default(),
             left_dock,
@@ -2239,6 +2241,11 @@ impl Workspace {
 
     pub fn set_titlebar_item(&mut self, item: AnyView, _: &mut Window, cx: &mut Context<Self>) {
         self.titlebar_item = Some(item);
+        cx.notify();
+    }
+
+    pub fn set_toolbar_item(&mut self, item: AnyView, _: &mut Window, cx: &mut Context<Self>) {
+        self.toolbar_item = Some(item);
         cx.notify();
     }
 
@@ -6993,6 +7000,7 @@ impl Render for Workspace {
                 .text_color(colors.text)
                 .overflow_hidden()
                 .children(self.titlebar_item.clone())
+                .children(self.toolbar_item.clone())
                 .on_modifiers_changed(move |_, _, cx| {
                     for &id in &notification_entities {
                         cx.notify(id);
