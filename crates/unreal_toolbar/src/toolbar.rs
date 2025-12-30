@@ -313,8 +313,8 @@ impl UnrealToolbar {
         let is_building = self.is_building.clone();
         let workspace = self.workspace.clone();
 
-        log::info!("Starting build: {:?} {} {} {} -Project={}",
-            build_script, target_name, platform, base_config, project_path.display());
+        log::info!("Starting build: {:?} {} {} {} -Project={} -WaitMutex -FromMsBuild -architecture={}",
+            build_script, target_name, platform, base_config, project_path.display(), arch);
 
         // Create channel for build output
         let (tx, rx) = mpsc::channel::<BuildMessage>();
@@ -349,20 +349,33 @@ impl UnrealToolbar {
                     let stdout = child.stdout.take();
                     let stderr = child.stderr.take();
 
-                    // Read stdout
-                    if let Some(stdout) = stdout {
-                        let reader = BufReader::new(stdout);
-                        for line in reader.lines().map_while(Result::ok) {
-                            let _ = tx_clone.send(BuildMessage::Line(line));
-                        }
-                    }
+                    // Read stdout and stderr in parallel using separate threads
+                    let tx_stdout = tx_clone.clone();
+                    let stdout_handle = stdout.map(|stdout| {
+                        thread::spawn(move || {
+                            let reader = BufReader::new(stdout);
+                            for line in reader.lines().map_while(Result::ok) {
+                                let _ = tx_stdout.send(BuildMessage::Line(line));
+                            }
+                        })
+                    });
 
-                    // Read stderr
-                    if let Some(stderr) = stderr {
-                        let reader = BufReader::new(stderr);
-                        for line in reader.lines().map_while(Result::ok) {
-                            let _ = tx_clone.send(BuildMessage::Line(line));
-                        }
+                    let tx_stderr = tx_clone.clone();
+                    let stderr_handle = stderr.map(|stderr| {
+                        thread::spawn(move || {
+                            let reader = BufReader::new(stderr);
+                            for line in reader.lines().map_while(Result::ok) {
+                                let _ = tx_stderr.send(BuildMessage::Line(line));
+                            }
+                        })
+                    });
+
+                    // Wait for both reader threads
+                    if let Some(handle) = stdout_handle {
+                        let _ = handle.join();
+                    }
+                    if let Some(handle) = stderr_handle {
+                        let _ = handle.join();
                     }
 
                     // Wait for process

@@ -145,7 +145,10 @@ impl ParsedSolution {
                 Err(_) => continue, // File might not exist, skip
             };
 
+            // Strip Windows extended-length path prefix (\\?\)
             let path_str = canonical_path.to_string_lossy();
+            let path_str = path_str.strip_prefix(r"\\?\").unwrap_or(&path_str);
+
             // Look for Engine paths like "W:\Softwares\UE_5.6\Engine\..."
             if let Some(idx) = path_str.find("Engine") {
                 if idx > 0 {
