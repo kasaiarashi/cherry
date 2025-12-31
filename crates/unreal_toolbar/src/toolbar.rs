@@ -197,29 +197,54 @@ impl UnrealToolbar {
         None
     }
 
-    /// Launch Unreal Editor with the current project
+    /// Launch Unreal Editor with the current project (builds first)
     pub fn launch_unreal_editor(&mut self, cx: &mut Context<Self>) {
         let Some(editor_exe) = self.get_editor_executable(cx) else {
             log::warn!("Unreal Editor executable not found");
             return;
         };
 
-        let mut cmd = Command::new(&editor_exe);
+        let Some(project_path) = self.project_path(cx) else {
+            log::warn!("Project path not found");
+            return;
+        };
 
-        // Add project path as argument if available
-        if let Some(project_path) = self.project_path(cx) {
-            cmd.arg(project_path);
-        }
+        log::info!("Starting build before launching Unreal Editor");
 
-        match cmd.spawn() {
-            Ok(_child) => {
-                log::info!("Launched Unreal Editor: {:?}", editor_exe);
-                cx.notify();
+        let editor_exe_clone = editor_exe.clone();
+        let project_path_clone = project_path.clone();
+
+        // First, run the build
+        self.start_build_internal(cx, move |success, _cx| {
+            if !success {
+                log::error!("Build failed, not launching Unreal Editor");
+                return;
             }
-            Err(e) => {
-                log::error!("Failed to launch Unreal Editor: {}", e);
+
+            log::info!("Build succeeded, launching Unreal Editor");
+
+            // Launch Unreal Editor with -skipcompile flag
+            let mut cmd = Command::new(&editor_exe_clone);
+            cmd.arg(&project_path_clone);
+            cmd.arg("-skipcompile");
+
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                const DETACHED_PROCESS: u32 = 0x00000008;
+                cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
             }
-        }
+
+            match cmd.spawn() {
+                Ok(_child) => {
+                    log::info!("Launched Unreal Editor: {:?}", editor_exe_clone);
+                }
+                Err(e) => {
+                    log::error!("Failed to launch Unreal Editor: {}", e);
+                }
+            }
+        });
     }
 
     /// Get the project name from the .uproject file
@@ -266,8 +291,25 @@ impl UnrealToolbar {
         None
     }
 
+    /// Execute a build command with a callback
+    fn start_build_internal<F>(&mut self, cx: &mut Context<Self>, on_complete: F)
+    where
+        F: FnOnce(bool, &mut Context<Self>) + 'static,
+    {
+        self.start_build_with_callback(cx, Some(Box::new(on_complete)));
+    }
+
     /// Execute a build command
     pub fn start_build(&mut self, cx: &mut Context<Self>) {
+        self.start_build_with_callback(cx, None);
+    }
+
+    /// Internal build implementation with optional callback
+    fn start_build_with_callback(
+        &mut self,
+        cx: &mut Context<Self>,
+        on_complete: Option<Box<dyn FnOnce(bool, &mut Context<Self>) + 'static>>,
+    ) {
         if self.is_building() {
             log::warn!("Build already in progress");
             return;
@@ -456,6 +498,8 @@ impl UnrealToolbar {
         });
 
         // Spawn foreground task to receive messages and update panel
+        let this_entity = cx.entity().downgrade();
+        let on_complete = Arc::new(Mutex::new(on_complete));
         self._build_task = Some(cx.spawn(async move |_this, cx| {
             // Notify build panel that build started
             log::info!("Build task started, notifying panel");
@@ -522,6 +566,16 @@ impl UnrealToolbar {
                                 }
                             });
                         });
+
+                        // Call the completion callback if provided
+                        if let Ok(mut callback_opt) = on_complete.lock() {
+                            if let Some(callback) = callback_opt.take() {
+                                log::info!("Build finished with success={}, calling callback", success);
+                                let _ = this_entity.update(cx, |_this, cx| {
+                                    callback(success, cx);
+                                });
+                            }
+                        }
                         break;
                     }
                 }

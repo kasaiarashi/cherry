@@ -56,10 +56,10 @@ impl LogVerbosity {
 
     fn color(&self) -> ui::Color {
         match self {
-            Self::Log => ui::Color::Default,
+            Self::Log => ui::Color::Muted,
             Self::Warning => ui::Color::Warning,
             Self::Error => ui::Color::Error,
-            Self::Display => ui::Color::Info,
+            Self::Display => ui::Color::Accent,
         }
     }
 
@@ -67,6 +67,7 @@ impl LogVerbosity {
         match self {
             Self::Warning => Some(IconName::Warning),
             Self::Error => Some(IconName::XCircle),
+            Self::Display => Some(IconName::Info),
             _ => None,
         }
     }
@@ -315,37 +316,55 @@ impl Render for UnrealPanel {
                                 let items: Vec<_> = range
                                     .filter_map(|ix| {
                                         log::info!("UnrealPanel::render - trying to get log at index: {}", ix);
-                                        logs.get(ix).cloned()
+                                        logs.get(ix).cloned().map(|entry| (ix, entry))
                                     })
-                                    .map(|entry| {
+                                    .map(|(ix, entry)| {
                                         log::info!("UnrealPanel::render - rendering log entry: {} - {}", entry.category, entry.message);
                                         let verbosity_color = entry.verbosity.color();
                                         let icon = entry.verbosity.icon();
 
-                                        h_flex()
+                                        div()
+                                            .id(("log-entry", ix))
                                             .w_full()
-                                            .h(px(24.0))
-                                            .gap_2()
+                                            .min_h(px(20.0))
                                             .px_2()
                                             .py_1()
-                                            .bg(theme.ghost_element_background)
                                             .hover(|style| style.bg(theme.ghost_element_hover))
-                                            .when_some(icon, |this, icon| {
-                                                this.child(
-                                                    Icon::new(icon)
-                                                        .size(IconSize::Small)
-                                                        .color(verbosity_color),
-                                                )
-                                            })
                                             .child(
-                                                Label::new(entry.category.clone())
-                                                    .size(LabelSize::Small)
-                                                    .color(ui::Color::Muted),
-                                            )
-                                            .child(
-                                                Label::new(entry.message.clone())
-                                                    .size(LabelSize::Small)
-                                                    .color(verbosity_color),
+                                                h_flex()
+                                                    .gap_2()
+                                                    .items_start()
+                                                    .when_some(icon, |this, icon| {
+                                                        this.child(
+                                                            div()
+                                                                .flex_shrink_0()
+                                                                .child(
+                                                                    Icon::new(icon)
+                                                                        .size(IconSize::Small)
+                                                                        .color(verbosity_color)
+                                                                )
+                                                        )
+                                                    })
+                                                    .child(
+                                                        div()
+                                                            .flex_shrink_0()
+                                                            .min_w(px(100.0))
+                                                            .child(
+                                                                Label::new(format!("[{}]", entry.category))
+                                                                    .size(LabelSize::Small)
+                                                                    .color(ui::Color::Muted)
+                                                            )
+                                                    )
+                                                    .child(
+                                                        div()
+                                                            .flex_1()
+                                                            .overflow_x_hidden()
+                                                            .child(
+                                                                Label::new(entry.message.clone())
+                                                                    .size(LabelSize::Small)
+                                                                    .color(verbosity_color)
+                                                            )
+                                                    )
                                             )
                                     })
                                     .collect();
