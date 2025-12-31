@@ -29,7 +29,7 @@ pub struct OpenZedUrl {
 
 /// Opens the keymap to either add a keybinding or change an existing one
 #[derive(PartialEq, Clone, Default, Action, JsonSchema, Serialize, Deserialize)]
-#[action(namespace = zed, no_json, no_register)]
+#[action(namespace = cherry, no_json, no_register)]
 pub struct ChangeKeybinding {
     pub action: String,
 }

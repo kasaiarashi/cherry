@@ -22,7 +22,7 @@ pub fn run_component_preview() {
 
     use crate::{ComponentPreview, init};
 
-    actions!(zed, [Quit]);
+    actions!(cherry, [Quit]);
 
     fn quit(_: &Quit, cx: &mut App) {
         cx.quit();
