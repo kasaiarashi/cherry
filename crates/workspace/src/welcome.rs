@@ -356,9 +356,9 @@ impl Render for WelcomePage {
         };
 
         let welcome_label = if self.fallback_to_recent_projects {
-            "Welcome back to Zed"
+            "Welcome back to Cherry"
         } else {
-            "Welcome to Zed"
+            "Welcome to Cherry"
         };
 
         h_flex()

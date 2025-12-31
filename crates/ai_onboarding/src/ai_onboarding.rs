@@ -111,7 +111,7 @@ impl ZedAiOnboarding {
         v_flex()
             .relative()
             .gap_1()
-            .child(Headline::new("Welcome to Zed AI"))
+            .child(Headline::new("Welcome to Cherry AI"))
             .child(
                 Label::new("Sign in to try Zed Pro for 14 days, no credit card required.")
                     .color(Color::Muted)
@@ -141,7 +141,7 @@ impl ZedAiOnboarding {
                 .relative()
                 .max_w_full()
                 .gap_1()
-                .child(Headline::new("Welcome to Zed AI"))
+                .child(Headline::new("Welcome to Cherry AI"))
                 .child(YoungAccountBanner)
                 .child(
                     v_flex()
@@ -177,7 +177,7 @@ impl ZedAiOnboarding {
             v_flex()
                 .relative()
                 .gap_1()
-                .child(Headline::new("Welcome to Zed AI"))
+                .child(Headline::new("Welcome to Cherry AI"))
                 .child(
                     v_flex()
                         .mt_2()
@@ -255,7 +255,7 @@ impl ZedAiOnboarding {
     fn render_pro_plan_state(&self, is_v2: bool, _cx: &mut App) -> AnyElement {
         v_flex()
             .gap_1()
-            .child(Headline::new("Welcome to Zed Pro"))
+            .child(Headline::new("Welcome to Cherry Pro"))
             .child(
                 Label::new("Here's what you get:")
                     .color(Color::Muted)

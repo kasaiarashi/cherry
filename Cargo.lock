@@ -18161,6 +18161,7 @@ dependencies = [
  "cherry_link",
  "collections",
  "gpui",
+ "log",
  "settings",
  "ui",
  "workspace",
@@ -18172,6 +18173,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cherry_link",
+ "futures 0.3.31",
  "gpui",
  "log",
  "settings",

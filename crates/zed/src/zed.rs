@@ -98,7 +98,7 @@ use zed_actions::{
 };
 
 actions!(
-    zed,
+    cherry,
     [
         /// Opens the element inspector for debugging UI.
         DebugElements,
@@ -501,7 +501,7 @@ fn unstable_version_notification(cx: &mut App) {
     ) {
         return;
     }
-    let db_key = "zed_windows_nightly_notif_shown_at".to_owned();
+    let db_key = "cherry_windows_nightly_notif_shown_at".to_owned();
     let time = chrono::Utc::now();
     if let Some(last_shown) = db::kvp::KEY_VALUE_STORE
         .read_kvp(&db_key)

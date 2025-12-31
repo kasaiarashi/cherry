@@ -10,6 +10,7 @@ use workspace::{
     Workspace,
     dock::{DockPosition, Panel, PanelEvent},
 };
+use log;
 
 use crate::ToggleBuildPanel;
 
@@ -98,6 +99,7 @@ impl BuildPanel {
     }
 
     pub fn add_line(&mut self, line: String, cx: &mut Context<Self>) {
+        log::debug!("BuildPanel::add_line called with: {}", line);
         let entry = BuildLogEntry {
             entry_type: BuildLogType::from_line(&line),
             line: line.into(),
@@ -107,6 +109,7 @@ impl BuildPanel {
             self.logs.pop_front();
         }
         self.logs.push_back(entry);
+        log::debug!("BuildPanel now has {} log entries", self.logs.len());
 
         if self.auto_scroll && !self.logs.is_empty() {
             self.scroll_handle.scroll_to_item(self.logs.len() - 1, ScrollStrategy::Bottom);
@@ -116,10 +119,12 @@ impl BuildPanel {
     }
 
     pub fn start_build(&mut self, cx: &mut Context<Self>) {
+        log::info!("BuildPanel::start_build called");
         self.logs.clear();
         self.is_building = true;
         self.add_line("=== Build Started ===".to_string(), cx);
         cx.emit(PanelEvent::Activate);
+        log::info!("BuildPanel activated");
     }
 
     pub fn finish_build(&mut self, success: bool, cx: &mut Context<Self>) {
@@ -244,9 +249,13 @@ impl Panel for BuildPanel {
 impl Render for BuildPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let log_count = self.logs.len();
-        let logs: Vec<_> = self.logs.iter().cloned().collect();
-        let theme_colors = cx.theme().colors().clone();
 
+        log::info!("BuildPanel::render called with {} logs", log_count);
+        if log_count > 0 {
+            log::info!("First log entry: {:?}", self.logs.front().map(|e| &e.line));
+        }
+
+        log::info!("Creating v_flex container");
         v_flex()
             .id("build-panel")
             .key_context("BuildPanel")
@@ -256,45 +265,53 @@ impl Render for BuildPanel {
             .child(self.render_toolbar(window, cx))
             .child(
                 div()
-                    .flex_grow()
+                    .flex_1()
                     .overflow_hidden()
-                    .child(
+                    .child({
+                        log::info!("Creating uniform_list with {} items", log_count);
                         uniform_list(
                             "build-log-list",
                             log_count,
-                            move |range, _window, _cx| {
-                                let theme = theme_colors.clone();
-                                range
-                                    .filter_map(|ix| logs.get(ix).cloned())
-                                    .map(|entry| {
+                            cx.processor(|this: &mut BuildPanel, range, _window, _cx| {
+                                log::info!("uniform_list callback invoked for range {:?}", range);
+                                let mut items = Vec::new();
+                                
+                                for ix in range {
+                                    if let Some(entry) = this.logs.get(ix) {
+                                        log::trace!("Rendering log entry at index {}: {:?}", ix, &entry.line);
                                         let color = entry.entry_type.color();
                                         let icon = entry.entry_type.icon();
 
-                                        h_flex()
-                                            .w_full()
-                                            .gap_2()
-                                            .px_2()
-                                            .py_0p5()
-                                            .hover(|style| style.bg(theme.ghost_element_hover))
-                                            .when_some(icon, |this, icon| {
-                                                this.child(
-                                                    Icon::new(icon)
-                                                        .size(IconSize::Small)
+                                        items.push(
+                                            h_flex()
+                                                .id(ix)
+                                                .w_full()
+                                                .gap_2()
+                                                .px_2()
+                                                .py_0p5()
+                                                .when_some(icon, |this, icon| {
+                                                    this.child(
+                                                        Icon::new(icon)
+                                                            .size(IconSize::Small)
+                                                            .color(color),
+                                                    )
+                                                })
+                                                .child(
+                                                    Label::new(entry.line.clone())
+                                                        .size(LabelSize::Small)
                                                         .color(color),
-                                                )
-                                            })
-                                            .child(
-                                                Label::new(entry.line.clone())
-                                                    .size(LabelSize::Small)
-                                                    .color(color),
-                                            )
-                                    })
-                                    .collect()
-                            },
+                                                ),
+                                        );
+                                    }
+                                }
+                                
+                                log::info!("Rendered {} log items for range", items.len());
+                                items
+                            }),
                         )
-                        .flex_grow()
-                        .track_scroll(&self.scroll_handle),
-                    ),
+                        .h_full()
+                        .track_scroll(&self.scroll_handle)
+                    }),
             )
     }
 }

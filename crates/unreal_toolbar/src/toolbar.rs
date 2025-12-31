@@ -3,10 +3,10 @@ use gpui::{
     div, prelude::*, px, App, Context, Corner, Entity, IntoElement, ParentElement,
     Render, Styled, Subscription, Task, WeakEntity, Window,
 };
-use std::io::{BufRead, BufReader};
+use futures::{channel::mpsc, StreamExt};
+use std::io::BufReader;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use ui::{
@@ -316,36 +316,52 @@ impl UnrealToolbar {
         log::info!("Starting build: {:?} {} {} {} -Project={} -WaitMutex -FromMsBuild -architecture={}",
             build_script, target_name, platform, base_config, project_path.display(), arch);
 
-        // Create channel for build output
-        let (tx, rx) = mpsc::channel::<BuildMessage>();
+        // Create async channel for build output
+        let (tx, mut rx) = mpsc::unbounded::<BuildMessage>();
 
         // Spawn background thread to run build and send output
         let tx_clone = tx.clone();
         thread::spawn(move || {
             #[cfg(target_os = "windows")]
-            let mut cmd = Command::new("cmd");
-            #[cfg(target_os = "windows")]
-            {
-                cmd.arg("/C");
-                cmd.arg(&build_script);
-            }
+            let mut cmd = {
+                // On Windows, call the batch file directly without cmd.exe wrapper
+                // This ensures proper output capture
+                let mut c = Command::new(&build_script);
+                c.arg(&target_name);
+                c.arg(&platform);
+                c.arg(&base_config);
+                c.arg(format!("-Project={}", project_path.display()));
+                c.arg("-WaitMutex");
+                c.arg("-FromMsBuild");
+                c.arg(format!("-architecture={}", arch));
+
+                // Ensure we don't create a new console window
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                c.creation_flags(CREATE_NO_WINDOW);
+
+                c
+            };
 
             #[cfg(not(target_os = "windows"))]
-            let mut cmd = Command::new(&build_script);
-
-            cmd.arg(&target_name);
-            cmd.arg(&platform);
-            cmd.arg(&base_config);
-            cmd.arg(format!("-Project={}", project_path.display()));
-            cmd.arg("-WaitMutex");
-            cmd.arg("-FromMsBuild");
-            cmd.arg(format!("-architecture={}", arch));
+            let mut cmd = {
+                let mut c = Command::new(&build_script);
+                c.arg(&target_name);
+                c.arg(&platform);
+                c.arg(&base_config);
+                c.arg(format!("-Project={}", project_path.display()));
+                c.arg("-WaitMutex");
+                c.arg("-FromMsBuild");
+                c.arg(format!("-architecture={}", arch));
+                c
+            };
 
             cmd.stdout(Stdio::piped());
             cmd.stderr(Stdio::piped());
 
             match cmd.spawn() {
                 Ok(mut child) => {
+                    log::info!("Build process spawned successfully");
                     let stdout = child.stdout.take();
                     let stderr = child.stderr.take();
 
@@ -353,20 +369,70 @@ impl UnrealToolbar {
                     let tx_stdout = tx_clone.clone();
                     let stdout_handle = stdout.map(|stdout| {
                         thread::spawn(move || {
-                            let reader = BufReader::new(stdout);
-                            for line in reader.lines().map_while(Result::ok) {
-                                let _ = tx_stdout.send(BuildMessage::Line(line));
+                            log::info!("stdout reader thread started");
+                            use std::io::Read;
+                            let mut reader = BufReader::with_capacity(8192, stdout);
+                            let mut line_count = 0;
+                            let mut buffer = String::new();
+                            let mut char_buffer = [0u8; 1];
+
+                            // Read character by character to ensure we get output even if not line-buffered
+                            while let Ok(1) = reader.read(&mut char_buffer) {
+                                let ch = char_buffer[0] as char;
+                                if ch == '\n' || ch == '\r' {
+                                    if !buffer.is_empty() {
+                                        line_count += 1;
+                                        let line = buffer.trim_end().to_string();
+                                        if !line.is_empty() {
+                                            let _ = tx_stdout.unbounded_send(BuildMessage::Line(line));
+                                        }
+                                        buffer.clear();
+                                    }
+                                } else if ch != '\r' {  // Skip carriage returns
+                                    buffer.push(ch);
+                                }
                             }
+                            // Send any remaining content
+                            if !buffer.is_empty() {
+                                line_count += 1;
+                                let _ = tx_stdout.unbounded_send(BuildMessage::Line(buffer));
+                            }
+                            log::info!("stdout reader thread finished, read {} lines", line_count);
                         })
                     });
 
                     let tx_stderr = tx_clone.clone();
                     let stderr_handle = stderr.map(|stderr| {
                         thread::spawn(move || {
-                            let reader = BufReader::new(stderr);
-                            for line in reader.lines().map_while(Result::ok) {
-                                let _ = tx_stderr.send(BuildMessage::Line(line));
+                            log::info!("stderr reader thread started");
+                            use std::io::Read;
+                            let mut reader = BufReader::with_capacity(8192, stderr);
+                            let mut line_count = 0;
+                            let mut buffer = String::new();
+                            let mut char_buffer = [0u8; 1];
+
+                            // Read character by character to ensure we get output even if not line-buffered
+                            while let Ok(1) = reader.read(&mut char_buffer) {
+                                let ch = char_buffer[0] as char;
+                                if ch == '\n' || ch == '\r' {
+                                    if !buffer.is_empty() {
+                                        line_count += 1;
+                                        let line = buffer.trim_end().to_string();
+                                        if !line.is_empty() {
+                                            let _ = tx_stderr.unbounded_send(BuildMessage::Line(line));
+                                        }
+                                        buffer.clear();
+                                    }
+                                } else if ch != '\r' {  // Skip carriage returns
+                                    buffer.push(ch);
+                                }
                             }
+                            // Send any remaining content
+                            if !buffer.is_empty() {
+                                line_count += 1;
+                                let _ = tx_stderr.unbounded_send(BuildMessage::Line(buffer));
+                            }
+                            log::info!("stderr reader thread finished, read {} lines", line_count);
                         })
                     });
 
@@ -380,11 +446,11 @@ impl UnrealToolbar {
 
                     // Wait for process
                     let success = child.wait().map(|s| s.success()).unwrap_or(false);
-                    let _ = tx_clone.send(BuildMessage::Finished(success));
+                    let _ = tx_clone.unbounded_send(BuildMessage::Finished(success));
                 }
                 Err(e) => {
-                    let _ = tx_clone.send(BuildMessage::Line(format!("Failed to start build: {}", e)));
-                    let _ = tx_clone.send(BuildMessage::Finished(false));
+                    let _ = tx_clone.unbounded_send(BuildMessage::Line(format!("Failed to start build: {}", e)));
+                    let _ = tx_clone.unbounded_send(BuildMessage::Finished(false));
                 }
             }
         });
@@ -392,33 +458,55 @@ impl UnrealToolbar {
         // Spawn foreground task to receive messages and update panel
         self._build_task = Some(cx.spawn(async move |_this, cx| {
             // Notify build panel that build started
-            let _ = cx.update(|cx| {
-                let _ = workspace.update(cx, |workspace, cx| {
+            log::info!("Build task started, notifying panel");
+            let panel_result = cx.update(|cx| {
+                workspace.update(cx, |workspace, cx| {
                     if let Some(panel) = workspace.panel::<BuildPanel>(cx) {
+                        log::info!("BuildPanel found, starting build");
                         panel.update(cx, |panel: &mut BuildPanel, cx| {
                             panel.start_build(cx);
+                            // Add a test message to verify panel is working
+                            panel.add_line("Build process initializing...".to_string(), cx);
                         });
+                        true
+                    } else {
+                        log::warn!("BuildPanel not found in workspace");
+                        false
                     }
-                });
+                })
             });
+            if let Err(e) = panel_result {
+                log::error!("Failed to start build panel: {:?}", e);
+            } else {
+                log::info!("Build panel start_build completed successfully");
+            }
 
-            // Process messages from build thread
-            loop {
-                // Check for messages
-                match rx.recv() {
-                    Ok(BuildMessage::Line(line)) => {
+            // Process messages from build thread (async stream)
+            log::info!("Starting message receive loop");
+            while let Some(message) = rx.next().await {
+                match message {
+                    BuildMessage::Line(line) => {
+                        log::info!("Build output: {}", line);
                         let workspace = workspace.clone();
-                        let _ = cx.update(|cx| {
-                            let _ = workspace.update(cx, |workspace, cx| {
+                        let update_result = cx.update(|cx| {
+                            workspace.update(cx, |workspace, cx| {
                                 if let Some(panel) = workspace.panel::<BuildPanel>(cx) {
                                     panel.update(cx, |panel: &mut BuildPanel, cx| {
                                         panel.add_line(line, cx);
                                     });
+                                    true
+                                } else {
+                                    log::warn!("BuildPanel not found when adding line");
+                                    false
                                 }
-                            });
+                            })
                         });
+                        if let Err(e) = update_result {
+                            log::error!("Failed to update panel with line: {:?}", e);
+                            break;
+                        }
                     }
-                    Ok(BuildMessage::Finished(success)) => {
+                    BuildMessage::Finished(success) => {
                         // Clear building flag
                         if let Ok(mut guard) = is_building.lock() {
                             *guard = false;
@@ -436,14 +524,13 @@ impl UnrealToolbar {
                         });
                         break;
                     }
-                    Err(_) => {
-                        // Channel closed, build must have finished
-                        if let Ok(mut guard) = is_building.lock() {
-                            *guard = false;
-                        }
-                        break;
-                    }
                 }
+            }
+
+            // Channel closed - clear building flag if not already cleared
+            log::info!("Message receive loop finished");
+            if let Ok(mut guard) = is_building.lock() {
+                *guard = false;
             }
         }));
 

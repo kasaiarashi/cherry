@@ -18,6 +18,7 @@ anyhow.workspace = true
 cherry_link.workspace = true
 collections.workspace = true
 gpui.workspace = true
+log.workspace = true
 settings.workspace = true
 ui.workspace = true
 workspace.workspace = true

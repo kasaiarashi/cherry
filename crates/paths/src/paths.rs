@@ -1,4 +1,4 @@
-//! Paths to locations used by Zed.
+//! Paths to locations used by Cherry.
 
 use std::env;
 use std::path::{Path, PathBuf};
@@ -17,29 +17,29 @@ static CUSTOM_DATA_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 /// The resolved data directory, combining custom override or platform defaults.
 /// This is set once and cached for subsequent calls.
-/// On macOS, this is `~/Library/Application Support/Zed`.
-/// On Linux/FreeBSD, this is `$XDG_DATA_HOME/zed`.
-/// On Windows, this is `%LOCALAPPDATA%\Zed`.
+/// On macOS, this is `~/Library/Application Support/Cherry`.
+/// On Linux/FreeBSD, this is `$XDG_DATA_HOME/cherry`.
+/// On Windows, this is `%LOCALAPPDATA%\Cherry`.
 static CURRENT_DATA_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 /// The resolved config directory, combining custom override or platform defaults.
 /// This is set once and cached for subsequent calls.
-/// On macOS, this is `~/.config/zed`.
-/// On Linux/FreeBSD, this is `$XDG_CONFIG_HOME/zed`.
-/// On Windows, this is `%APPDATA%\Zed`.
+/// On macOS, this is `~/.config/cherry`.
+/// On Linux/FreeBSD, this is `$XDG_CONFIG_HOME/cherry`.
+/// On Windows, this is `%APPDATA%\Cherry`.
 static CONFIG_DIR: OnceLock<PathBuf> = OnceLock::new();
 
-/// Returns the relative path to the zed_server directory on the ssh host.
+/// Returns the relative path to the cherry_server directory on the ssh host.
 pub fn remote_server_dir_relative() -> &'static RelPath {
     static CACHED: LazyLock<&'static RelPath> =
-        LazyLock::new(|| RelPath::unix(".zed_server").unwrap());
+        LazyLock::new(|| RelPath::unix(".cherry_server").unwrap());
     *CACHED
 }
 
 /// Returns the relative path to the zed_wsl_server directory on the wsl host.
 pub fn remote_wsl_server_dir_relative() -> &'static RelPath {
     static CACHED: LazyLock<&'static RelPath> =
-        LazyLock::new(|| RelPath::unix(".zed_wsl_server").unwrap());
+        LazyLock::new(|| RelPath::unix(".cherry_wsl_server").unwrap());
     *CACHED
 }
 
@@ -80,7 +80,7 @@ pub fn set_custom_data_dir(dir: &str) -> &'static PathBuf {
     })
 }
 
-/// Returns the path to the configuration directory used by Zed.
+/// Returns the path to the configuration directory used by Cherry.
 pub fn config_dir() -> &'static PathBuf {
     CONFIG_DIR.get_or_init(|| {
         if let Some(custom_dir) = CUSTOM_DATA_DIR.get() {
@@ -88,58 +88,58 @@ pub fn config_dir() -> &'static PathBuf {
         } else if cfg!(target_os = "windows") {
             dirs::config_dir()
                 .expect("failed to determine RoamingAppData directory")
-                .join("Zed")
+                .join("Cherry")
         } else if cfg!(any(target_os = "linux", target_os = "freebsd")) {
             if let Ok(flatpak_xdg_config) = std::env::var("FLATPAK_XDG_CONFIG_HOME") {
                 flatpak_xdg_config.into()
             } else {
                 dirs::config_dir().expect("failed to determine XDG_CONFIG_HOME directory")
             }
-            .join("zed")
+            .join("cherry")
         } else {
-            home_dir().join(".config").join("zed")
+            home_dir().join(".config").join("cherry")
         }
     })
 }
 
-/// Returns the path to the data directory used by Zed.
+/// Returns the path to the data directory used by Cherry.
 pub fn data_dir() -> &'static PathBuf {
     CURRENT_DATA_DIR.get_or_init(|| {
         if let Some(custom_dir) = CUSTOM_DATA_DIR.get() {
             custom_dir.clone()
         } else if cfg!(target_os = "macos") {
-            home_dir().join("Library/Application Support/Zed")
+            home_dir().join("Library/Application Support/Cherry")
         } else if cfg!(any(target_os = "linux", target_os = "freebsd")) {
             if let Ok(flatpak_xdg_data) = std::env::var("FLATPAK_XDG_DATA_HOME") {
                 flatpak_xdg_data.into()
             } else {
                 dirs::data_local_dir().expect("failed to determine XDG_DATA_HOME directory")
             }
-            .join("zed")
+            .join("cherry")
         } else if cfg!(target_os = "windows") {
             dirs::data_local_dir()
                 .expect("failed to determine LocalAppData directory")
-                .join("Zed")
+                .join("Cherry")
         } else {
             config_dir().clone() // Fallback
         }
     })
 }
 
-/// Returns the path to the temp directory used by Zed.
+/// Returns the path to the temp directory used by Cherry.
 pub fn temp_dir() -> &'static PathBuf {
     static TEMP_DIR: OnceLock<PathBuf> = OnceLock::new();
     TEMP_DIR.get_or_init(|| {
         if cfg!(target_os = "macos") {
             return dirs::cache_dir()
                 .expect("failed to determine cachesDirectory directory")
-                .join("Zed");
+                .join("Cherry");
         }
 
         if cfg!(target_os = "windows") {
             return dirs::cache_dir()
                 .expect("failed to determine LocalAppData directory")
-                .join("Zed");
+                .join("Cherry");
         }
 
         if cfg!(any(target_os = "linux", target_os = "freebsd")) {
@@ -148,10 +148,10 @@ pub fn temp_dir() -> &'static PathBuf {
             } else {
                 dirs::cache_dir().expect("failed to determine XDG_CACHE_HOME directory")
             }
-            .join("zed");
+            .join("cherry");
         }
 
-        home_dir().join(".cache").join("zed")
+        home_dir().join(".cache").join("cherry")
     })
 }
 
@@ -166,29 +166,29 @@ pub fn logs_dir() -> &'static PathBuf {
     static LOGS_DIR: OnceLock<PathBuf> = OnceLock::new();
     LOGS_DIR.get_or_init(|| {
         if cfg!(target_os = "macos") {
-            home_dir().join("Library/Logs/Zed")
+            home_dir().join("Library/Logs/Cherry")
         } else {
             data_dir().join("logs")
         }
     })
 }
 
-/// Returns the path to the Zed server directory on this SSH host.
+/// Returns the path to the Cherry server directory on this SSH host.
 pub fn remote_server_state_dir() -> &'static PathBuf {
     static REMOTE_SERVER_STATE: OnceLock<PathBuf> = OnceLock::new();
     REMOTE_SERVER_STATE.get_or_init(|| data_dir().join("server_state"))
 }
 
-/// Returns the path to the `Zed.log` file.
+/// Returns the path to the `Cherry.log` file.
 pub fn log_file() -> &'static PathBuf {
     static LOG_FILE: OnceLock<PathBuf> = OnceLock::new();
-    LOG_FILE.get_or_init(|| logs_dir().join("Zed.log"))
+    LOG_FILE.get_or_init(|| logs_dir().join("Cherry.log"))
 }
 
-/// Returns the path to the `Zed.log.old` file.
+/// Returns the path to the `Cherry.log.old` file.
 pub fn old_log_file() -> &'static PathBuf {
     static OLD_LOG_FILE: OnceLock<PathBuf> = OnceLock::new();
-    OLD_LOG_FILE.get_or_init(|| logs_dir().join("Zed.log.old"))
+    OLD_LOG_FILE.get_or_init(|| logs_dir().join("Cherry.log.old"))
 }
 
 /// Returns the path to the database directory.
@@ -325,7 +325,7 @@ pub fn prompts_dir() -> &'static PathBuf {
 ///
 /// # Arguments
 ///
-/// * `dev_mode` - If true, assumes the current working directory is the Zed repository.
+/// * `dev_mode` - If true, assumes the current working directory is the Cherry repository.
 pub fn prompt_overrides_dir(repo_path: Option<&Path>) -> PathBuf {
     if let Some(path) = repo_path {
         let dev_path = path.join("assets").join("prompts");
@@ -362,7 +362,7 @@ pub fn embeddings_dir() -> &'static PathBuf {
 
 /// Returns the path to the languages directory.
 ///
-/// This is where language servers are downloaded to for languages built-in to Zed.
+/// This is where language servers are downloaded to for languages built-in to Cherry.
 pub fn languages_dir() -> &'static PathBuf {
     static LANGUAGES_DIR: OnceLock<PathBuf> = OnceLock::new();
     LANGUAGES_DIR.get_or_init(|| data_dir().join("languages"))
@@ -370,7 +370,7 @@ pub fn languages_dir() -> &'static PathBuf {
 
 /// Returns the path to the debug adapters directory
 ///
-/// This is where debug adapters are downloaded to for DAPs that are built-in to Zed.
+/// This is where debug adapters are downloaded to for DAPs that are built-in to Cherry.
 pub fn debug_adapters_dir() -> &'static PathBuf {
     static DEBUG_ADAPTERS_DIR: OnceLock<PathBuf> = OnceLock::new();
     DEBUG_ADAPTERS_DIR.get_or_init(|| data_dir().join("debug_adapters"))
@@ -414,9 +414,9 @@ pub fn devcontainer_dir() -> &'static PathBuf {
     DEVCONTAINER_DIR.get_or_init(|| data_dir().join("devcontainer"))
 }
 
-/// Returns the relative path to a `.zed` folder within a project.
+/// Returns the relative path to a `.cherry` folder within a project.
 pub fn local_settings_folder_name() -> &'static str {
-    ".zed"
+    ".cherry"
 }
 
 /// Returns the relative path to a `.vscode` folder within a project.
@@ -427,14 +427,14 @@ pub fn local_vscode_folder_name() -> &'static str {
 /// Returns the relative path to a `settings.json` file within a project.
 pub fn local_settings_file_relative_path() -> &'static RelPath {
     static CACHED: LazyLock<&'static RelPath> =
-        LazyLock::new(|| RelPath::unix(".zed/settings.json").unwrap());
+        LazyLock::new(|| RelPath::unix(".cherry/settings.json").unwrap());
     *CACHED
 }
 
 /// Returns the relative path to a `tasks.json` file within a project.
 pub fn local_tasks_file_relative_path() -> &'static RelPath {
     static CACHED: LazyLock<&'static RelPath> =
-        LazyLock::new(|| RelPath::unix(".zed/tasks.json").unwrap());
+        LazyLock::new(|| RelPath::unix(".cherry/tasks.json").unwrap());
     *CACHED
 }
 
@@ -454,10 +454,10 @@ pub fn task_file_name() -> &'static str {
 }
 
 /// Returns the relative path to a `debug.json` file within a project.
-/// .zed/debug.json
+/// .cherry/debug.json
 pub fn local_debug_file_relative_path() -> &'static RelPath {
     static CACHED: LazyLock<&'static RelPath> =
-        LazyLock::new(|| RelPath::unix(".zed/debug.json").unwrap());
+        LazyLock::new(|| RelPath::unix(".cherry/debug.json").unwrap());
     *CACHED
 }
 
