@@ -1,6 +1,6 @@
 # TypeScript
 
-TypeScript and TSX support are available natively in Zed.
+TypeScript and TSX support are available natively in Cherry.
 
 - Tree-sitter: [tree-sitter/tree-sitter-typescript](https://github.com/tree-sitter/tree-sitter-typescript)
 - Language Server: [yioneko/vtsls](https://github.com/yioneko/vtsls)

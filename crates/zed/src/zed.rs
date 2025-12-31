@@ -480,12 +480,27 @@ pub fn initialize_workspace(
             cherry_link::is_unreal_project(abs_path.as_ref())
         });
 
-        if has_ue_project {
+        let ue_connection = if has_ue_project {
             let toolbar = cx.new(|cx| unreal_toolbar::UnrealToolbar::new(workspace.weak_handle(), cx));
-            workspace.set_toolbar_item(toolbar.into(), window, cx);
-        }
 
-        initialize_panels(prompt_builder.clone(), window, cx);
+            // Create and connect CherryLink connection
+            let connection = cx.new(|cx| {
+                let mut conn = cherry_link::CherryLinkConnection::new(21567);
+                conn.connect(cx);
+                conn
+            });
+
+            toolbar.update(cx, |toolbar, cx| {
+                toolbar.set_connection(connection.clone(), cx);
+            });
+
+            workspace.set_toolbar_item(toolbar.into(), window, cx);
+            Some(connection)
+        } else {
+            None
+        };
+
+        initialize_panels(prompt_builder.clone(), ue_connection, window, cx);
         register_actions(app_state.clone(), workspace, window, cx);
 
         workspace.focus_handle(cx).focus(window, cx);
@@ -655,6 +670,7 @@ fn show_software_emulation_warning_if_needed(
 
 fn initialize_panels(
     prompt_builder: Arc<PromptBuilder>,
+    ue_connection: Option<Entity<cherry_link::CherryLinkConnection>>,
     window: &mut Window,
     cx: &mut Context<Workspace>,
 ) {
@@ -688,6 +704,20 @@ fn initialize_panels(
             }
         }
 
+        // Set up UnrealPanel connection if available
+        if let Some(conn) = ue_connection {
+            if let Ok(panel) = unreal_panel.await {
+                let mut ctx = cx.clone();
+                panel.update(&mut ctx, |panel, cx| {
+                    panel.set_connection(conn.clone(), cx);
+                }).ok();
+                workspace_handle.update_in(&mut ctx, |workspace, window, cx| {
+                    workspace.add_panel(panel, window, cx);
+                }).log_err();
+            }
+        }
+
+        // Note: unreal_panel is handled separately above to set the connection
         futures::join!(
             add_panel_when_ready(project_panel, workspace_handle.clone(), cx.clone()),
             add_panel_when_ready(outline_panel, workspace_handle.clone(), cx.clone()),
@@ -696,7 +726,6 @@ fn initialize_panels(
             add_panel_when_ready(channels_panel, workspace_handle.clone(), cx.clone()),
             add_panel_when_ready(notification_panel, workspace_handle.clone(), cx.clone()),
             add_panel_when_ready(debug_panel, workspace_handle.clone(), cx.clone()),
-            add_panel_when_ready(unreal_panel, workspace_handle.clone(), cx.clone()),
             add_panel_when_ready(build_panel, workspace_handle.clone(), cx.clone()),
             initialize_agent_panel(workspace_handle.clone(), prompt_builder, cx.clone()).map(|r| r.log_err()),
             initialize_agents_panel(workspace_handle, cx.clone()).map(|r| r.log_err())

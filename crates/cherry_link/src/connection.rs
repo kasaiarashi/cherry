@@ -133,6 +133,7 @@ impl CherryLinkConnection {
                 match notification {
                     IncomingNotification::LogMessage(msg) => {
                         cx.emit(CherryLinkEvent::LogReceived(msg));
+                        cx.notify();
                     }
                     IncomingNotification::PlayStateChanged(state) => {
                         this.play_state = state;
@@ -184,10 +185,12 @@ impl CherryLinkConnection {
                 msg = outgoing_rx.next() => {
                     match msg {
                         Some(msg) => {
+                            log::info!("CherryLink: connection_loop - received message from queue, sending...");
                             if let Err(e) = Self::send_raw_message(&mut writer, &msg.json).await {
                                 log::error!("CherryLink: Write error: {}", e);
                                 break;
                             }
+                            log::info!("CherryLink: connection_loop - message sent successfully");
                         }
                         None => {
                             log::info!("CherryLink: Outgoing channel closed");
@@ -231,8 +234,13 @@ impl CherryLinkConnection {
             "logging/message" => {
                 if let Some(p) = params {
                     if let Ok(log_msg) = serde_json::from_value::<LogMessage>(p.clone()) {
+                        log::debug!("CherryLink: Received log message: {} - {}", log_msg.category, log_msg.message);
                         return Some(IncomingNotification::LogMessage(log_msg));
+                    } else {
+                        log::error!("CherryLink: Failed to parse logging/message params: {:?}", p);
                     }
+                } else {
+                    log::warn!("CherryLink: logging/message notification has no params");
                 }
             }
             "play/stateChanged" => {
@@ -295,10 +303,12 @@ impl CherryLinkConnection {
         let bytes = message.as_bytes();
         let len = bytes.len() as u32;
 
+        log::debug!("CherryLink: send_raw_message - sending {} bytes", len);
         // Write 4-byte big-endian length prefix
         writer.write_all(&len.to_be_bytes()).await?;
         writer.write_all(bytes).await?;
         writer.flush().await?;
+        log::debug!("CherryLink: send_raw_message - sent successfully");
 
         Ok(())
     }
@@ -332,8 +342,15 @@ impl CherryLinkConnection {
             );
 
             if let Ok(json) = serde_json::to_string(&request) {
-                let _ = tx.unbounded_send(OutgoingMessage { json });
+                log::info!("CherryLink: Sending request: {}", method);
+                if let Err(e) = tx.unbounded_send(OutgoingMessage { json }) {
+                    log::error!("CherryLink: Failed to send request {}: {:?}", method, e);
+                }
+            } else {
+                log::error!("CherryLink: Failed to serialize request for method: {}", method);
             }
+        } else {
+            log::warn!("CherryLink: Cannot send request '{}' - not connected (outgoing_tx is None)", method);
         }
     }
 

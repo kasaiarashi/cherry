@@ -5707,71 +5707,71 @@ impl ProjectPanel {
             )
             .child(
                 uniform_list("solution-entries", item_count, {
-                    let selection = selection.clone();
-                    let expanded_ids = expanded_ids.clone();
-                    cx.processor(move |_this, range: Range<usize>, _window, cx| {
-                        let mut items = Vec::new();
-                        for ix in range {
-                            if let Some(entry) = entries.get(ix) {
-                                let entry = entry.clone();
-                                let is_selected = selection.as_ref() == Some(&entry.id());
-                                let is_expanded = expanded_ids.contains(&entry.id());
-                                let depth = entry.depth();
-                                let icon = entry.icon();
-                                let name = entry.name().to_string();
-                                let entry_id = entry.id();
-                                let is_expandable = entry.is_expandable();
-
-                                let item = ListItem::new(ix)
-                                    .indent_level(depth)
-                                    .indent_step_size(px(20.))
-                                    .spacing(ListItemSpacing::Sparse)
-                                    .toggle(if is_expandable {
-                                        Some(is_expanded)
-                                    } else {
-                                        None
-                                    })
-                                    .on_toggle(cx.listener({
-                                        let entry_id = entry_id.clone();
-                                        move |this, _, _, cx| {
-                                            this.solution_state.toggle_expanded(&entry_id);
-                                            this.solution_state.update_visible_entries();
-                                            cx.notify();
-                                        }
-                                    }))
-                                    .child(
-                                        h_flex()
-                                            .gap_1()
-                                            .child(Icon::new(icon).size(ui::IconSize::Small))
-                                            .child(Label::new(name).size(LabelSize::Small)),
-                                    )
-                                    .on_click(cx.listener({
+                            let selection = selection.clone();
+                            let expanded_ids = expanded_ids.clone();
+                            cx.processor(move |_this, range: Range<usize>, _window, cx| {
+                                let mut items = Vec::new();
+                                for ix in range {
+                                    if let Some(entry) = entries.get(ix) {
                                         let entry = entry.clone();
-                                        let entry_id = entry_id.clone();
-                                        move |this, event: &gpui::ClickEvent, window, cx| {
-                                            this.solution_state.selection = Some(entry_id.clone());
-                                            if event.click_count() == 2 {
-                                                // Double-click to open file
-                                                if let Some(path) = entry.file_path() {
-                                                    this.open_file_from_path(path, window, cx);
-                                                } else if entry.is_expandable() {
+                                        let is_selected = selection.as_ref() == Some(&entry.id());
+                                        let is_expanded = expanded_ids.contains(&entry.id());
+                                        let depth = entry.depth();
+                                        let icon = entry.icon();
+                                        let name = entry.name().to_string();
+                                        let entry_id = entry.id();
+                                        let is_expandable = entry.is_expandable();
+
+                                        let item = ListItem::new(ix)
+                                            .indent_level(depth)
+                                            .indent_step_size(px(20.))
+                                            .spacing(ListItemSpacing::Sparse)
+                                            .toggle(if is_expandable {
+                                                Some(is_expanded)
+                                            } else {
+                                                None
+                                            })
+                                            .on_toggle(cx.listener({
+                                                let entry_id = entry_id.clone();
+                                                move |this, _, _, cx| {
                                                     this.solution_state.toggle_expanded(&entry_id);
                                                     this.solution_state.update_visible_entries();
+                                                    cx.notify();
                                                 }
-                                            }
-                                            cx.notify();
-                                        }
-                                    }))
-                                    .toggle_state(is_selected);
+                                            }))
+                                            .child(
+                                                h_flex()
+                                                    .gap_1()
+                                                    .child(Icon::new(icon).size(ui::IconSize::Small))
+                                                    .child(Label::new(name).size(LabelSize::Small)),
+                                            )
+                                            .on_click(cx.listener({
+                                                let entry = entry.clone();
+                                                let entry_id = entry_id.clone();
+                                                move |this, event: &gpui::ClickEvent, window, cx| {
+                                                    this.solution_state.selection = Some(entry_id.clone());
+                                                    if event.click_count() == 2 {
+                                                        // Double-click to open file
+                                                        if let Some(path) = entry.file_path() {
+                                                            this.open_file_from_path(path, window, cx);
+                                                        } else if entry.is_expandable() {
+                                                            this.solution_state.toggle_expanded(&entry_id);
+                                                            this.solution_state.update_visible_entries();
+                                                        }
+                                                    }
+                                                    cx.notify();
+                                                }
+                                            }))
+                                            .toggle_state(is_selected);
 
-                                items.push(item.into_any_element());
-                            }
-                        }
-                        items
-                    })
-                })
-                .flex_grow()
-                .track_scroll(&self.solution_scroll_handle),
+                                        items.push(item.into_any_element());
+                                    }
+                                }
+                                items
+                            })
+                        })
+                        .flex_grow()
+                        .track_scroll(&self.solution_scroll_handle)
             )
     }
 

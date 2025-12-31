@@ -1,6 +1,6 @@
 # How to Set Up Python in Zed
 
-Python support is available natively in Zed.
+Python support is available natively in Cherry.
 
 - Tree-sitter: [tree-sitter-python](https://github.com/zed-industries/tree-sitter-python)
 - Language Servers:

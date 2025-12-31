@@ -45,7 +45,7 @@ private:
 	TWeakPtr<FCherryLinkServer> Server;
 
 	TSet<FName> FilteredCategories;
-	ELogVerbosity::Type MinVerbosity = ELogVerbosity::All;
+	ELogVerbosity::Type MinVerbosity = ELogVerbosity::Log;
 	bool bFilterByCategory = false;
 	bool bIsEnabled = true;
 

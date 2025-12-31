@@ -207,7 +207,31 @@ impl SolutionViewState {
         };
 
         if let Ok(parsed) = result {
+            // Auto-expand parent directory (..) entries for better UX
+            let project_dir = project_path.parent().unwrap_or(Path::new("."));
+            self.auto_expand_parent_dirs(&parsed, project_dir);
+
             self.parsed_projects.insert(project_path, parsed);
+        }
+    }
+
+    /// Auto-expand ".." (parent directory) entries in a project's directory tree
+    fn auto_expand_parent_dirs(&mut self, project: &ParsedVcxproj, project_dir: &Path) {
+        let tree = project.directory_tree();
+        self.auto_expand_parent_dirs_recursive(&tree, project_dir);
+    }
+
+    fn auto_expand_parent_dirs_recursive(&mut self, node: &cherry_link::DirectoryNode, project_dir: &Path) {
+        for child in &node.children {
+            // Auto-expand directories named ".." so users can see engine/plugin files
+            if child.name == ".." || child.name.starts_with("..") {
+                let dir_path = project_dir.join(&child.path);
+                let dir_id = SolutionEntryId::SourceFile(dir_path);
+                self.expanded_ids.insert(dir_id);
+
+                // Recursively expand nested ".." directories
+                self.auto_expand_parent_dirs_recursive(child, project_dir);
+            }
         }
     }
 
@@ -357,14 +381,22 @@ impl SolutionViewState {
             let dir_id = SolutionEntryId::SourceFile(dir_path.clone());
             let is_expanded = self.is_expanded(&dir_id);
 
-            entries.push(SolutionEntry::Directory {
-                name: child.name.clone(),
-                path: dir_path,
-                depth,
-            });
+            // Hide ".." parent directory entries but still show their contents
+            let is_parent_dir = child.name == ".." || child.name.starts_with("..");
 
+            if !is_parent_dir {
+                entries.push(SolutionEntry::Directory {
+                    name: child.name.clone(),
+                    path: dir_path.clone(),
+                    depth,
+                });
+            }
+
+            // Always recurse into expanded directories (including hidden ".." ones)
             if is_expanded {
-                self.add_directory_node_entries(entries, child, depth + 1, project_dir);
+                // For ".." directories, don't increase depth since we're hiding them
+                let child_depth = if is_parent_dir { depth } else { depth + 1 };
+                self.add_directory_node_entries(entries, child, child_depth, project_dir);
             }
         }
 

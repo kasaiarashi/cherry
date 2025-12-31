@@ -7,10 +7,6 @@
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonSerializer.h"
 
-#if WITH_LIVE_CODING
-#include "ILiveCodingModule.h"
-#endif
-
 FBuildService::FBuildService(TSharedPtr<FCherryLinkServer> InServer)
 	: Server(InServer)
 {
@@ -23,14 +19,6 @@ FBuildService::~FBuildService()
 
 void FBuildService::Initialize()
 {
-#if WITH_LIVE_CODING
-	if (ILiveCodingModule* LiveCoding = FModuleManager::LoadModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME))
-	{
-		OnPatchCompleteHandle = LiveCoding->GetOnPatchCompleteDelegate().AddRaw(this, &FBuildService::OnPatchComplete);
-		UE_LOG(LogCherryLink, Log, TEXT("BuildService: Live Coding hooks registered"));
-	}
-#endif
-
 	// Subscribe to server messages
 	TSharedPtr<FCherryLinkServer> ServerPtr = Server.Pin();
 	if (ServerPtr.IsValid())
@@ -43,13 +31,6 @@ void FBuildService::Initialize()
 
 void FBuildService::Shutdown()
 {
-#if WITH_LIVE_CODING
-	if (ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME))
-	{
-		LiveCoding->GetOnPatchCompleteDelegate().Remove(OnPatchCompleteHandle);
-	}
-#endif
-
 	TSharedPtr<FCherryLinkServer> ServerPtr = Server.Pin();
 	if (ServerPtr.IsValid())
 	{
@@ -59,47 +40,18 @@ void FBuildService::Shutdown()
 
 bool FBuildService::TriggerLiveCoding()
 {
-#if WITH_LIVE_CODING
-	if (ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME))
-	{
-		if (LiveCoding->IsEnabledForSession())
-		{
-			UE_LOG(LogCherryLink, Log, TEXT("BuildService: Triggering Live Coding compile"));
-			bIsCompiling = true;
-			BroadcastBuildStatus(TEXT("Compiling"));
-
-			LiveCoding->Compile();
-			return true;
-		}
-		else
-		{
-			UE_LOG(LogCherryLink, Warning, TEXT("BuildService: Live Coding not enabled for this session"));
-		}
-	}
-#else
-	UE_LOG(LogCherryLink, Warning, TEXT("BuildService: Live Coding not available in this build"));
-#endif
+	UE_LOG(LogCherryLink, Warning, TEXT("BuildService: Live Coding not available"));
 	return false;
 }
 
 bool FBuildService::CancelLiveCoding()
 {
-#if WITH_LIVE_CODING
-	// Note: Live Coding doesn't have a direct cancel API
-	// This is a placeholder for future implementation
 	UE_LOG(LogCherryLink, Warning, TEXT("BuildService: Cancel Live Coding not supported"));
-#endif
 	return false;
 }
 
 bool FBuildService::IsLiveCodingEnabled() const
 {
-#if WITH_LIVE_CODING
-	if (ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME))
-	{
-		return LiveCoding->IsEnabledForSession();
-	}
-#endif
 	return false;
 }
 

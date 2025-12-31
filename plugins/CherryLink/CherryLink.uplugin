@@ -18,8 +18,8 @@
 	"Modules": [
 		{
 			"Name": "CherryLink",
-			"Type": "Editor",
-			"LoadingPhase": "PostEngineInit"
+			"Type": "EditorNoCommandlet",
+			"LoadingPhase": "Default"
 		}
 	]
 }

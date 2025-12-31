@@ -4,6 +4,7 @@
 #include "Server/CherryLinkServer.h"
 #include "CherryLinkModule.h"
 
+#include "Editor.h"
 #include "Engine/Blueprint.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "AssetRegistry/AssetRegistryModule.h"
@@ -53,7 +54,7 @@ void FBlueprintService::SubscribeToBlueprintEvents()
 {
 	if (GEditor)
 	{
-		OnCompiledHandle = GEditor->OnBlueprintCompiled().AddRaw(this, &FBlueprintService::OnBlueprintCompiled);
+		OnCompiledHandle = GEditor->OnBlueprintCompiled().AddSP(AsShared(), &FBlueprintService::OnBlueprintCompiled);
 	}
 }
 
@@ -177,14 +178,14 @@ bool FBlueprintService::OpenBlueprintInEditor(const FString& AssetPath, const FS
 bool FBlueprintService::FindCppSourceLocation(const FString& ClassName, FString& OutFile, int32& OutLine)
 {
 	// Try to find the class by name
-	UClass* FoundClass = FindObject<UClass>(ANY_PACKAGE, *ClassName);
+	UClass* FoundClass = FindFirstObject<UClass>(*ClassName, EFindFirstObjectOptions::NativeFirst);
 	if (!FoundClass)
 	{
 		// Try with prefix
-		FoundClass = FindObject<UClass>(ANY_PACKAGE, *(TEXT("U") + ClassName));
+		FoundClass = FindFirstObject<UClass>(*(TEXT("U") + ClassName), EFindFirstObjectOptions::NativeFirst);
 		if (!FoundClass)
 		{
-			FoundClass = FindObject<UClass>(ANY_PACKAGE, *(TEXT("A") + ClassName));
+			FoundClass = FindFirstObject<UClass>(*(TEXT("A") + ClassName), EFindFirstObjectOptions::NativeFirst);
 		}
 	}
 
@@ -221,13 +222,8 @@ TArray<FString> FBlueprintService::FindBlueprintReferences(const FString& ClassN
 	return Results;
 }
 
-void FBlueprintService::OnBlueprintCompiled(UBlueprint* Blueprint)
+void FBlueprintService::OnBlueprintCompiled()
 {
-	if (!Blueprint)
-	{
-		return;
-	}
-
 	TSharedPtr<FCherryLinkServer> ServerPtr = Server.Pin();
 	if (!ServerPtr.IsValid() || !ServerPtr->IsClientConnected())
 	{
@@ -235,13 +231,7 @@ void FBlueprintService::OnBlueprintCompiled(UBlueprint* Blueprint)
 	}
 
 	TSharedPtr<FJsonObject> Params = MakeShared<FJsonObject>();
-	Params->SetStringField(TEXT("assetPath"), Blueprint->GetPathName());
 	Params->SetStringField(TEXT("changeType"), TEXT("compiled"));
-
-	if (Blueprint->GeneratedClass)
-	{
-		Params->SetStringField(TEXT("className"), Blueprint->GeneratedClass->GetName());
-	}
 
 	ServerPtr->SendNotification(TEXT("blueprint/changed"), Params);
 }

@@ -7,6 +7,10 @@
 #include "HAL/RunnableThread.h"
 #include "Sockets.h"
 #include "SocketSubsystem.h"
+#include "Containers/Queue.h"
+
+class FJsonObject;
+class FJsonValue;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnCherryLinkMessageReceived, const FString& /* JsonMessage */);
 DECLARE_MULTICAST_DELEGATE(FOnCherryLinkClientConnected);
@@ -55,7 +59,6 @@ protected:
 	// FRunnable interface
 	virtual bool Init() override;
 	virtual uint32 Run() override;
-	virtual void Stop() override { bShouldStop = true; }
 	virtual void Exit() override;
 
 private:
@@ -88,14 +91,14 @@ private:
 	FSocket* ClientSocket = nullptr;
 	FRunnableThread* Thread = nullptr;
 
-	FThreadSafeBool bShouldStop;
-	FThreadSafeBool bIsRunning;
-	FThreadSafeBool bIsConnected;
+	TAtomic<bool> bShouldStop;
+	TAtomic<bool> bIsRunning;
+	TAtomic<bool> bIsConnected;
 
 	int32 CurrentPort = 0;
 
 	FCriticalSection SendLock;
-	TQueue<FString, EQueueMode::Mpsc> OutgoingMessages;
+	TQueue<FString> OutgoingMessages;
 
 	/** Buffer for partial message reception */
 	TArray<uint8> ReceiveBuffer;

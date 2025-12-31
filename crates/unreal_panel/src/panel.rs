@@ -1,6 +1,6 @@
 use crate::ToggleFocus;
 use anyhow::Result;
-use cherry_link::{CherryLinkConnection, LogMessage};
+use cherry_link::{CherryLinkConnection, CherryLinkEvent, LogMessage};
 use collections::VecDeque;
 use gpui::{
     div, prelude::*, px, uniform_list, Action, App, AsyncWindowContext, Context, Entity,
@@ -101,6 +101,21 @@ impl UnrealPanel {
         self._subscriptions.push(cx.observe(&connection, |_this, _, cx| {
             cx.notify();
         }));
+        // Subscribe to connection events
+        self._subscriptions.push(cx.subscribe(&connection, |this, _, event: &CherryLinkEvent, cx| {
+            match event {
+                CherryLinkEvent::LogReceived(log) => {
+                    this.add_log(log.clone(), cx);
+                }
+                _ => {}
+            }
+        }));
+
+        // Subscribe to logging when connected
+        connection.update(cx, |conn, cx| {
+            conn.subscribe_logging(cx);
+        });
+
         cx.notify();
     }
 

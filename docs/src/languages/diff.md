@@ -1,6 +1,6 @@
 # Diff
 
-Diff support is available natively in Zed.
+Diff support is available natively in Cherry.
 
 - Tree-sitter: [zed-industries/the-mikedavis/tree-sitter-diff](https://github.com/the-mikedavis/tree-sitter-diff)
 

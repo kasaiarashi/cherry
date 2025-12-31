@@ -6,7 +6,15 @@ public class CherryLink : ModuleRules
 {
 	public CherryLink(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+#if UE_4_22_OR_LATER
+		PCHUsage = PCHUsageMode.NoPCHs;
+#else
+		PCHUsage = PCHUsageMode.NoSharedPCHs;
+#endif
+
+#if UE_5_2_OR_LATER
+		bDisableStaticAnalysis = true;
+#endif
 
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
@@ -31,18 +39,8 @@ public class CherryLink : ModuleRules
 			"AssetRegistry",
 			"ToolMenus",
 			"EditorSubsystem",
-			"Projects"
+			"Projects",
+			"SourceCodeAccess"
 		});
-
-		// Live Coding support (UE 5.0+)
-		if (Target.bWithLiveCoding)
-		{
-			PrivateDependencyModuleNames.Add("LiveCoding");
-			PublicDefinitions.Add("WITH_LIVE_CODING=1");
-		}
-		else
-		{
-			PublicDefinitions.Add("WITH_LIVE_CODING=0");
-		}
 	}
 }

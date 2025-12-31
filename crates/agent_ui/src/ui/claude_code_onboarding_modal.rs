@@ -1,9 +1,9 @@
 use client::zed_urls;
 use gpui::{
-    ClickEvent, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, MouseDownEvent, Render,
-    linear_color_stop, linear_gradient,
+    linear_color_stop, linear_gradient, ClickEvent, DismissEvent, Entity, EventEmitter,
+    FocusHandle, Focusable, MouseDownEvent, Render,
 };
-use ui::{TintColor, Vector, VectorName, prelude::*};
+use ui::{prelude::*, TintColor, Vector, VectorName};
 use workspace::{ModalView, Workspace};
 
 use crate::agent_panel::{AgentPanel, AgentType};
@@ -190,7 +190,7 @@ impl Render for ClaudeCodeOnboardingModal {
                     .size(LabelSize::Small)
                     .color(Color::Muted),
             )
-            .child(Headline::new("Claude Code: Natively in Zed").size(HeadlineSize::Large));
+            .child(Headline::new("Claude Code: Natively in Cherry").size(HeadlineSize::Large));
 
         let copy = "Powered by the Agent Client Protocol, you can now run Claude Code as\na first-class citizen in Zed's agent panel.";
 

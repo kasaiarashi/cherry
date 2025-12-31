@@ -4,11 +4,8 @@
 
 #include "CoreMinimal.h"
 
-#if WITH_LIVE_CODING
-#include "ILiveCodingModule.h"
-#endif
-
 class FCherryLinkServer;
+class FJsonObject;
 
 /**
  * Service for build operations and Live Coding integration.
@@ -41,13 +38,6 @@ private:
 
 private:
 	TWeakPtr<FCherryLinkServer> Server;
-
-#if WITH_LIVE_CODING
-	FDelegateHandle OnPatchCompleteHandle;
-	FDelegateHandle OnCompilationStartedHandle;
-	FDelegateHandle OnCompilationFinishedHandle;
-#endif
-
 	FDelegateHandle OnMessageHandle;
 	bool bIsCompiling = false;
 };

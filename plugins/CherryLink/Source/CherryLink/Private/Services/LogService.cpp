@@ -5,6 +5,7 @@
 #include "CherryLinkModule.h"
 
 #include "Misc/DateTime.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "Dom/JsonObject.h"
 
 FLogService::FLogService(TSharedPtr<FCherryLinkServer> InServer)

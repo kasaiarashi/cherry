@@ -25,7 +25,7 @@ struct FBlueprintInfo
 /**
  * Service for Blueprint introspection and navigation.
  */
-class CHERRYLINK_API FBlueprintService
+class CHERRYLINK_API FBlueprintService : public TSharedFromThis<FBlueprintService>
 {
 public:
 	FBlueprintService(TSharedPtr<FCherryLinkServer> InServer);
@@ -46,7 +46,7 @@ public:
 	TArray<FString> FindBlueprintReferences(const FString& ClassName);
 
 private:
-	void OnBlueprintCompiled(UBlueprint* Blueprint);
+	void OnBlueprintCompiled();
 	void SubscribeToBlueprintEvents();
 	void UnsubscribeBlueprintEvents();
 

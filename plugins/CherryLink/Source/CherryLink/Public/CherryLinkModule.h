@@ -10,6 +10,7 @@ class FBlueprintService;
 class FLogService;
 class FPlayService;
 class FBuildService;
+class FExtender;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogCherryLink, Log, All);
 

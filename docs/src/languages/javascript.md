@@ -1,6 +1,6 @@
 # JavaScript
 
-JavaScript support is available natively in Zed.
+JavaScript support is available natively in Cherry.
 
 - Tree-sitter: [tree-sitter/tree-sitter-javascript](https://github.com/tree-sitter/tree-sitter-javascript)
 - Language Server: [yioneko/vtsls](https://github.com/yioneko/vtsls)

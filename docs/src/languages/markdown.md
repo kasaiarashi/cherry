@@ -1,6 +1,6 @@
 # Markdown
 
-Markdown support is available natively in Zed.
+Markdown support is available natively in Cherry.
 
 - Tree-sitter: [tree-sitter-markdown](https://github.com/tree-sitter-grammars/tree-sitter-markdown)
 - Language Server: N/A

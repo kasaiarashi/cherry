@@ -1,6 +1,6 @@
 # Go
 
-Go support is available natively in Zed.
+Go support is available natively in Cherry.
 
 - Tree-sitter: [tree-sitter/tree-sitter-go](https://github.com/tree-sitter/tree-sitter-go)
 - Language Server: [golang/tools/tree/master/gopls](https://github.com/golang/tools/tree/master/gopls)

@@ -1,6 +1,6 @@
 # C++
 
-C++ support is available natively in Zed.
+C++ support is available natively in Cherry.
 
 - Tree-sitter: [tree-sitter/tree-sitter-cpp](https://github.com/tree-sitter/tree-sitter-cpp)
 - Language Server: [clangd/clangd](https://github.com/clangd/clangd)

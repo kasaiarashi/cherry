@@ -5,6 +5,9 @@
 
 #include "Async/Async.h"
 #include "Misc/DateTime.h"
+#include "Misc/App.h"
+#include "Misc/Paths.h"
+#include "Misc/EngineVersion.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 #include "Dom/JsonObject.h"
@@ -55,8 +58,15 @@ bool FCherryLinkServer::Start(int32 Port)
 
 void FCherryLinkServer::Stop()
 {
-	bShouldStop = true;
+	if (!bIsRunning)
+	{
+		return;
+	}
 
+	bShouldStop = true;
+	bIsRunning = false;
+
+	// Close sockets first to unblock any blocking operations
 	CloseClientConnection();
 
 	if (ListenSocket)
@@ -66,14 +76,13 @@ void FCherryLinkServer::Stop()
 		ListenSocket = nullptr;
 	}
 
+	// Wait for and clean up thread
 	if (Thread)
 	{
 		Thread->WaitForCompletion();
 		delete Thread;
 		Thread = nullptr;
 	}
-
-	bIsRunning = false;
 }
 
 bool FCherryLinkServer::CreateListenSocket(int32 Port)
@@ -214,16 +223,11 @@ void FCherryLinkServer::HandleClientData()
 		return;
 	}
 
-	// Check for pending data
-	uint32 PendingDataSize = 0;
-	if (!ClientSocket->HasPendingData(PendingDataSize) || PendingDataSize == 0)
-	{
-		return;
-	}
-
+	// Try to receive message (temporarily ignoring HasPendingData check for debugging)
 	FString Message;
 	if (ReceiveMessage(ClientSocket, Message))
 	{
+		UE_LOG(LogCherryLink, Log, TEXT("Received message from client: %s"), *Message.Left(200));
 		ProcessMessage(Message);
 	}
 }
@@ -239,13 +243,15 @@ bool FCherryLinkServer::ReceiveMessage(FSocket* Socket, FString& OutMessage)
 	uint8 LengthBuffer[4];
 	int32 BytesRead = 0;
 
-	if (!Socket->Recv(LengthBuffer, 4, BytesRead, ESocketReceiveFlags::WaitAll))
+	// Use None instead of WaitAll for non-blocking sockets
+	if (!Socket->Recv(LengthBuffer, 4, BytesRead, ESocketReceiveFlags::None))
 	{
 		return false;
 	}
 
 	if (BytesRead != 4)
 	{
+		// Not enough data yet, try again later
 		return false;
 	}
 
@@ -268,13 +274,15 @@ bool FCherryLinkServer::ReceiveMessage(FSocket* Socket, FString& OutMessage)
 	while (TotalRead < static_cast<int32>(MessageLength))
 	{
 		int32 Read = 0;
-		if (!Socket->Recv(MessageBuffer.GetData() + TotalRead, MessageLength - TotalRead, Read, ESocketReceiveFlags::WaitAll))
+		// Use None instead of WaitAll for non-blocking sockets
+		if (!Socket->Recv(MessageBuffer.GetData() + TotalRead, MessageLength - TotalRead, Read, ESocketReceiveFlags::None))
 		{
 			return false;
 		}
 
 		if (Read <= 0)
 		{
+			// No more data available right now, will try again on next iteration
 			return false;
 		}
 
@@ -434,9 +442,10 @@ void FCherryLinkServer::ProcessMessage(const FString& JsonMessage)
 		else
 		{
 			// This is a notification - fire event on game thread
-			AsyncTask(ENamedThreads::GameThread, [this, JsonMessage]()
+			FString MessageCopy = JsonMessage;
+			AsyncTask(ENamedThreads::GameThread, [this, MessageCopy]()
 			{
-				OnMessageReceived.Broadcast(JsonMessage);
+				OnMessageReceived.Broadcast(MessageCopy);
 			});
 		}
 	}
@@ -444,7 +453,7 @@ void FCherryLinkServer::ProcessMessage(const FString& JsonMessage)
 
 void FCherryLinkServer::HandleRequest(const FString& Id, const FString& Method, const TSharedPtr<FJsonObject>& Params)
 {
-	UE_LOG(LogCherryLink, Verbose, TEXT("Received request: %s (id: %s)"), *Method, *Id);
+	UE_LOG(LogCherryLink, Log, TEXT("Received request: %s (id: %s)"), *Method, *Id);
 
 	// Handle connection/initialize handshake
 	if (Method == TEXT("connection/initialize"))
@@ -468,22 +477,23 @@ void FCherryLinkServer::HandleRequest(const FString& Id, const FString& Method, 
 	}
 
 	// Forward request to services via game thread
-	AsyncTask(ENamedThreads::GameThread, [this, Id, Method, Params]()
+	// Build JSON string first
+	TSharedPtr<FJsonObject> Request = MakeShared<FJsonObject>();
+	Request->SetStringField(TEXT("jsonrpc"), TEXT("2.0"));
+	Request->SetStringField(TEXT("id"), Id);
+	Request->SetStringField(TEXT("method"), Method);
+	if (Params.IsValid())
 	{
-		// Build JSON string and broadcast
-		TSharedPtr<FJsonObject> Request = MakeShared<FJsonObject>();
-		Request->SetStringField(TEXT("jsonrpc"), TEXT("2.0"));
-		Request->SetStringField(TEXT("id"), Id);
-		Request->SetStringField(TEXT("method"), Method);
-		if (Params.IsValid())
-		{
-			Request->SetObjectField(TEXT("params"), Params);
-		}
+		Request->SetObjectField(TEXT("params"), Params);
+	}
 
-		FString JsonString;
-		TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&JsonString);
-		FJsonSerializer::Serialize(Request.ToSharedRef(), Writer);
+	FString JsonString;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&JsonString);
+	FJsonSerializer::Serialize(Request.ToSharedRef(), Writer);
 
+	// Now broadcast on game thread
+	AsyncTask(ENamedThreads::GameThread, [this, JsonString]()
+	{
 		OnMessageReceived.Broadcast(JsonString);
 	});
 }
