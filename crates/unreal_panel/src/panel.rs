@@ -2,11 +2,12 @@ use crate::ToggleFocus;
 use anyhow::Result;
 use cherry_link::{CherryLinkConnection, CherryLinkEvent, LogMessage};
 use collections::VecDeque;
-use editor::{Editor, EditorMode, MultiBuffer, SizingBehavior};
+use editor::{Editor, EditorMode, MultiBuffer, MultiBufferOffset, SizingBehavior};
 use gpui::{
     Action, App, AsyncWindowContext, ClipboardItem, Context, Entity, EventEmitter, FocusHandle,
-    Focusable, InteractiveElement, IntoElement, ParentElement, Pixels, Render, SharedString,
-    Styled, Subscription, UniformListScrollHandle, WeakEntity, Window, div, prelude::*, px,
+    Focusable, HighlightStyle, Hsla, InteractiveElement, IntoElement, ParentElement, Pixels,
+    Render, SharedString, Styled, Subscription, UniformListScrollHandle, WeakEntity, Window, div,
+    prelude::*, px, rgb,
 };
 use language::Buffer;
 use ui::{Label, h_flex, prelude::*, v_flex};
@@ -17,6 +18,12 @@ use workspace::{
 
 const UNREAL_PANEL_KEY: &str = "UnrealPanel";
 const MAX_LOG_ENTRIES: usize = 10000;
+
+// Marker types for log highlighting by verbosity
+struct ErrorLogHighlight;
+struct WarningLogHighlight;
+struct DisplayLogHighlight;
+struct NormalLogHighlight;
 
 pub struct UnrealPanel {
     workspace: WeakEntity<Workspace>,
@@ -37,6 +44,8 @@ struct LogEntry {
     category: SharedString,
     verbosity: LogVerbosity,
     message: SharedString,
+    start_offset: usize,
+    end_offset: usize,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -63,6 +72,15 @@ impl LogVerbosity {
             Self::Warning => ui::Color::Warning,
             Self::Error => ui::Color::Error,
             Self::Display => ui::Color::Accent,
+        }
+    }
+
+    fn text_color(&self) -> Hsla {
+        match self {
+            Self::Log => rgb(0xFFFFFF).into(),        // White
+            Self::Warning => rgb(0xFFD700).into(),    // Gold/Yellow
+            Self::Error => rgb(0xFF4444).into(),      // Red
+            Self::Display => rgb(0xFFFFFF).into(),    // White
         }
     }
 
@@ -189,10 +207,38 @@ impl UnrealPanel {
         );
 
         let verbosity = LogVerbosity::from_str(&log.verbosity);
+
+        // Append to buffer with log type and consistent spacing (no brackets)
+        let log_type = match verbosity {
+            LogVerbosity::Error => "Error  ",     // 7 chars
+            LogVerbosity::Warning => "Warning",   // 7 chars
+            LogVerbosity::Display => "Display",   // 7 chars
+            LogVerbosity::Log => "Log    ",       // 7 chars
+        };
+
+        // Format with fixed-width category (truncate or pad to 25 chars)
+        let category = if log.category.len() > 25 {
+            format!("{}...", &log.category[..22])
+        } else {
+            format!("{:25}", log.category)
+        };
+
+        let log_line = format!("{}  {}  {}\n", log_type, category, log.message);
+
+        // Get the current buffer length before adding
+        let (start_offset, end_offset) = self.log_buffer.update(cx, |buffer, cx| {
+            let start = buffer.len();
+            buffer.edit([(start..start, log_line.clone())], None, cx);
+            let end = buffer.len() - 1; // Don't include the newline in highlight
+            (start, end)
+        });
+
         let entry = LogEntry {
             category: log.category.clone().into(),
             verbosity,
             message: log.message.clone().into(),
+            start_offset,
+            end_offset,
         };
 
         if self.logs.len() >= MAX_LOG_ENTRIES {
@@ -200,28 +246,108 @@ impl UnrealPanel {
         }
         self.logs.push_back(entry);
 
-        // Append to buffer with log type
-        let log_type = match verbosity {
-            LogVerbosity::Error => "Error",
-            LogVerbosity::Warning => "Warning",
-            LogVerbosity::Display => "Display",
-            LogVerbosity::Log => "Log",
-        };
-        let log_line = format!("[{}] [{}] {}\n", log_type, log.category, log.message);
-        self.log_buffer.update(cx, |buffer, cx| {
-            buffer.edit([(buffer.len()..buffer.len(), log_line)], None, cx);
-        });
+        // Re-apply all highlights if editor exists
+        if let Some(editor) = self.log_editor.clone() {
+            self.update_highlights(&editor, cx);
+        }
 
         log::info!(
             "UnrealPanel::add_log - logs count after push: {}",
             self.logs.len()
         );
 
-        // Auto-scroll to bottom when enabled
-        // Note: Auto-scrolling will be handled in the render method or through editor commands with window access
-
         cx.notify();
         log::info!("UnrealPanel::add_log - called cx.notify()");
+    }
+
+    fn update_highlights(&mut self, editor: &Entity<Editor>, cx: &mut Context<Self>) {
+        editor.update(cx, |editor, cx| {
+            let buffer = editor.buffer().read(cx);
+            let snapshot = buffer.snapshot(cx);
+
+            // Group logs by verbosity
+            let mut error_ranges = Vec::new();
+            let mut warning_ranges = Vec::new();
+            let mut display_ranges = Vec::new();
+            let mut log_ranges = Vec::new();
+
+            for entry in &self.logs {
+                let start_anchor = snapshot.anchor_before(MultiBufferOffset(entry.start_offset));
+                let end_anchor = snapshot.anchor_after(MultiBufferOffset(entry.end_offset));
+
+                match entry.verbosity {
+                    LogVerbosity::Error => error_ranges.push(start_anchor..end_anchor),
+                    LogVerbosity::Warning => warning_ranges.push(start_anchor..end_anchor),
+                    LogVerbosity::Display => display_ranges.push(start_anchor..end_anchor),
+                    LogVerbosity::Log => log_ranges.push(start_anchor..end_anchor),
+                }
+            }
+
+            // Apply highlights for each verbosity type
+            if !error_ranges.is_empty() {
+                editor.highlight_text::<ErrorLogHighlight>(
+                    error_ranges,
+                    HighlightStyle {
+                        color: Some(rgb(0xFF4444).into()),
+                        background_color: None,
+                        font_weight: None,
+                        font_style: None,
+                        underline: None,
+                        strikethrough: None,
+                        fade_out: None,
+                    },
+                    cx,
+                );
+            }
+
+            if !warning_ranges.is_empty() {
+                editor.highlight_text::<WarningLogHighlight>(
+                    warning_ranges,
+                    HighlightStyle {
+                        color: Some(rgb(0xFFD700).into()),
+                        background_color: None,
+                        font_weight: None,
+                        font_style: None,
+                        underline: None,
+                        strikethrough: None,
+                        fade_out: None,
+                    },
+                    cx,
+                );
+            }
+
+            if !display_ranges.is_empty() {
+                editor.highlight_text::<DisplayLogHighlight>(
+                    display_ranges,
+                    HighlightStyle {
+                        color: Some(rgb(0xFFFFFF).into()),
+                        background_color: None,
+                        font_weight: None,
+                        font_style: None,
+                        underline: None,
+                        strikethrough: None,
+                        fade_out: None,
+                    },
+                    cx,
+                );
+            }
+
+            if !log_ranges.is_empty() {
+                editor.highlight_text::<NormalLogHighlight>(
+                    log_ranges,
+                    HighlightStyle {
+                        color: Some(rgb(0xFFFFFF).into()),
+                        background_color: None,
+                        font_weight: None,
+                        font_style: None,
+                        underline: None,
+                        strikethrough: None,
+                        fade_out: None,
+                    },
+                    cx,
+                );
+            }
+        });
     }
 
     pub fn clear_logs(&mut self, cx: &mut Context<Self>) {
@@ -230,6 +356,17 @@ impl UnrealPanel {
             let len = buffer.len();
             buffer.edit([(0..len, "")], None, cx);
         });
+
+        // Clear highlights from editor
+        if let Some(editor) = &self.log_editor {
+            editor.update(cx, |editor, cx| {
+                editor.highlight_text::<ErrorLogHighlight>(vec![], HighlightStyle::default(), cx);
+                editor.highlight_text::<WarningLogHighlight>(vec![], HighlightStyle::default(), cx);
+                editor.highlight_text::<DisplayLogHighlight>(vec![], HighlightStyle::default(), cx);
+                editor.highlight_text::<NormalLogHighlight>(vec![], HighlightStyle::default(), cx);
+            });
+        }
+
         cx.notify();
     }
 
