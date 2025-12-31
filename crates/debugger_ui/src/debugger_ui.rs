@@ -14,8 +14,8 @@ use tasks_ui::{Spawn, TaskOverrides};
 use ui::{FluentBuilder, InteractiveElement};
 use util::maybe;
 use workspace::{ItemHandle, ShutdownDebugAdapters, Workspace};
-use zed_actions::ToggleFocus;
-use zed_actions::debugger::OpenOnboardingModal;
+use cherry_actions::ToggleFocus;
+use cherry_actions::debugger::OpenOnboardingModal;
 
 pub mod attach_modal;
 pub mod debugger_panel;

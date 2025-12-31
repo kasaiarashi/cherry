@@ -52,7 +52,7 @@ use text::{OffsetRangeExt, ToPoint as _};
 use ui::prelude::*;
 use util::{RangeExt, ResultExt, maybe};
 use workspace::{ItemHandle, Toast, Workspace, dock::Panel, notifications::NotificationId};
-use zed_actions::agent::OpenSettings;
+use cherry_actions::agent::OpenSettings;
 
 pub fn init(fs: Arc<dyn Fs>, prompt_builder: Arc<PromptBuilder>, cx: &mut App) {
     cx.set_global(InlineAssistant::new(fs, prompt_builder));
@@ -235,7 +235,7 @@ impl InlineAssistant {
 
     pub fn inline_assist(
         workspace: &mut Workspace,
-        action: &zed_actions::assistant::InlineAssist,
+        action: &cherry_actions::assistant::InlineAssist,
         window: &mut Window,
         cx: &mut Context<Workspace>,
     ) {

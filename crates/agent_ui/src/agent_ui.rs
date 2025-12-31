@@ -49,7 +49,7 @@ pub use crate::agent_panel::{AgentPanel, ConcreteAssistantPanelDelegate};
 pub use crate::inline_assistant::InlineAssistant;
 pub use agent_diff::{AgentDiffPane, AgentDiffToolbar};
 pub use text_thread_editor::{AgentPanelDelegate, TextThreadEditor};
-use zed_actions;
+use cherry_actions;
 
 actions!(
     agent,
@@ -288,7 +288,7 @@ fn update_command_palette_filter(cx: &mut App) {
             filter.hide_namespace("edit_prediction");
 
             filter.hide_action_types(&edit_prediction_actions);
-            filter.hide_action_types(&[TypeId::of::<zed_actions::OpenZedPredictOnboarding>()]);
+            filter.hide_action_types(&[TypeId::of::<cherry_actions::OpenCherryPredictOnboarding>()]);
         } else {
             if agent_enabled {
                 filter.show_namespace("agent");
@@ -330,9 +330,9 @@ fn update_command_palette_filter(cx: &mut App) {
             }
 
             filter.show_namespace("zed_predict_onboarding");
-            filter.show_action_types(&[TypeId::of::<zed_actions::OpenZedPredictOnboarding>()]);
+            filter.show_action_types(&[TypeId::of::<cherry_actions::OpenCherryPredictOnboarding>()]);
             if !agent_v2_enabled {
-                filter.hide_action_types(&[TypeId::of::<zed_actions::agent::ToggleAgentPane>()]);
+                filter.hide_action_types(&[TypeId::of::<cherry_actions::agent::ToggleAgentPane>()]);
             }
         }
     });

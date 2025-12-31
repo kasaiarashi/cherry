@@ -65,7 +65,7 @@ theme.workspace = true
 ui.workspace = true
 util.workspace = true
 uuid.workspace = true
-zed_actions.workspace = true
+cherry_actions.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows.workspace = true

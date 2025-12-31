@@ -49,7 +49,7 @@ use workspace::{
 
 use serde::Deserialize;
 use settings::{Settings, SettingsStore, TerminalBlink, WorkingDirectory};
-use zed_actions::assistant::InlineAssist;
+use cherry_actions::assistant::InlineAssist;
 
 use std::{
     cmp,
@@ -849,8 +849,8 @@ impl TerminalView {
     }
 }
 
-fn terminal_rerun_override(task: &TaskId) -> zed_actions::Rerun {
-    zed_actions::Rerun {
+fn terminal_rerun_override(task: &TaskId) -> cherry_actions::Rerun {
+    cherry_actions::Rerun {
         task_id: Some(task.0.clone()),
         allow_concurrent_runs: Some(true),
         use_new_terminal: Some(false),

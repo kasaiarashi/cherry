@@ -43,7 +43,7 @@ use workspace::{
     Item, Pane, Workspace,
     dock::{DockPosition, Panel, PanelEvent},
 };
-use zed_actions::ToggleFocus;
+use cherry_actions::ToggleFocus;
 
 pub struct DebuggerHistoryFeatureFlag;
 
@@ -639,7 +639,7 @@ impl DebugPanel {
             IconButton::new("debug-edit-debug-json", IconName::Code)
                 .icon_size(IconSize::Small)
                 .on_click(|_, window, cx| {
-                    window.dispatch_action(zed_actions::OpenProjectDebugTasks.boxed_clone(), cx);
+                    window.dispatch_action(cherry_actions::OpenProjectDebugTasks.boxed_clone(), cx);
                 })
                 .tooltip(Tooltip::text("Edit debug.json"))
         };
@@ -1837,7 +1837,7 @@ impl Render for DebugPanel {
                                 .icon_position(IconPosition::Start)
                                 .on_click(|_, window, cx| {
                                     window.dispatch_action(
-                                        zed_actions::OpenProjectDebugTasks.boxed_clone(),
+                                        cherry_actions::OpenProjectDebugTasks.boxed_clone(),
                                         cx,
                                     );
                                 }),
@@ -1861,9 +1861,9 @@ impl Render for DebugPanel {
                             .icon_position(IconPosition::Start)
                             .on_click(|_, window, cx| {
                                 window.dispatch_action(
-                                    zed_actions::Extensions {
+                                    cherry_actions::Extensions {
                                         category_filter: Some(
-                                            zed_actions::ExtensionCategoryFilter::DebugAdapters,
+                                            cherry_actions::ExtensionCategoryFilter::DebugAdapters,
                                         ),
                                         id: None,
                                     }

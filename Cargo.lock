@@ -339,6 +339,7 @@ dependencies = [
  "async-fs",
  "audio",
  "buffer_diff",
+ "cherry_actions",
  "chrono",
  "client",
  "clock",
@@ -415,7 +416,6 @@ dependencies = [
  "uuid",
  "watch",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -488,6 +488,7 @@ dependencies = [
 name = "ai_onboarding"
 version = "0.1.0"
 dependencies = [
+ "cherry_actions",
  "client",
  "cloud_llm_client",
  "component",
@@ -497,7 +498,6 @@ dependencies = [
  "smallvec",
  "telemetry",
  "ui",
- "zed_actions",
 ]
 
 [[package]]
@@ -2335,6 +2335,7 @@ dependencies = [
 name = "breadcrumbs"
 version = "0.1.0"
 dependencies = [
+ "cherry_actions",
  "editor",
  "gpui",
  "itertools 0.14.0",
@@ -2342,7 +2343,6 @@ dependencies = [
  "theme",
  "ui",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -2928,6 +2928,7 @@ dependencies = [
  "breadcrumbs",
  "call",
  "channel",
+ "cherry_actions",
  "cherry_link",
  "chrono",
  "clap",
@@ -3061,11 +3062,20 @@ dependencies = [
  "winresource",
  "workspace",
  "zed-reqwest",
- "zed_actions",
  "zed_env_vars",
  "zlog",
  "zlog_settings",
  "ztracing",
+]
+
+[[package]]
+name = "cherry_actions"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "schemars",
+ "serde",
+ "uuid",
 ]
 
 [[package]]
@@ -3652,6 +3662,7 @@ name = "command_palette"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_actions",
  "client",
  "collections",
  "command_palette_hooks",
@@ -3677,7 +3688,6 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -4856,6 +4866,7 @@ dependencies = [
  "alacritty_terminal",
  "anyhow",
  "bitflags 2.9.4",
+ "cherry_actions",
  "client",
  "collections",
  "command_palette_hooks",
@@ -4903,7 +4914,6 @@ dependencies = [
  "unindent",
  "util",
  "workspace",
- "zed_actions",
  "zlog",
 ]
 
@@ -5391,6 +5401,7 @@ dependencies = [
  "arrayvec",
  "brotli",
  "buffer_diff",
+ "cherry_actions",
  "client",
  "clock",
  "cloud_api_types",
@@ -5436,7 +5447,6 @@ dependencies = [
  "uuid",
  "workspace",
  "worktree",
- "zed_actions",
  "zeta_prompt",
  "zlog",
 ]
@@ -5534,6 +5544,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "buffer_diff",
+ "cherry_actions",
  "client",
  "clock",
  "cloud_llm_client",
@@ -5571,7 +5582,6 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
  "zeta_prompt",
  "zlog",
 ]
@@ -5584,6 +5594,7 @@ dependencies = [
  "anyhow",
  "assets",
  "buffer_diff",
+ "cherry_actions",
  "client",
  "clock",
  "collections",
@@ -5654,7 +5665,6 @@ dependencies = [
  "uuid",
  "vim_mode_setting",
  "workspace",
- "zed_actions",
  "zlog",
  "ztracing",
 ]
@@ -6183,6 +6193,7 @@ name = "extensions_ui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_actions",
  "client",
  "collections",
  "db",
@@ -6209,7 +6220,6 @@ dependencies = [
  "util",
  "vim_mode_setting",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -6303,13 +6313,13 @@ dependencies = [
 name = "feedback"
 version = "0.1.0"
 dependencies = [
+ "cherry_actions",
  "editor",
  "gpui",
  "system_specs",
  "urlencoding",
  "util",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -7315,6 +7325,7 @@ dependencies = [
  "askpass",
  "buffer_diff",
  "call",
+ "cherry_actions",
  "cloud_llm_client",
  "collections",
  "command_palette_hooks",
@@ -7362,7 +7373,6 @@ dependencies = [
  "watch",
  "windows 0.61.3",
  "workspace",
- "zed_actions",
  "zeroize",
  "zlog",
  "ztracing",
@@ -8511,6 +8521,7 @@ name = "inspector_ui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_actions",
  "command_palette_hooks",
  "editor",
  "fuzzy",
@@ -8525,7 +8536,6 @@ dependencies = [
  "util",
  "util_macros",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -8926,6 +8936,7 @@ name = "keymap_editor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_actions",
  "collections",
  "command_palette",
  "component",
@@ -8955,7 +8966,6 @@ dependencies = [
  "ui_input",
  "util",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -9216,6 +9226,7 @@ name = "language_tools"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_actions",
  "client",
  "collections",
  "command_palette_hooks",
@@ -9237,7 +9248,6 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
  "zlog",
 ]
 
@@ -10244,12 +10254,12 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 name = "miniprofiler_ui"
 version = "0.1.0"
 dependencies = [
+ "cherry_actions",
  "gpui",
  "serde_json",
  "smol",
  "util",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -10626,6 +10636,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "channel",
+ "cherry_actions",
  "client",
  "collections",
  "component",
@@ -10638,7 +10649,6 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -11106,6 +11116,7 @@ name = "onboarding"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_actions",
  "client",
  "component",
  "db",
@@ -11126,7 +11137,6 @@ dependencies = [
  "util",
  "vim_mode_setting",
  "workspace",
- "zed_actions",
  "zlog",
 ]
 
@@ -11354,6 +11364,7 @@ dependencies = [
 name = "outline"
 version = "0.1.0"
 dependencies = [
+ "cherry_actions",
  "editor",
  "fuzzy",
  "gpui",
@@ -11373,7 +11384,6 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -11381,6 +11391,7 @@ name = "outline_panel"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_actions",
  "collections",
  "db",
  "editor",
@@ -11405,7 +11416,6 @@ dependencies = [
  "util",
  "workspace",
  "worktree",
- "zed_actions",
 ]
 
 [[package]]
@@ -12772,6 +12782,7 @@ name = "project_panel"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_actions",
  "cherry_link",
  "client",
  "collections",
@@ -12802,7 +12813,6 @@ dependencies = [
  "util",
  "workspace",
  "worktree",
- "zed_actions",
 ]
 
 [[package]]
@@ -13452,6 +13462,7 @@ dependencies = [
  "anyhow",
  "askpass",
  "auto_update",
+ "cherry_actions",
  "dap",
  "db",
  "editor",
@@ -13485,7 +13496,6 @@ dependencies = [
  "windows-registry 0.6.1",
  "workspace",
  "worktree",
- "zed_actions",
 ]
 
 [[package]]
@@ -14091,6 +14101,7 @@ name = "rules_library"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_actions",
  "collections",
  "editor",
  "gpui",
@@ -14109,7 +14120,6 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -14736,6 +14746,7 @@ dependencies = [
  "any_vec",
  "anyhow",
  "bitflags 2.9.4",
+ "cherry_actions",
  "client",
  "collections",
  "editor",
@@ -14759,7 +14770,6 @@ dependencies = [
  "util",
  "util_macros",
  "workspace",
- "zed_actions",
  "ztracing",
 ]
 
@@ -15061,6 +15071,7 @@ dependencies = [
 name = "settings_profile_selector"
 version = "0.1.0"
 dependencies = [
+ "cherry_actions",
  "client",
  "editor",
  "fuzzy",
@@ -15074,7 +15085,6 @@ dependencies = [
  "theme",
  "ui",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -15084,6 +15094,7 @@ dependencies = [
  "anyhow",
  "assets",
  "bm25",
+ "cherry_actions",
  "client",
  "copilot",
  "edit_prediction",
@@ -15117,7 +15128,6 @@ dependencies = [
  "ui_input",
  "util",
  "workspace",
- "zed_actions",
  "zlog",
 ]
 
@@ -16573,6 +16583,7 @@ name = "task"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_actions",
  "collections",
  "futures 0.3.31",
  "gpui",
@@ -16588,7 +16599,6 @@ dependencies = [
  "sha2",
  "shellexpand 2.1.2",
  "util",
- "zed_actions",
 ]
 
 [[package]]
@@ -16596,6 +16606,7 @@ name = "tasks_ui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cherry_actions",
  "collections",
  "editor",
  "file_icons",
@@ -16614,7 +16625,6 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -16718,6 +16728,7 @@ dependencies = [
  "assistant_slash_command",
  "async-recursion",
  "breadcrumbs",
+ "cherry_actions",
  "client",
  "collections",
  "db",
@@ -16744,7 +16755,6 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -16829,6 +16839,7 @@ dependencies = [
 name = "theme_selector"
 version = "0.1.0"
 dependencies = [
+ "cherry_actions",
  "fs",
  "fuzzy",
  "gpui",
@@ -16841,7 +16852,6 @@ dependencies = [
  "ui",
  "util",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -17055,6 +17065,7 @@ dependencies = [
  "auto_update",
  "call",
  "channel",
+ "cherry_actions",
  "chrono",
  "client",
  "cloud_llm_client",
@@ -17079,7 +17090,6 @@ dependencies = [
  "util",
  "windows 0.61.3",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -18160,7 +18170,9 @@ dependencies = [
  "anyhow",
  "cherry_link",
  "collections",
+ "editor",
  "gpui",
+ "language",
  "log",
  "settings",
  "ui",
@@ -18424,6 +18436,7 @@ dependencies = [
  "assets",
  "async-compat",
  "async-trait",
+ "cherry_actions",
  "collections",
  "command_palette",
  "command_palette_hooks",
@@ -18467,7 +18480,6 @@ dependencies = [
  "util_macros",
  "vim_mode_setting",
  "workspace",
- "zed_actions",
 ]
 
 [[package]]
@@ -20429,6 +20441,7 @@ dependencies = [
  "anyhow",
  "async-recursion",
  "call",
+ "cherry_actions",
  "client",
  "clock",
  "collections",
@@ -20468,7 +20481,6 @@ dependencies = [
  "util",
  "uuid",
  "windows 0.61.3",
- "zed_actions",
  "zlog",
 ]
 
@@ -20963,16 +20975,6 @@ dependencies = [
  "x11rb",
  "xim-ctext",
  "xim-parser",
-]
-
-[[package]]
-name = "zed_actions"
-version = "0.1.0"
-dependencies = [
- "gpui",
- "schemars",
- "serde",
- "uuid",
 ]
 
 [[package]]

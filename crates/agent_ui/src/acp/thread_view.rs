@@ -53,8 +53,8 @@ use ui::{
 };
 use util::{ResultExt, size::format_file_size, time::duration_alt_display};
 use workspace::{CollaboratorId, NewTerminal, Workspace};
-use zed_actions::agent::{Chat, ToggleModelSelector};
-use zed_actions::assistant::OpenRulesLibrary;
+use cherry_actions::agent::{Chat, ToggleModelSelector};
+use cherry_actions::assistant::OpenRulesLibrary;
 
 use super::config_options::ConfigOptionsView;
 use super::entry_view_state::EntryViewState;
@@ -5607,7 +5607,7 @@ impl AcpThreadView {
                         move |_, _, _window, cx| {
                             #[cfg(windows)]
                             _window.dispatch_action(
-                                zed_actions::wsl_actions::OpenWsl::default().boxed_clone(),
+                                cherry_actions::wsl_actions::OpenWsl::default().boxed_clone(),
                                 cx,
                             );
                             cx.notify();

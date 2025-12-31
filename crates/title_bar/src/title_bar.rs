@@ -44,7 +44,7 @@ use ui::{
 };
 use util::{ResultExt, rel_path::RelPath};
 use workspace::{ToggleWorktreeSecurity, Workspace, notifications::NotifyResultExt};
-use zed_actions::{OpenRecent, OpenRemote};
+use cherry_actions::{OpenRecent, OpenRemote};
 
 pub use onboarding_banner::restore_banner;
 
@@ -307,7 +307,7 @@ impl TitleBar {
                 IconName::AiClaude,
                 "Claude Code",
                 Some("Introducing:".into()),
-                zed_actions::agent::OpenClaudeCodeOnboardingModal.boxed_clone(),
+                cherry_actions::agent::OpenClaudeCodeOnboardingModal.boxed_clone(),
                 cx,
             )
             // When updating this to a non-AI feature release, remove this line.
@@ -573,7 +573,7 @@ impl TitleBar {
                 this.tooltip(move |_window, cx| {
                     Tooltip::for_action(
                         "Recent Projects",
-                        &zed_actions::OpenRecent {
+                        &cherry_actions::OpenRecent {
                             create_new_window: false,
                         },
                         cx,
@@ -666,7 +666,7 @@ impl TitleBar {
                     this.tooltip(move |_window, cx| {
                         Tooltip::with_meta(
                             "Recent Branches",
-                            Some(&zed_actions::git::Branch),
+                            Some(&cherry_actions::git::Branch),
                             "Local branches only",
                             cx,
                         )
@@ -687,7 +687,7 @@ impl TitleBar {
                             position,
                         });
                         window.focus(&this.active_pane().focus_handle(cx), cx);
-                        window.dispatch_action(zed_actions::git::Branch.boxed_clone(), cx);
+                        window.dispatch_action(cherry_actions::git::Branch.boxed_clone(), cx);
                     });
                 }),
         )
@@ -864,19 +864,19 @@ impl TitleBar {
                         )
                         .separator()
                     })
-                    .action("Settings", zed_actions::OpenSettings.boxed_clone())
-                    .action("Keymap", Box::new(zed_actions::OpenKeymap))
+                    .action("Settings", cherry_actions::OpenSettings.boxed_clone())
+                    .action("Keymap", Box::new(cherry_actions::OpenKeymap))
                     .action(
                         "Themes…",
-                        zed_actions::theme_selector::Toggle::default().boxed_clone(),
+                        cherry_actions::theme_selector::Toggle::default().boxed_clone(),
                     )
                     .action(
                         "Icon Themes…",
-                        zed_actions::icon_theme_selector::Toggle::default().boxed_clone(),
+                        cherry_actions::icon_theme_selector::Toggle::default().boxed_clone(),
                     )
                     .action(
                         "Extensions",
-                        zed_actions::Extensions::default().boxed_clone(),
+                        cherry_actions::Extensions::default().boxed_clone(),
                     )
                     .when(is_signed_in, |this| {
                         this.separator()

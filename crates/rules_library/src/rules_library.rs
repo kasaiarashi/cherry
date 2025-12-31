@@ -24,7 +24,7 @@ use title_bar::platform_title_bar::PlatformTitleBar;
 use ui::{Divider, ListItem, ListItemSpacing, ListSubHeader, Tooltip, prelude::*};
 use util::{ResultExt, TryFutureExt};
 use workspace::{Workspace, WorkspaceSettings, client_side_decorations};
-use zed_actions::assistant::InlineAssist;
+use cherry_actions::assistant::InlineAssist;
 
 use prompt_store::*;
 

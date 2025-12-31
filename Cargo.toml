@@ -205,7 +205,7 @@ members = [
     "crates/worktree_benchmarks",
     "crates/x_ai",
     "crates/zed",
-    "crates/zed_actions",
+    "crates/cherry_actions",
     "crates/zed_env_vars",
     "crates/edit_prediction_cli",
     "crates/zeta_prompt",
@@ -434,7 +434,7 @@ workspace = { path = "crates/workspace" }
 worktree = { path = "crates/worktree" }
 x_ai = { path = "crates/x_ai" }
 zed = { path = "crates/zed" }
-zed_actions = { path = "crates/zed_actions" }
+cherry_actions = { path = "crates/cherry_actions" }
 zed_env_vars = { path = "crates/zed_env_vars" }
 edit_prediction = { path = "crates/edit_prediction" }
 zeta_prompt = { path = "crates/zeta_prompt" }
@@ -847,7 +847,7 @@ telemetry_events = { codegen-units = 1 }
 theme_selector = { codegen-units = 1 }
 time_format = { codegen-units = 1 }
 ui_input = { codegen-units = 1 }
-zed_actions = { codegen-units = 1 }
+cherry_actions = { codegen-units = 1 }
 
 [profile.release]
 debug = "limited"

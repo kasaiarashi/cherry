@@ -26,7 +26,7 @@ use project::git_store::Repository;
 use project_diff::ProjectDiff;
 use ui::prelude::*;
 use workspace::{ModalView, Workspace, notifications::DetachAndPromptErr};
-use zed_actions;
+use cherry_actions;
 
 use crate::{git_panel::GitPanel, text_diff_view::TextDiffView};
 
@@ -188,12 +188,12 @@ pub fn init(cx: &mut App) {
         });
         CommandPaletteFilter::update_global(cx, |filter, _cx| {
             filter.hide_action_types(&[
-                zed_actions::OpenGitIntegrationOnboarding.type_id(),
+                cherry_actions::OpenGitIntegrationOnboarding.type_id(),
                 // ResetOnboarding.type_id(),
             ]);
         });
         workspace.register_action(
-            move |workspace, _: &zed_actions::OpenGitIntegrationOnboarding, window, cx| {
+            move |workspace, _: &cherry_actions::OpenGitIntegrationOnboarding, window, cx| {
                 GitOnboardingModal::toggle(workspace, window, cx)
             },
         );

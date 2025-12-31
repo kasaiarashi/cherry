@@ -13,7 +13,7 @@ use settings::{
     DefaultAgentView as DefaultView, LanguageModelProviderSetting, LanguageModelSelection,
 };
 
-use zed_actions::agent::{OpenClaudeCodeOnboardingModal, ReauthenticateAgent};
+use cherry_actions::agent::{OpenClaudeCodeOnboardingModal, ReauthenticateAgent};
 
 use crate::ManageProfiles;
 use crate::ui::{AcpOnboardingModal, ClaudeCodeOnboardingModal};
@@ -65,7 +65,7 @@ use workspace::{
     CollaboratorId, DraggedSelection, DraggedTab, ToggleZoom, ToolbarItemView, Workspace,
     dock::{DockPosition, Panel, PanelEvent},
 };
-use zed_actions::{
+use cherry_actions::{
     DecreaseBufferFontSize, IncreaseBufferFontSize, ResetBufferFontSize,
     agent::{
         OpenAcpOnboardingModal, OpenOnboardingModal, OpenSettings, ResetAgentZoom, ResetOnboarding,
@@ -1901,9 +1901,9 @@ impl AgentPanel {
                             .header("MCP Servers")
                             .action(
                                 "View Server Extensions",
-                                Box::new(zed_actions::Extensions {
+                                Box::new(cherry_actions::Extensions {
                                     category_filter: Some(
-                                        zed_actions::ExtensionCategoryFilter::ContextServers,
+                                        cherry_actions::ExtensionCategoryFilter::ContextServers,
                                     ),
                                     id: None,
                                 }),
@@ -2279,9 +2279,9 @@ impl AgentPanel {
                                     .icon_color(Color::Muted)
                                     .handler({
                                         move |window, cx| {
-                                            window.dispatch_action(Box::new(zed_actions::Extensions {
+                                            window.dispatch_action(Box::new(cherry_actions::Extensions {
                                                 category_filter: Some(
-                                                    zed_actions::ExtensionCategoryFilter::AgentServers,
+                                                    cherry_actions::ExtensionCategoryFilter::AgentServers,
                                                 ),
                                                 id: None,
                                             }), cx)

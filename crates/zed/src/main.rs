@@ -422,7 +422,7 @@ fn main() {
         };
         trusted_worktrees::init(db_trusted_paths, None, None, cx);
         menu::init();
-        zed_actions::init();
+        cherry_actions::init();
 
         release_channel::init(app_version, cx);
         gpui_tokio::init(cx);
@@ -806,7 +806,7 @@ fn handle_open_request(request: OpenRequest, app_state: Arc<AppState>, cx: &mut 
                         workspace::get_any_active_workspace(app_state, cx.clone()).await?;
                     workspace.update(cx, |_, window, cx| {
                         window.dispatch_action(
-                            Box::new(zed_actions::Extensions {
+                            Box::new(cherry_actions::Extensions {
                                 category_filter: None,
                                 id: Some(extension_id),
                             }),
@@ -901,9 +901,9 @@ fn handle_open_request(request: OpenRequest, app_state: Arc<AppState>, cx: &mut 
                         workspace::get_any_active_workspace(app_state, cx.clone()).await?;
 
                     workspace.update(cx, |_, window, cx| match setting_path {
-                        None => window.dispatch_action(Box::new(zed_actions::OpenSettings), cx),
+                        None => window.dispatch_action(Box::new(cherry_actions::OpenSettings), cx),
                         Some(setting_path) => window.dispatch_action(
-                            Box::new(zed_actions::OpenSettingsAt { path: setting_path }),
+                            Box::new(cherry_actions::OpenSettingsAt { path: setting_path }),
                             cx,
                         ),
                     })

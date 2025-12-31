@@ -1,8 +1,8 @@
+use cherry_actions::feedback::{EmailCherry, FileBugReport, RequestFeature};
 use gpui::{App, ClipboardItem, PromptLevel, actions};
 use system_specs::{CopySystemSpecsIntoClipboard, SystemSpecs};
 use util::ResultExt;
 use workspace::Workspace;
-use zed_actions::feedback::{EmailZed, FileBugReport, RequestFeature};
 
 actions!(
     zed,
@@ -79,7 +79,7 @@ pub fn init(cx: &mut App) {
                 })
                 .detach();
             })
-            .register_action(move |_, _: &EmailZed, window, cx| {
+            .register_action(move |_, _: &EmailCherry, window, cx| {
                 let specs = SystemSpecs::new(window, cx);
                 cx.spawn_in(window, async move |_, cx| {
                     let specs = specs.await;

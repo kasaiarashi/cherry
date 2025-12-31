@@ -42,7 +42,7 @@ use workspace::{
 };
 
 pub use ui_components::*;
-use zed_actions::{ChangeKeybinding, OpenKeymap};
+use cherry_actions::{ChangeKeybinding, OpenKeymap};
 
 use crate::{
     persistence::KEYBINDING_EDITORS,
@@ -1775,12 +1775,12 @@ impl Render for KeymapEditor {
                                                             menu.header("View Default...")
                                                                 .action(
                                                                     "Zed Key Bindings",
-                                                                    zed_actions::OpenDefaultKeymap
+                                                                    cherry_actions::OpenDefaultKeymap
                                                                         .boxed_clone(),
                                                                 )
                                                                 .action(
                                                                     "Vim Bindings",
-                                                                    zed_actions::vim::OpenDefaultKeymap.boxed_clone(),
+                                                                    cherry_actions::vim::OpenDefaultKeymap.boxed_clone(),
                                                                 )
                                                         }))
                                                     })
@@ -1800,7 +1800,7 @@ impl Render for KeymapEditor {
                                                             move |_window, cx| {
                                                                 Tooltip::for_action_in(
                                                                     "View Default...",
-                                                                    &zed_actions::OpenKeymapFile,
+                                                                    &cherry_actions::OpenKeymapFile,
                                                                     &focus_handle,
                                                                     cx,
                                                                 )
@@ -1813,7 +1813,7 @@ impl Render for KeymapEditor {
                                                     .style(ButtonStyle::Outlined)
                                                     .on_click(|_, window, cx| {
                                                         window.dispatch_action(
-                                                            zed_actions::OpenKeymapFile.boxed_clone(),
+                                                            cherry_actions::OpenKeymapFile.boxed_clone(),
                                                             cx,
                                                         );
                                                     })

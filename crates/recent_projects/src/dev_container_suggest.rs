@@ -86,7 +86,7 @@ pub fn suggest_on_worktree_updated(
                 .primary_icon_color(Color::Success)
                 .primary_on_click({
                     move |window, cx| {
-                        window.dispatch_action(Box::new(zed_actions::OpenDevContainer), cx);
+                        window.dispatch_action(Box::new(cherry_actions::OpenDevContainer), cx);
                     }
                 })
                 .secondary_message("Don't Show Again")

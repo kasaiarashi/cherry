@@ -34,7 +34,7 @@ use theme::ThemeSettings;
 use ui::{ContextMenu, prelude::*};
 use util::{ResultExt, debug_panic};
 use workspace::{CollaboratorId, Workspace};
-use zed_actions::agent::{Chat, PasteRaw};
+use cherry_actions::agent::{Chat, PasteRaw};
 
 pub struct MessageEditor {
     mention_set: Entity<MentionSet>,

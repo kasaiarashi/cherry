@@ -1,6 +1,6 @@
 use gpui::{Action, ClickEvent, FocusHandle, prelude::*};
 use ui::{ElevationIndex, KeyBinding, ListItem, ListItemSpacing, Tooltip, prelude::*};
-use zed_actions::agent::ToggleModelSelector;
+use cherry_actions::agent::ToggleModelSelector;
 
 use crate::CycleFavoriteModels;
 

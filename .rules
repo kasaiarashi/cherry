@@ -183,4 +183,4 @@ Location: `crates/unreal_panel/`
 | Panel trait | `crates/workspace/src/dock.rs` |
 | Panel example | `crates/terminal_view/src/terminal_panel.rs` |
 | Title bar | `crates/title_bar/src/title_bar.rs` |
-| Actions pattern | `crates/zed_actions/src/lib.rs` |
+| Actions pattern | `crates/cherry_actions/src/lib.rs` |

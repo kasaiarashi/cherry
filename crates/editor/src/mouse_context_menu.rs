@@ -13,7 +13,7 @@ use settings::Settings;
 use std::ops::Range;
 use text::PointUtf16;
 use workspace::OpenInTerminal;
-use zed_actions::agent::AddSelectionToThread;
+use cherry_actions::agent::AddSelectionToThread;
 
 #[derive(Debug)]
 pub enum MenuPosition {

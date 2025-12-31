@@ -13,7 +13,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ui::{ButtonLike, Divider, DividerColor, KeyBinding, Vector, VectorName, prelude::*};
 use util::ResultExt;
-use zed_actions::{Extensions, OpenOnboarding, OpenSettings, agent, command_palette};
+use cherry_actions::{Extensions, OpenOnboarding, OpenSettings, agent, command_palette};
 
 #[derive(PartialEq, Clone, Debug, Deserialize, Serialize, JsonSchema, Action)]
 #[action(namespace = welcome)]
@@ -283,7 +283,7 @@ impl WelcomePage {
                     })
                     .detach();
                 } else {
-                    use zed_actions::OpenRecent;
+                    use cherry_actions::OpenRecent;
                     window.dispatch_action(OpenRecent::default().boxed_clone(), cx);
                 }
             }

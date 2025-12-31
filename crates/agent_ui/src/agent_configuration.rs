@@ -41,7 +41,7 @@ use ui::{
 };
 use util::ResultExt as _;
 use workspace::{Workspace, create_and_open_local_file};
-use zed_actions::{ExtensionCategoryFilter, OpenBrowser};
+use cherry_actions::{ExtensionCategoryFilter, OpenBrowser};
 
 pub(crate) use configure_context_server_modal::ConfigureContextServerModal;
 pub(crate) use configure_context_server_tools_modal::ConfigureContextServerToolsModal;
@@ -563,7 +563,7 @@ impl AgentConfiguration {
                         .entry("Install from Extensions", None, {
                             |window, cx| {
                                 window.dispatch_action(
-                                    zed_actions::Extensions {
+                                    cherry_actions::Extensions {
                                         category_filter: Some(
                                             ExtensionCategoryFilter::ContextServers,
                                         ),
@@ -1004,7 +1004,7 @@ impl AgentConfiguration {
                         menu.entry("Install from Extensions", None, {
                             |window, cx| {
                                 window.dispatch_action(
-                                    zed_actions::Extensions {
+                                    cherry_actions::Extensions {
                                         category_filter: Some(
                                             ExtensionCategoryFilter::AgentServers,
                                         ),

@@ -61,7 +61,7 @@ util.workspace = true
 uuid.workspace = true
 workspace.workspace = true
 worktree.workspace = true
-zed_actions.workspace = true
+cherry_actions.workspace = true
 zeta_prompt.workspace = true
 
 [dev-dependencies]

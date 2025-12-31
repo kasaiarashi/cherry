@@ -867,9 +867,9 @@ impl UnrealToolbar {
     fn render_connection_status(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let is_connected = self.is_connected(cx);
         let (icon, color, tooltip) = if is_connected {
-            (IconName::Check, Color::Success, "Connected to Unreal Engine")
+            (IconName::Check, Color::Success, "Connected to Unreal Engine (click to disconnect)")
         } else {
-            (IconName::XCircle, Color::Error, "Disconnected from Unreal Engine")
+            (IconName::XCircle, Color::Error, "Disconnected from Unreal Engine (click to reconnect)")
         };
 
         IconButton::new("connection-status", icon)
@@ -883,6 +883,8 @@ impl UnrealToolbar {
                         if is_connected {
                             conn.disconnect(cx);
                         } else {
+                            // Always disconnect first to reset state, then reconnect
+                            conn.disconnect(cx);
                             conn.connect(cx);
                         }
                     });

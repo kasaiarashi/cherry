@@ -35,7 +35,7 @@ use workspace::{
     item::{BreadcrumbText, ItemEvent, SaveOptions, TabContentParams},
     searchable::SearchableItemHandle,
 };
-use zed_actions::assistant::ToggleFocus;
+use cherry_actions::assistant::ToggleFocus;
 
 pub struct AgentDiffPane {
     multibuffer: Entity<MultiBuffer>,

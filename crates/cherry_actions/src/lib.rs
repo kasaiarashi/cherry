@@ -2,7 +2,7 @@ use gpui::{Action, actions};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-// If the zed binary doesn't use anything in this crate, it will be optimized away
+// If the cherry binary doesn't use anything in this crate, it will be optimicherry away
 // and the actions won't initialize. So we just provide an empty initialization function
 // to be called from main.
 //
@@ -19,11 +19,11 @@ pub struct OpenBrowser {
     pub url: String,
 }
 
-/// Opens a zed:// URL within the application.
+/// Opens a cherry:// URL within the application.
 #[derive(Clone, PartialEq, Deserialize, JsonSchema, Action)]
 #[action(namespace = cherry)]
 #[serde(deny_unknown_fields)]
-pub struct OpenZedUrl {
+pub struct OpenCherryUrl {
     pub url: String,
 }
 
@@ -38,21 +38,21 @@ actions!(
     cherry,
     [
         /// Opens the settings editor.
-        #[action(deprecated_aliases = ["zed_actions::OpenSettingsEditor"])]
+        #[action(deprecated_aliases = ["cherry_actions::OpenSettingsEditor"])]
         OpenSettings,
         /// Opens the settings JSON file.
-        #[action(deprecated_aliases = ["zed_actions::OpenSettings"])]
+        #[action(deprecated_aliases = ["cherry_actions::OpenSettings"])]
         OpenSettingsFile,
         /// Opens project-specific settings.
-        #[action(deprecated_aliases = ["zed_actions::OpenProjectSettings"])]
+        #[action(deprecated_aliases = ["cherry_actions::OpenProjectSettings"])]
         OpenProjectSettings,
         /// Opens the default keymap file.
         OpenDefaultKeymap,
         /// Opens the user keymap file.
-        #[action(deprecated_aliases = ["zed_actions::OpenKeymap"])]
+        #[action(deprecated_aliases = ["cherry_actions::OpenKeymap"])]
         OpenKeymapFile,
         /// Opens the keymap editor.
-        #[action(deprecated_aliases = ["zed_actions::OpenKeymapEditor"])]
+        #[action(deprecated_aliases = ["cherry_actions::OpenKeymapEditor"])]
         OpenKeymap,
         /// Opens account settings.
         OpenAccountSettings,
@@ -273,8 +273,8 @@ pub mod feedback {
     actions!(
         feedback,
         [
-            /// Opens email client to send feedback to Zed support.
-            EmailZed,
+            /// Opens email client to send feedback to Cherry support.
+            EmailCherry,
             /// Opens the bug report form.
             FileBugReport,
             /// Opens the feature request form.
@@ -526,10 +526,10 @@ pub mod outline {
 }
 
 actions!(
-    zed_predict_onboarding,
+    cherry_predict_onboarding,
     [
-        /// Opens the Zed Predict onboarding modal.
-        OpenZedPredictOnboarding
+        /// Opens the Cherry Predict onboarding modal.
+        OpenCherryPredictOnboarding
     ]
 );
 actions!(
