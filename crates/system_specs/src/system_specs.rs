@@ -9,7 +9,7 @@ use std::{env, fmt::Display};
 use sysinfo::{MemoryRefreshKind, RefreshKind, System};
 
 actions!(
-    zed,
+    cherry,
     [
         /// Copies system specifications to the clipboard for bug reports.
         CopySystemSpecsIntoClipboard,

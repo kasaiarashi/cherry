@@ -7660,11 +7660,11 @@ actions!(
     ]
 );
 actions!(
-    zed,
+    cherry,
     [
-        /// Opens the Zed log file.
+        /// Opens the Cherry log file.
         OpenLog,
-        /// Reveals the Zed log file in the system file manager.
+        /// Reveals the Cherry log file in the system file manager.
         RevealLogInFileManager
     ]
 );

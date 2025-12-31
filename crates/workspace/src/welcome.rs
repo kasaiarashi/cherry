@@ -23,9 +23,9 @@ pub struct OpenRecentProject {
 }
 
 actions!(
-    zed,
+    cherry,
     [
-        /// Show the Zed welcome screen
+        /// Show the Cherry welcome screen
         ShowWelcome
     ]
 );

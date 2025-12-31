@@ -5,21 +5,21 @@ use util::ResultExt;
 use workspace::Workspace;
 
 actions!(
-    zed,
+    cherry,
     [
-        /// Opens the Zed repository on GitHub.
-        OpenZedRepo,
+        /// Opens the Cherry repository on GitHub.
+        OpenCherryRepo,
     ]
 );
 
-const ZED_REPO_URL: &str = "https://github.com/zed-industries/zed";
+const CHERRY_REPO_URL: &str = "https://github.com/kasaiarashi/cherry";
 
-const REQUEST_FEATURE_URL: &str = "https://github.com/zed-industries/zed/discussions/new/choose";
+const REQUEST_FEATURE_URL: &str = "https://github.com/kasaiarashi/cherry/discussions/new/choose";
 
 fn file_bug_report_url(specs: &SystemSpecs) -> String {
     format!(
         concat!(
-            "https://github.com/zed-industries/zed/issues/new",
+            "https://github.com/kasaiarashi/cherry/issues/new",
             "?",
             "template=10_bug_report.yml",
             "&",
@@ -29,9 +29,9 @@ fn file_bug_report_url(specs: &SystemSpecs) -> String {
     )
 }
 
-fn email_zed_url(specs: &SystemSpecs) -> String {
+fn email_cherry_url(specs: &SystemSpecs) -> String {
     format!(
-        concat!("mailto:hi@zed.dev", "?", "body={}"),
+        concat!("mailto:hi@kriaa.in", "?", "body={}"),
         email_body(specs)
     )
 }
@@ -84,14 +84,14 @@ pub fn init(cx: &mut App) {
                 cx.spawn_in(window, async move |_, cx| {
                     let specs = specs.await;
                     cx.update(|_, cx| {
-                        cx.open_url(&email_zed_url(&specs));
+                        cx.open_url(&email_cherry_url(&specs));
                     })
                     .log_err();
                 })
                 .detach();
             })
-            .register_action(move |_, _: &OpenZedRepo, _, cx| {
-                cx.open_url(ZED_REPO_URL);
+            .register_action(move |_, _: &OpenCherryRepo, _, cx| {
+                cx.open_url(CHERRY_REPO_URL);
             });
     })
     .detach();

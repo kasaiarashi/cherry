@@ -34,7 +34,7 @@ use crate::{
     example::{Example, ExampleContext, FailedAssertion, JudgeAssertion},
 };
 
-pub const ZED_REPO_URL: &str = "https://github.com/zed-industries/zed.git";
+pub const CHERRY_REPO_URL: &str = "https://github.com/zed-industries/zed.git";
 
 #[derive(Clone)]
 pub struct ExampleInstance {
@@ -179,7 +179,7 @@ impl ExampleInstance {
             .await?;
         }
 
-        if meta.url == ZED_REPO_URL {
+        if meta.url == CHERRY_REPO_URL {
             std::fs::write(worktree_path.join(".rules"), std::fs::read(".rules")?)?;
         }
 
@@ -408,7 +408,7 @@ impl ExampleInstance {
     async fn repository_diff(repository_path: PathBuf, repository_url: &str) -> Result<String> {
         run_git(&repository_path, &["add", "."]).await?;
         let mut diff_args = vec!["diff", "--staged"];
-        if repository_url == ZED_REPO_URL {
+        if repository_url == CHERRY_REPO_URL {
             diff_args.push(":(exclude).rules");
         }
         run_git(&repository_path, &diff_args).await

@@ -1,8 +1,8 @@
+use cherry_actions::{ToggleFocus as ToggleDebugPanel, dev};
 use collab_ui::collab_panel;
 use gpui::{App, Menu, MenuItem, OsAction};
 use release_channel::ReleaseChannel;
 use terminal_view::terminal_panel;
-use cherry_actions::{ToggleFocus as ToggleDebugPanel, dev};
 
 pub fn app_menus(cx: &mut App) -> Vec<Menu> {
     use cherry_actions::Quit;
@@ -69,7 +69,10 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
                     items: vec![
                         MenuItem::action("Open Settings", cherry_actions::OpenSettings),
                         MenuItem::action("Open Settings File", super::OpenSettingsFile),
-                        MenuItem::action("Open Project Settings", cherry_actions::OpenProjectSettings),
+                        MenuItem::action(
+                            "Open Project Settings",
+                            cherry_actions::OpenProjectSettings,
+                        ),
                         MenuItem::action(
                             "Open Project Settings File",
                             super::OpenProjectSettingsFile,
@@ -121,7 +124,7 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
                 MenuItem::action("Open File...", workspace::OpenFiles),
                 MenuItem::action(
                     if cfg!(not(target_os = "macos")) {
-                        "Open Folder..."
+                        "Open Unreal Project..."
                     } else {
                         "Open…"
                     },
@@ -234,7 +237,10 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
                 MenuItem::action("Back", workspace::GoBack),
                 MenuItem::action("Forward", workspace::GoForward),
                 MenuItem::separator(),
-                MenuItem::action("Command Palette...", cherry_actions::command_palette::Toggle),
+                MenuItem::action(
+                    "Command Palette...",
+                    cherry_actions::command_palette::Toggle,
+                ),
                 MenuItem::separator(),
                 MenuItem::action("Go to File...", workspace::ToggleFileFinder::default()),
                 // MenuItem::action("Go to Symbol in Project", project_symbols::Toggle),
@@ -302,8 +308,14 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
                 MenuItem::action("View Dependency Licenses", cherry_actions::OpenLicenses),
                 MenuItem::action("Show Welcome", onboarding::ShowWelcome),
                 MenuItem::separator(),
-                MenuItem::action("File Bug Report...", cherry_actions::feedback::FileBugReport),
-                MenuItem::action("Request Feature...", cherry_actions::feedback::RequestFeature),
+                MenuItem::action(
+                    "File Bug Report...",
+                    cherry_actions::feedback::FileBugReport,
+                ),
+                MenuItem::action(
+                    "Request Feature...",
+                    cherry_actions::feedback::RequestFeature,
+                ),
                 MenuItem::action("Email Us...", cherry_actions::feedback::EmailCherry),
                 MenuItem::separator(),
                 MenuItem::action(
@@ -312,11 +324,11 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
                         url: "https://github.com/kasaiarashi/cherry".into(),
                     },
                 ),
-                MenuItem::action("Cherry Repository", feedback::OpenZedRepo),
+                MenuItem::action("Cherry Repository", feedback::OpenCherryRepo),
                 MenuItem::action(
                     "Cherry Twitter",
                     super::OpenBrowser {
-                        url: "https://twitter.com/kasaiarashi".into(),
+                        url: "https://x.com/kasaiarashi_og".into(),
                     },
                 ),
             ],
