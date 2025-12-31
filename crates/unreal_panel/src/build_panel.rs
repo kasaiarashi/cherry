@@ -1,10 +1,12 @@
 use anyhow::Result;
 use collections::VecDeque;
+use editor::{Editor, EditorMode, MultiBuffer, SizingBehavior};
 use gpui::{
     div, prelude::*, px, uniform_list, Action, App, AsyncWindowContext, Context, Entity,
     EventEmitter, FocusHandle, Focusable, InteractiveElement, IntoElement, ParentElement, Pixels,
     Render, ScrollStrategy, SharedString, Styled, UniformListScrollHandle, WeakEntity, Window,
 };
+use language::Buffer;
 use ui::{h_flex, prelude::*, v_flex, Icon, IconName, Label};
 use workspace::{
     Workspace,
@@ -26,6 +28,8 @@ pub struct BuildPanel {
     auto_scroll: bool,
     scroll_handle: UniformListScrollHandle,
     is_building: bool,
+    log_buffer: Entity<Buffer>,
+    log_editor: Option<Entity<Editor>>,
 }
 
 #[derive(Clone)]
@@ -86,6 +90,9 @@ impl BuildPanel {
     }
 
     pub fn new(workspace: WeakEntity<Workspace>, cx: &mut Context<Self>) -> Self {
+        // Create a buffer for build logs
+        let log_buffer = cx.new(|cx| Buffer::local("", cx));
+
         Self {
             workspace,
             logs: VecDeque::with_capacity(MAX_LOG_ENTRIES),
@@ -95,6 +102,8 @@ impl BuildPanel {
             auto_scroll: true,
             scroll_handle: UniformListScrollHandle::new(),
             is_building: false,
+            log_buffer,
+            log_editor: None,
         }
     }
 
@@ -102,7 +111,7 @@ impl BuildPanel {
         log::debug!("BuildPanel::add_line called with: {}", line);
         let entry = BuildLogEntry {
             entry_type: BuildLogType::from_line(&line),
-            line: line.into(),
+            line: line.clone().into(),
         };
 
         if self.logs.len() >= MAX_LOG_ENTRIES {
@@ -111,9 +120,13 @@ impl BuildPanel {
         self.logs.push_back(entry);
         log::debug!("BuildPanel now has {} log entries", self.logs.len());
 
-        if self.auto_scroll && !self.logs.is_empty() {
-            self.scroll_handle.scroll_to_item(self.logs.len() - 1, ScrollStrategy::Bottom);
-        }
+        // Append to buffer
+        let log_line = format!("{}\n", line);
+        self.log_buffer.update(cx, |buffer, cx| {
+            buffer.edit([(buffer.len()..buffer.len(), log_line)], None, cx);
+        });
+
+        // Auto-scroll is handled by the editor
 
         cx.notify();
     }
@@ -139,6 +152,10 @@ impl BuildPanel {
 
     pub fn clear_logs(&mut self, cx: &mut Context<Self>) {
         self.logs.clear();
+        self.log_buffer.update(cx, |buffer, cx| {
+            let len = buffer.len();
+            buffer.edit([(0..len, "")], None, cx);
+        });
         cx.notify();
     }
 
@@ -248,14 +265,30 @@ impl Panel for BuildPanel {
 
 impl Render for BuildPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let log_count = self.logs.len();
+        log::info!("BuildPanel::render called - log_count: {}", self.logs.len());
 
-        log::info!("BuildPanel::render called with {} logs", log_count);
-        if log_count > 0 {
-            log::info!("First log entry: {:?}", self.logs.front().map(|e| &e.line));
+        // Create editor on first render
+        if self.log_editor.is_none() {
+            let log_buffer = self.log_buffer.clone();
+            let editor = cx.new(|cx| {
+                let multibuffer = cx.new(|cx| MultiBuffer::singleton(log_buffer, cx));
+                let mut editor = Editor::new(
+                    EditorMode::Full {
+                        scale_ui_elements_with_buffer_font_size: false,
+                        show_active_line_background: false,
+                        sizing_behavior: SizingBehavior::Default,
+                    },
+                    multibuffer,
+                    None,
+                    window,
+                    cx,
+                );
+                editor.set_read_only(true);
+                editor
+            });
+            self.log_editor = Some(editor);
         }
 
-        log::info!("Creating v_flex container");
         v_flex()
             .id("build-panel")
             .key_context("BuildPanel")
@@ -266,52 +299,8 @@ impl Render for BuildPanel {
             .child(
                 div()
                     .flex_1()
-                    .overflow_hidden()
-                    .child({
-                        log::info!("Creating uniform_list with {} items", log_count);
-                        uniform_list(
-                            "build-log-list",
-                            log_count,
-                            cx.processor(|this: &mut BuildPanel, range, _window, _cx| {
-                                log::info!("uniform_list callback invoked for range {:?}", range);
-                                let mut items = Vec::new();
-                                
-                                for ix in range {
-                                    if let Some(entry) = this.logs.get(ix) {
-                                        log::trace!("Rendering log entry at index {}: {:?}", ix, &entry.line);
-                                        let color = entry.entry_type.color();
-                                        let icon = entry.entry_type.icon();
-
-                                        items.push(
-                                            h_flex()
-                                                .id(ix)
-                                                .w_full()
-                                                .gap_2()
-                                                .px_2()
-                                                .py_0p5()
-                                                .when_some(icon, |this, icon| {
-                                                    this.child(
-                                                        Icon::new(icon)
-                                                            .size(IconSize::Small)
-                                                            .color(color),
-                                                    )
-                                                })
-                                                .child(
-                                                    Label::new(entry.line.clone())
-                                                        .size(LabelSize::Small)
-                                                        .color(color),
-                                                ),
-                                        );
-                                    }
-                                }
-                                
-                                log::info!("Rendered {} log items for range", items.len());
-                                items
-                            }),
-                        )
-                        .h_full()
-                        .track_scroll(&self.scroll_handle)
-                    }),
+                    .w_full()
+                    .child(self.log_editor.as_ref().unwrap().clone()),
             )
     }
 }

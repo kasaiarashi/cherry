@@ -4,8 +4,8 @@ use cherry_link::{CherryLinkConnection, CherryLinkEvent, LogMessage};
 use collections::VecDeque;
 use editor::{Editor, EditorMode, MultiBuffer, SizingBehavior};
 use gpui::{
-    Action, App, AsyncWindowContext, ClipboardItem, Context, Entity, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement, IntoElement, ParentElement, Pixels, Render, SharedString,
+    Action, App, AsyncWindowContext, ClipboardItem, Context, Entity, EventEmitter, FocusHandle,
+    Focusable, InteractiveElement, IntoElement, ParentElement, Pixels, Render, SharedString,
     Styled, Subscription, UniformListScrollHandle, WeakEntity, Window, div, prelude::*, px,
 };
 use language::Buffer;
@@ -154,6 +154,9 @@ impl UnrealPanel {
                             source_line: None,
                         };
                         this.add_log(test_log, cx);
+
+                        // Auto-focus the Unreal panel on connection
+                        cx.emit(PanelEvent::Activate);
                     }
                     _ => {}
                 }
@@ -162,18 +165,18 @@ impl UnrealPanel {
 
         // Note: Logging is now automatic in CherryLink, no subscription needed
 
-        // Add an immediate test log
-        log::info!("UnrealPanel: Adding immediate test log");
-        let test_log = LogMessage {
-            category: "CherryLink".to_string(),
-            verbosity: "Display".to_string(),
-            message: "Panel initialized and connection set!".to_string(),
-            timestamp: String::new(),
-            frame: 0,
-            source_file: None,
-            source_line: None,
-        };
-        self.add_log(test_log, cx);
+        // // Add an immediate test log
+        // log::info!("UnrealPanel: Adding immediate test log");
+        // let test_log = LogMessage {
+        //     category: "CherryLink".to_string(),
+        //     verbosity: "Display".to_string(),
+        //     message: "Panel initialized and connection set!".to_string(),
+        //     timestamp: String::new(),
+        //     frame: 0,
+        //     source_file: None,
+        //     source_line: None,
+        // };
+        // self.add_log(test_log, cx);
 
         cx.notify();
     }
@@ -185,9 +188,10 @@ impl UnrealPanel {
             log.message
         );
 
+        let verbosity = LogVerbosity::from_str(&log.verbosity);
         let entry = LogEntry {
             category: log.category.clone().into(),
-            verbosity: LogVerbosity::from_str(&log.verbosity),
+            verbosity,
             message: log.message.clone().into(),
         };
 
@@ -196,8 +200,14 @@ impl UnrealPanel {
         }
         self.logs.push_back(entry);
 
-        // Append to buffer
-        let log_line = format!("[{}] {}\n", log.category, log.message);
+        // Append to buffer with log type
+        let log_type = match verbosity {
+            LogVerbosity::Error => "Error",
+            LogVerbosity::Warning => "Warning",
+            LogVerbosity::Display => "Display",
+            LogVerbosity::Log => "Log",
+        };
+        let log_line = format!("[{}] [{}] {}\n", log_type, log.category, log.message);
         self.log_buffer.update(cx, |buffer, cx| {
             buffer.edit([(buffer.len()..buffer.len(), log_line)], None, cx);
         });
@@ -263,7 +273,8 @@ impl UnrealPanel {
                             .icon_size(IconSize::Small)
                             .tooltip(ui::Tooltip::text("Copy All Logs to Clipboard"))
                             .on_click(cx.listener(|this, _, _window, cx| {
-                                let all_logs = this.logs
+                                let all_logs = this
+                                    .logs
                                     .iter()
                                     .map(|entry| format!("[{}] {}", entry.category, entry.message))
                                     .collect::<Vec<_>>()
@@ -366,7 +377,10 @@ impl Panel for UnrealPanel {
 
 impl Render for UnrealPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        log::info!("UnrealPanel::render called - log_count: {}", self.logs.len());
+        log::info!(
+            "UnrealPanel::render called - log_count: {}",
+            self.logs.len()
+        );
 
         // Create editor on first render
         if self.log_editor.is_none() {

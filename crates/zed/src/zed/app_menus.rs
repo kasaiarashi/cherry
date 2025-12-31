@@ -3,6 +3,7 @@ use collab_ui::collab_panel;
 use gpui::{App, Menu, MenuItem, OsAction};
 use release_channel::ReleaseChannel;
 use terminal_view::terminal_panel;
+use unreal_panel;
 
 pub fn app_menus(cx: &mut App) -> Vec<Menu> {
     use cherry_actions::Quit;
@@ -44,6 +45,8 @@ pub fn app_menus(cx: &mut App) -> Vec<Menu> {
         MenuItem::action("Collab Panel", collab_panel::ToggleFocus),
         MenuItem::action("Terminal Panel", terminal_panel::ToggleFocus),
         MenuItem::action("Debugger Panel", ToggleDebugPanel),
+        MenuItem::action("Unreal Panel", unreal_panel::ToggleFocus),
+        MenuItem::action("Build Panel", unreal_panel::ToggleBuildPanel),
         MenuItem::separator(),
         MenuItem::action("Diagnostics", diagnostics::Deploy),
         MenuItem::separator(),
