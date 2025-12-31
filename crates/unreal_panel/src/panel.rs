@@ -83,6 +83,7 @@ impl UnrealPanel {
     }
 
     pub fn new(workspace: WeakEntity<Workspace>, cx: &mut Context<Self>) -> Self {
+        log::info!("UnrealPanel::new - Creating new UnrealPanel");
         Self {
             workspace,
             connection: None,
@@ -105,7 +106,23 @@ impl UnrealPanel {
         self._subscriptions.push(cx.subscribe(&connection, |this, _, event: &CherryLinkEvent, cx| {
             match event {
                 CherryLinkEvent::LogReceived(log) => {
+                    log::info!("UnrealPanel: Received log event - {} - {}", log.category, log.message);
                     this.add_log(log.clone(), cx);
+                    log::info!("UnrealPanel: Total logs now: {}", this.logs.len());
+                }
+                CherryLinkEvent::Connected => {
+                    log::info!("UnrealPanel: Connected event received, adding test log");
+                    // Add a test log to verify panel is working
+                    let test_log = LogMessage {
+                        category: "CherryLink".to_string(),
+                        verbosity: "Display".to_string(),
+                        message: "Successfully connected to Unreal Engine!".to_string(),
+                        timestamp: String::new(),
+                        frame: 0,
+                        source_file: None,
+                        source_line: None,
+                    };
+                    this.add_log(test_log, cx);
                 }
                 _ => {}
             }
@@ -116,10 +133,25 @@ impl UnrealPanel {
             conn.subscribe_logging(cx);
         });
 
+        // Add an immediate test log
+        log::info!("UnrealPanel: Adding immediate test log");
+        let test_log = LogMessage {
+            category: "CherryLink".to_string(),
+            verbosity: "Display".to_string(),
+            message: "Panel initialized and connection set!".to_string(),
+            timestamp: String::new(),
+            frame: 0,
+            source_file: None,
+            source_line: None,
+        };
+        self.add_log(test_log, cx);
+
         cx.notify();
     }
 
     pub fn add_log(&mut self, log: LogMessage, cx: &mut Context<Self>) {
+        log::info!("UnrealPanel::add_log called - category: {}, message: {}", log.category, log.message);
+
         let entry = LogEntry {
             category: log.category.into(),
             verbosity: LogVerbosity::from_str(&log.verbosity),
@@ -131,12 +163,15 @@ impl UnrealPanel {
         }
         self.logs.push_back(entry);
 
+        log::info!("UnrealPanel::add_log - logs count after push: {}", self.logs.len());
+
         // Auto-scroll to bottom when enabled
         if self.auto_scroll && !self.logs.is_empty() {
             self.scroll_handle.scroll_to_item(self.logs.len() - 1, ScrollStrategy::Bottom);
         }
 
         cx.notify();
+        log::info!("UnrealPanel::add_log - called cx.notify()");
     }
 
     pub fn clear_logs(&mut self, cx: &mut Context<Self>) {
@@ -254,7 +289,9 @@ impl Panel for UnrealPanel {
 impl Render for UnrealPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let log_count = self.logs.len();
+        log::info!("UnrealPanel::render called - log_count: {}", log_count);
         let logs: Vec<_> = self.logs.iter().cloned().collect();
+        log::info!("UnrealPanel::render - logs vec size: {}", logs.len());
         let theme_colors = cx.theme().colors().clone();
 
         v_flex()
@@ -267,24 +304,37 @@ impl Render for UnrealPanel {
             .child(
                 div()
                     .flex_grow()
-                    .overflow_hidden()
+                    .child(
+                        div()
+                            .p_2()
+                            .bg(cx.theme().colors().elevated_surface_background)
+                            .child(Label::new(format!("Log Count: {} (Test Div)", log_count)))
+                    )
                     .child(
                         uniform_list(
                             "log-list",
                             log_count,
                             move |range, _window, _cx| {
+                                log::info!("UnrealPanel::render - uniform_list closure called with range: {:?}", range);
+                                log::info!("UnrealPanel::render - logs.len() in closure: {}", logs.len());
                                 let theme = theme_colors.clone();
-                                range
-                                    .filter_map(|ix| logs.get(ix).cloned())
+                                let items: Vec<_> = range
+                                    .filter_map(|ix| {
+                                        log::info!("UnrealPanel::render - trying to get log at index: {}", ix);
+                                        logs.get(ix).cloned()
+                                    })
                                     .map(|entry| {
+                                        log::info!("UnrealPanel::render - rendering log entry: {} - {}", entry.category, entry.message);
                                         let verbosity_color = entry.verbosity.color();
                                         let icon = entry.verbosity.icon();
 
                                         h_flex()
                                             .w_full()
+                                            .h(px(24.0))
                                             .gap_2()
                                             .px_2()
-                                            .py_0p5()
+                                            .py_1()
+                                            .bg(theme.ghost_element_background)
                                             .hover(|style| style.bg(theme.ghost_element_hover))
                                             .when_some(icon, |this, icon| {
                                                 this.child(
@@ -304,7 +354,9 @@ impl Render for UnrealPanel {
                                                     .color(verbosity_color),
                                             )
                                     })
-                                    .collect()
+                                    .collect();
+                                log::info!("UnrealPanel::render - collected {} items for rendering", items.len());
+                                items
                             },
                         )
                         .flex_grow()

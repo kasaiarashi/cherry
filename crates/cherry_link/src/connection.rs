@@ -202,10 +202,14 @@ impl CherryLinkConnection {
                 result = Self::read_message(&mut reader).fuse() => {
                     match result {
                         Ok(response) => {
+                            log::info!("CherryLink: Received response - method: {:?}, id: {:?}", response.method, response.id);
                             if let Some(notification) = Self::parse_notification(&response) {
+                                log::info!("CherryLink: Parsed notification successfully");
                                 if notification_tx.unbounded_send(notification).is_err() {
                                     break;
                                 }
+                            } else {
+                                log::warn!("CherryLink: Failed to parse notification or not a notification");
                             }
                         }
                         Err(e) => {

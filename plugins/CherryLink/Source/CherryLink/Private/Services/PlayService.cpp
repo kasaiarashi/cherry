@@ -209,13 +209,23 @@ void FPlayService::OnPIEEnded(bool bSimulating)
 void FPlayService::BroadcastStateChange()
 {
 	TSharedPtr<FCherryLinkServer> ServerPtr = Server.Pin();
-	if (!ServerPtr.IsValid() || !ServerPtr->IsClientConnected())
+	if (!ServerPtr.IsValid())
 	{
+		UE_LOG(LogCherryLink, Warning, TEXT("BroadcastStateChange: Server not valid"));
 		return;
 	}
 
+	if (!ServerPtr->IsClientConnected())
+	{
+		UE_LOG(LogCherryLink, Warning, TEXT("BroadcastStateChange: Client not connected"));
+		return;
+	}
+
+	FString CurrentState = GetCurrentState();
+	UE_LOG(LogCherryLink, Log, TEXT("BroadcastStateChange: Sending state '%s'"), *CurrentState);
+
 	TSharedPtr<FJsonObject> Params = MakeShared<FJsonObject>();
-	Params->SetStringField(TEXT("state"), GetCurrentState());
+	Params->SetStringField(TEXT("state"), CurrentState);
 
 	ServerPtr->SendNotification(TEXT("play/stateChanged"), Params);
 }

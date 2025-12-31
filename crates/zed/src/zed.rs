@@ -474,31 +474,30 @@ pub fn initialize_workspace(
                 .unwrap_or(true)
         });
 
-        // Initialize UnrealToolbar if any worktree contains a UE project
+        // Initialize UnrealToolbar and connection (always available for debugging)
         let has_ue_project = workspace.visible_worktrees(cx).any(|worktree| {
             let abs_path = worktree.read(cx).abs_path();
             cherry_link::is_unreal_project(abs_path.as_ref())
         });
 
-        let ue_connection = if has_ue_project {
-            let toolbar = cx.new(|cx| unreal_toolbar::UnrealToolbar::new(workspace.weak_handle(), cx));
+        let toolbar = cx.new(|cx| unreal_toolbar::UnrealToolbar::new(workspace.weak_handle(), cx));
 
-            // Create and connect CherryLink connection
-            let connection = cx.new(|cx| {
-                let mut conn = cherry_link::CherryLinkConnection::new(21567);
-                conn.connect(cx);
-                conn
-            });
+        // Create and connect CherryLink connection
+        let connection = cx.new(|cx| {
+            let mut conn = cherry_link::CherryLinkConnection::new(21567);
+            conn.connect(cx);
+            conn
+        });
 
-            toolbar.update(cx, |toolbar, cx| {
-                toolbar.set_connection(connection.clone(), cx);
-            });
+        toolbar.update(cx, |toolbar, cx| {
+            toolbar.set_connection(connection.clone(), cx);
+        });
 
+        if has_ue_project {
             workspace.set_toolbar_item(toolbar.into(), window, cx);
-            Some(connection)
-        } else {
-            None
-        };
+        }
+
+        let ue_connection = Some(connection);
 
         initialize_panels(prompt_builder.clone(), ue_connection, window, cx);
         register_actions(app_state.clone(), workspace, window, cx);

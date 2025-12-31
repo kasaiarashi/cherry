@@ -344,11 +344,14 @@ bool FCherryLinkServer::SendMessageInternal(FSocket* Socket, const FString& Mess
 
 void FCherryLinkServer::SendMessage(const FString& JsonMessage)
 {
+	UE_LOG(LogCherryLink, Verbose, TEXT("SendMessage: Queuing message (%d chars)"), JsonMessage.Len());
 	OutgoingMessages.Enqueue(JsonMessage);
 }
 
 void FCherryLinkServer::SendNotification(const FString& Method, const TSharedPtr<FJsonObject>& Params)
 {
+	UE_LOG(LogCherryLink, Log, TEXT("SendNotification: %s"), *Method);
+
 	TSharedPtr<FJsonObject> Notification = MakeShared<FJsonObject>();
 	Notification->SetStringField(TEXT("jsonrpc"), TEXT("2.0"));
 	Notification->SetStringField(TEXT("method"), Method);
@@ -362,6 +365,7 @@ void FCherryLinkServer::SendNotification(const FString& Method, const TSharedPtr
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&JsonString);
 	FJsonSerializer::Serialize(Notification.ToSharedRef(), Writer);
 
+	UE_LOG(LogCherryLink, Verbose, TEXT("SendNotification JSON: %s"), *JsonString.Left(200));
 	SendMessage(JsonString);
 }
 
