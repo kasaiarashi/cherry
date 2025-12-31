@@ -27,24 +27,10 @@ void FLogService::Initialize()
 		GLog->AddOutputDevice(this);
 		UE_LOG(LogCherryLink, Log, TEXT("LogService: Registered as output device"));
 	}
-
-	// Subscribe to server messages
-	TSharedPtr<FCherryLinkServer> ServerPtr = Server.Pin();
-	if (ServerPtr.IsValid())
-	{
-		OnMessageHandle = ServerPtr->OnMessageReceived.AddRaw(this, &FLogService::HandleRequest);
-		UE_LOG(LogCherryLink, Log, TEXT("LogService: Subscribed to server messages"));
-	}
 }
 
 void FLogService::Shutdown()
 {
-	TSharedPtr<FCherryLinkServer> ServerPtr = Server.Pin();
-	if (ServerPtr.IsValid())
-	{
-		ServerPtr->OnMessageReceived.Remove(OnMessageHandle);
-	}
-
 	if (GLog)
 	{
 		GLog->RemoveOutputDevice(this);
@@ -111,13 +97,13 @@ FString FLogService::VerbosityToString(ELogVerbosity::Type Verbosity) const
 
 void FLogService::SendLogMessage(const TCHAR* Message, ELogVerbosity::Type Verbosity, const FName& Category)
 {
-	if (!bIsEnabled)
+	// CRITICAL: Ignore our own logs to prevent infinite recursion
+	if (Category == TEXT("LogCherryLink"))
 	{
 		return;
 	}
 
-	// CRITICAL: Ignore our own logs to prevent infinite recursion
-	if (Category == TEXT("LogCherryLink"))
+	if (!bIsEnabled)
 	{
 		return;
 	}
@@ -146,55 +132,4 @@ void FLogService::SendLogMessage(const TCHAR* Message, ELogVerbosity::Type Verbo
 	Params->SetNumberField(TEXT("frame"), static_cast<double>(GFrameCounter));
 
 	ServerPtr->SendNotification(TEXT("logging/message"), Params);
-}
-
-void FLogService::HandleRequest(const FString& JsonMessage)
-{
-	TSharedPtr<FJsonObject> JsonObject;
-	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonMessage);
-
-	if (!FJsonSerializer::Deserialize(Reader, JsonObject) || !JsonObject.IsValid())
-	{
-		return;
-	}
-
-	FString Method;
-	if (!JsonObject->TryGetStringField(TEXT("method"), Method))
-	{
-		return;
-	}
-
-	// Only handle logging/* methods
-	if (!Method.StartsWith(TEXT("logging/")))
-	{
-		return;
-	}
-
-	FString Id;
-	JsonObject->TryGetStringField(TEXT("id"), Id);
-
-	TSharedPtr<FCherryLinkServer> ServerPtr = Server.Pin();
-	if (!ServerPtr.IsValid())
-	{
-		return;
-	}
-
-	if (Method == TEXT("logging/subscribe"))
-	{
-		UE_LOG(LogCherryLink, Log, TEXT("LogService: Client subscribed to logging"));
-		bIsEnabled = true;
-
-		TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
-		Result->SetBoolField(TEXT("success"), true);
-		ServerPtr->SendResponse(Id, MakeShared<FJsonValueObject>(Result));
-	}
-	else if (Method == TEXT("logging/unsubscribe"))
-	{
-		UE_LOG(LogCherryLink, Log, TEXT("LogService: Client unsubscribed from logging"));
-		bIsEnabled = false;
-
-		TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
-		Result->SetBoolField(TEXT("success"), true);
-		ServerPtr->SendResponse(Id, MakeShared<FJsonValueObject>(Result));
-	}
 }

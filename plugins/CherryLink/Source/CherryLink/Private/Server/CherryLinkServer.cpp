@@ -457,7 +457,7 @@ void FCherryLinkServer::ProcessMessage(const FString& JsonMessage)
 
 void FCherryLinkServer::HandleRequest(const FString& Id, const FString& Method, const TSharedPtr<FJsonObject>& Params)
 {
-	UE_LOG(LogCherryLink, Log, TEXT("Received request: %s (id: %s)"), *Method, *Id);
+	UE_LOG(LogCherryLink, Warning, TEXT("========== CherryLinkServer::HandleRequest - Method: %s, Id: %s =========="), *Method, *Id);
 
 	// Handle connection/initialize handshake
 	if (Method == TEXT("connection/initialize"))
@@ -481,6 +481,8 @@ void FCherryLinkServer::HandleRequest(const FString& Id, const FString& Method, 
 	}
 
 	// Forward request to services via game thread
+	UE_LOG(LogCherryLink, Warning, TEXT("CherryLinkServer: Forwarding request to services: %s"), *Method);
+
 	// Build JSON string first
 	TSharedPtr<FJsonObject> Request = MakeShared<FJsonObject>();
 	Request->SetStringField(TEXT("jsonrpc"), TEXT("2.0"));
@@ -495,9 +497,12 @@ void FCherryLinkServer::HandleRequest(const FString& Id, const FString& Method, 
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&JsonString);
 	FJsonSerializer::Serialize(Request.ToSharedRef(), Writer);
 
+	UE_LOG(LogCherryLink, Log, TEXT("CherryLinkServer: Broadcasting message to services: %s"), *JsonString.Left(200));
+
 	// Now broadcast on game thread
 	AsyncTask(ENamedThreads::GameThread, [this, JsonString]()
 	{
+		UE_LOG(LogCherryLink, Log, TEXT("CherryLinkServer: OnMessageReceived.Broadcast called on game thread"));
 		OnMessageReceived.Broadcast(JsonString);
 	});
 }

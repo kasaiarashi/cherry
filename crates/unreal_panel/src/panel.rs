@@ -98,6 +98,12 @@ impl UnrealPanel {
     }
 
     pub fn set_connection(&mut self, connection: Entity<CherryLinkConnection>, cx: &mut Context<Self>) {
+        log::info!("UnrealPanel::set_connection called");
+
+        let is_connected = connection.read(cx).is_connected();
+        let conn_state = connection.read(cx).connection_state();
+        log::info!("UnrealPanel::set_connection - is_connected: {}, state: {:?}", is_connected, conn_state);
+
         self.connection = Some(connection.clone());
         self._subscriptions.push(cx.observe(&connection, |_this, _, cx| {
             cx.notify();
@@ -128,10 +134,7 @@ impl UnrealPanel {
             }
         }));
 
-        // Subscribe to logging when connected
-        connection.update(cx, |conn, cx| {
-            conn.subscribe_logging(cx);
-        });
+        // Note: Logging is now automatic in CherryLink, no subscription needed
 
         // Add an immediate test log
         log::info!("UnrealPanel: Adding immediate test log");
@@ -302,16 +305,7 @@ impl Render for UnrealPanel {
             .bg(cx.theme().colors().panel_background)
             .child(self.render_toolbar(window, cx))
             .child(
-                div()
-                    .flex_grow()
-                    .child(
-                        div()
-                            .p_2()
-                            .bg(cx.theme().colors().elevated_surface_background)
-                            .child(Label::new(format!("Log Count: {} (Test Div)", log_count)))
-                    )
-                    .child(
-                        uniform_list(
+                uniform_list(
                             "log-list",
                             log_count,
                             move |range, _window, _cx| {
@@ -358,10 +352,9 @@ impl Render for UnrealPanel {
                                 log::info!("UnrealPanel::render - collected {} items for rendering", items.len());
                                 items
                             },
-                        )
-                        .flex_grow()
-                        .track_scroll(&self.scroll_handle),
-                    ),
+                )
+                .size_full()
+                .track_scroll(&self.scroll_handle),
             )
     }
 }

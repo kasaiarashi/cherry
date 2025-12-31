@@ -40,16 +40,14 @@ private:
 	FString VerbosityToString(ELogVerbosity::Type Verbosity) const;
 	bool ShouldLogCategory(const FName& Category) const;
 	void SendLogMessage(const TCHAR* Message, ELogVerbosity::Type Verbosity, const FName& Category);
-	void HandleRequest(const FString& JsonMessage);
 
 private:
 	TWeakPtr<FCherryLinkServer> Server;
 
 	TSet<FName> FilteredCategories;
-	ELogVerbosity::Type MinVerbosity = ELogVerbosity::Log;
+	ELogVerbosity::Type MinVerbosity = ELogVerbosity::All;
 	bool bFilterByCategory = false;
-	bool bIsEnabled = false;
+	bool bIsEnabled = true;
 
 	FCriticalSection LogLock;
-	FDelegateHandle OnMessageHandle;
 };

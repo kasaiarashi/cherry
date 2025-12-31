@@ -30,6 +30,7 @@ enum IncomingNotification {
     LogMessage(LogMessage),
     PlayStateChanged(PlayState),
     BuildStatusChanged(BuildStatus),
+    Connected,
     Disconnected,
 }
 
@@ -116,10 +117,8 @@ impl CherryLinkConnection {
         self._connection_task = Some(Task::from(connection_task));
         self._notification_task = Some(notification_task);
 
-        // Optimistically set connected (will be corrected if connection fails)
-        self.state = ConnectionState::Connected;
-        cx.emit(CherryLinkEvent::Connected);
-        cx.notify();
+        // Don't set to Connected yet - wait for actual connection
+        // It will be set when we receive the first message
     }
 
     /// Process incoming notifications on the foreground thread
@@ -131,6 +130,11 @@ impl CherryLinkConnection {
         while let Some(notification) = rx.next().await {
             let result = this.update(cx, |this, cx| {
                 match notification {
+                    IncomingNotification::Connected => {
+                        this.state = ConnectionState::Connected;
+                        cx.emit(CherryLinkEvent::Connected);
+                        cx.notify();
+                    }
                     IncomingNotification::LogMessage(msg) => {
                         cx.emit(CherryLinkEvent::LogReceived(msg));
                         cx.notify();
@@ -167,13 +171,39 @@ impl CherryLinkConnection {
         notification_tx: mpsc::UnboundedSender<IncomingNotification>,
     ) -> Result<()> {
         let addr = format!("127.0.0.1:{}", port);
-        log::info!("CherryLink: Connecting to {}...", addr);
 
-        let mut stream = TcpStream::connect(&addr).await?;
-        log::info!("CherryLink: Connected to {}", addr);
+        // Retry connection with backoff
+        let mut retry_count = 0;
+        const MAX_RETRIES: u32 = 30; // Try for ~30 seconds
+        const RETRY_DELAY_MS: u64 = 1000; // 1 second between retries
+
+        let mut stream = loop {
+            log::info!("CherryLink: Attempting to connect to {} (attempt {}/{})", addr, retry_count + 1, MAX_RETRIES);
+
+            match TcpStream::connect(&addr).await {
+                Ok(s) => {
+                    log::info!("CherryLink: TCP connection established to {}", addr);
+                    break s;
+                }
+                Err(e) => {
+                    retry_count += 1;
+                    if retry_count >= MAX_RETRIES {
+                        log::error!("CherryLink: Failed to connect after {} attempts", MAX_RETRIES);
+                        return Err(e.into());
+                    }
+
+                    log::debug!("CherryLink: Connection failed ({}), retrying in {}ms...", e, RETRY_DELAY_MS);
+                    smol::Timer::after(std::time::Duration::from_millis(RETRY_DELAY_MS)).await;
+                }
+            }
+        };
 
         // Perform handshake
         Self::perform_handshake(&mut stream).await?;
+        log::info!("CherryLink: Handshake successful, connection ready");
+
+        // Emit Connected event now that handshake is complete
+        let _ = notification_tx.unbounded_send(IncomingNotification::Connected);
 
         // Clone stream for reading (we'll use the original for writing)
         let (mut reader, mut writer) = stream.split();
@@ -228,17 +258,22 @@ impl CherryLinkConnection {
     fn parse_notification(response: &JsonRpcResponse) -> Option<IncomingNotification> {
         // Only handle notifications (no id)
         if response.id.is_some() {
+            log::debug!("CherryLink: Skipping response with id: {:?}", response.id);
             return None;
         }
 
         let method = response.method.as_ref()?;
         let params = response.params.as_ref();
 
+        log::info!("CherryLink: parse_notification - method: {}", method);
+
         match method.as_str() {
             "logging/message" => {
+                log::info!("CherryLink: Received logging/message notification");
                 if let Some(p) = params {
+                    log::info!("CherryLink: Parsing params: {:?}", p);
                     if let Ok(log_msg) = serde_json::from_value::<LogMessage>(p.clone()) {
-                        log::debug!("CherryLink: Received log message: {} - {}", log_msg.category, log_msg.message);
+                        log::info!("CherryLink: Successfully parsed log message: {} - {}", log_msg.category, log_msg.message);
                         return Some(IncomingNotification::LogMessage(log_msg));
                     } else {
                         log::error!("CherryLink: Failed to parse logging/message params: {:?}", p);
@@ -427,8 +462,10 @@ impl CherryLinkConnection {
     /// Subscribe to logging
     pub fn subscribe_logging(&mut self, _cx: &mut Context<Self>) {
         if !self.is_connected() {
+            log::warn!("CherryLink: Cannot subscribe to logging - not connected");
             return;
         }
+        log::info!("CherryLink: Sending logging/subscribe request");
         self.send_request("logging/subscribe", serde_json::json!({}));
     }
 
