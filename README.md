@@ -8,7 +8,7 @@ A fast, cross-platform IDE for Unreal Engine development.
 
 Cherry is a high-performance code editor built specifically for Unreal Engine developers. It provides native UE integration with PIE controls, live coding builds, and real-time log streaming directly in the editor.
 
-Cherry is a fork of [Cherry](https://github.com/zed-industries/zed), the high-performance editor from the creators of Atom and Tree-sitter.
+Cherry is a fork of [Zed](https://github.com/zed-industries/zed), the high-performance editor from the creators of Atom and Tree-sitter.
 
 ## Features
 
@@ -54,10 +54,10 @@ See the [development docs](./docs/src/development/) for detailed build instructi
 
 ## License
 
-Cherry is licensed under GPL-3.0-or-later, the same license as Cherry.
+Cherry is licensed under GPL-3.0-or-later, the same license as Zed.
 
-License information for third party dependencies must be correctly provided for CI to pass. See the original [Cherry repository](https://github.com/zed-industries/zed) for licensing details.
+License information for third party dependencies must be correctly provided for CI to pass. See the original [Zed repository](https://github.com/zed-industries/zed) for licensing details.
 
 ## Acknowledgments
 
-Cherry is built on top of [Cherry](https://github.com/zed-industries/zed) by Cherry Industries. We thank the Cherry team for creating such an excellent foundation.
+Cherry is built on top of [Zed](https://github.com/zed-industries/zed) by Zed Industries. We thank the Zed team for creating such an excellent foundation.

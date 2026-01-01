@@ -1,6 +1,6 @@
 // Copyright (c) 2025 Krishna Teja Mekala (Kriaa Systems). All rights reserved.
 
-//! Cherry-Sight: ReSharper-level C++ code intelligence for Unreal Engine 5
+//! Cherry-Sight: C++ code intelligence for Unreal Engine 5
 //!
 //! A pure Rust implementation of a complete code intelligence system for C++ and UE5,
 //! featuring incremental parsing, semantic analysis, and LSP server capabilities.
@@ -14,6 +14,7 @@ pub mod ue;
 pub mod lsp;
 pub mod types;
 pub mod util;
+pub mod intelligence;
 
 // Re-export commonly used types
 pub use ast::{TranslationUnit, Declaration};
