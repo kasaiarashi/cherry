@@ -765,14 +765,28 @@ impl LocalLspStore {
                                                     }
                                                 }
 
-                                                // Copy compile_commands.json to .cherry directory
+                                                // Create symlink for compile_commands.json in .cherry directory
                                                 let cherry_compile_commands_path = cherry_dir.join("compile_commands.json");
                                                 let source = compile_commands_dir.join("compile_commands.json");
                                                 if source.exists() && !cherry_compile_commands_path.exists() {
-                                                    if let Err(e) = std::fs::copy(&source, &cherry_compile_commands_path) {
-                                                        log::warn!("Failed to copy compile_commands.json to .cherry: {}", e);
-                                                    } else {
-                                                        log::info!("Copied compile_commands.json from {} to .cherry directory", compile_commands_dir.display());
+                                                    // Try to create symlink first, fall back to copy if it fails (Windows requires admin for symlinks)
+                                                    #[cfg(windows)]
+                                                    let symlink_result = std::os::windows::fs::symlink_file(&source, &cherry_compile_commands_path);
+                                                    #[cfg(not(windows))]
+                                                    let symlink_result = std::os::unix::fs::symlink(&source, &cherry_compile_commands_path);
+
+                                                    match symlink_result {
+                                                        Ok(_) => {
+                                                            log::info!("Created symlink for compile_commands.json: {} -> {}", cherry_compile_commands_path.display(), source.display());
+                                                        }
+                                                        Err(e) => {
+                                                            log::warn!("Failed to create symlink ({}), falling back to copy", e);
+                                                            if let Err(e) = std::fs::copy(&source, &cherry_compile_commands_path) {
+                                                                log::warn!("Failed to copy compile_commands.json to .cherry: {}", e);
+                                                            } else {
+                                                                log::info!("Copied compile_commands.json from {} to .cherry directory", compile_commands_dir.display());
+                                                            }
+                                                        }
                                                     }
                                                 }
 
@@ -792,6 +806,7 @@ impl LocalLspStore {
 
                                                 // Create .clangd configuration file at project root (clangd walks up directories to find it)
                                                 let clangd_config_path = project_root.join(".clangd");
+
                                                 let clangd_config = r#"# Auto-generated configuration for Unreal Engine
 CompileFlags:
   CompilationDatabase: .cherry
@@ -935,11 +950,24 @@ Diagnostics:
                                                                         metadata.len()
                                                                     );
 
-                                                                    // Copy to .cherry directory for clangd to find
-                                                                    if let Err(e) = std::fs::copy(&engine_compile_commands, &cherry_compile_commands) {
-                                                                        log::warn!("Failed to copy compile_commands.json to .cherry: {}", e);
-                                                                    } else {
-                                                                        log::info!("Copied compile_commands.json to .cherry: {}", cherry_compile_commands.display());
+                                                                    // Create symlink for compile_commands.json, fall back to copy if needed
+                                                                    #[cfg(windows)]
+                                                                    let symlink_result = std::os::windows::fs::symlink_file(&engine_compile_commands, &cherry_compile_commands);
+                                                                    #[cfg(not(windows))]
+                                                                    let symlink_result = std::os::unix::fs::symlink(&engine_compile_commands, &cherry_compile_commands);
+
+                                                                    match symlink_result {
+                                                                        Ok(_) => {
+                                                                            log::info!("Created symlink for compile_commands.json: {} -> {}", cherry_compile_commands.display(), engine_compile_commands.display());
+                                                                        }
+                                                                        Err(e) => {
+                                                                            log::warn!("Failed to create symlink ({}), falling back to copy", e);
+                                                                            if let Err(e) = std::fs::copy(&engine_compile_commands, &cherry_compile_commands) {
+                                                                                log::warn!("Failed to copy compile_commands.json to .cherry: {}", e);
+                                                                            } else {
+                                                                                log::info!("Copied compile_commands.json to .cherry: {}", cherry_compile_commands.display());
+                                                                            }
+                                                                        }
                                                                     }
 
                                                                     // Trigger clangd reload by touching the file
