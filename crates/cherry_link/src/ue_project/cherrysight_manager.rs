@@ -171,12 +171,22 @@ impl CherrySightManager {
             .filter_map(|e| e.ok())
         {
             if entry.path().extension().and_then(|s| s.to_str()) == Some("uplugin") {
-                if let Ok(plugin) = self.parse_plugin_file(entry.path(), is_engine_plugin) {
-                    plugins.push(plugin);
+                match self.parse_plugin_file(entry.path(), is_engine_plugin) {
+                    Ok(plugin) => {
+                        log::info!("Discovered plugin: {} ({} modules)", plugin.name, plugin.modules.len());
+                        plugins.push(plugin);
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to parse plugin {}: {}", entry.path().display(), e);
+                    }
                 }
             }
         }
 
+        log::info!("Scanned {} from {}: found {} plugins",
+                   if is_engine_plugin { "engine plugins" } else { "project plugins" },
+                   plugins_dir.display(),
+                   plugins.len());
         Ok(plugins)
     }
 
@@ -266,6 +276,12 @@ impl CherrySightManager {
             let mut inferred_includes = infer_module_include_paths(&source_path);
             inferred_includes.extend(include_paths.inferred_paths.clone());
 
+            // Also add the source directory itself as an include path
+            // This handles modules without Public/Private folders
+            if !inferred_includes.contains(&source_path) {
+                inferred_includes.push(source_path.clone());
+            }
+
             modules.push(UEModule {
                 name: module_desc.name.clone(),
                 module_type: ModuleType::from_str(&module_desc.module_type),
@@ -307,6 +323,11 @@ impl CherrySightManager {
 
         let mut inferred_includes = infer_module_include_paths(&source_path);
         inferred_includes.extend(include_paths.inferred_paths.clone());
+
+        // Also add the source directory itself as an include path
+        if !inferred_includes.contains(&source_path) {
+            inferred_includes.push(source_path.clone());
+        }
 
         Ok(UEModule {
             name: module_name.to_string(),
