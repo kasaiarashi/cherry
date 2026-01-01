@@ -3086,13 +3086,16 @@ dependencies = [
  "futures 0.3.31",
  "gpui",
  "log",
+ "petgraph",
  "regex",
  "schemars",
  "serde",
  "serde_json",
+ "serde_yaml",
  "settings",
  "smol",
  "util",
+ "walkdir",
 ]
 
 [[package]]

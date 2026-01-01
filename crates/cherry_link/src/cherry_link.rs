@@ -3,6 +3,7 @@ mod project_detection;
 mod protocol;
 mod settings;
 pub mod solution;
+pub mod ue_project;
 pub mod vcxproj;
 
 pub use connection::CherryLinkConnection;

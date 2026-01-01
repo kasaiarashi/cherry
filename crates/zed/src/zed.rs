@@ -499,6 +499,27 @@ pub fn initialize_workspace(
 
         if has_ue_project {
             workspace.set_toolbar_item(toolbar.into(), window, cx);
+
+            // Auto-configure CherrySight for IntelliSense
+            if let Some(project_root) = workspace.visible_worktrees(cx)
+                .find(|wt| cherry_link::is_unreal_project(wt.read(cx).abs_path().as_ref()))
+                .map(|wt| wt.read(cx).abs_path().to_path_buf())
+            {
+                if let Some(uproject_path) = cherry_link::find_uproject_path(&project_root) {
+                    let manager = cherry_link::ue_project::CherrySightManager::new(
+                        project_root,
+                        uproject_path,
+                    );
+
+                    // Run auto-configuration in background thread
+                    std::thread::spawn(move || {
+                        match manager.auto_configure() {
+                            Ok(()) => log::info!("CherrySight auto-configuration completed successfully"),
+                            Err(e) => log::error!("CherrySight auto-configuration failed: {}", e),
+                        }
+                    });
+                }
+            }
         }
 
         let ue_connection = Some(connection.clone());
