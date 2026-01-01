@@ -80,14 +80,17 @@ impl BuildCsInfo {
 
         let mut items = Vec::new();
 
+        // Compile regex outside loop
+        let string_re = Regex::new(r#""([^"]*)""#).ok();
+
         // Try AddRange pattern
         if let Ok(re) = Regex::new(&pattern_addrange) {
             for cap in re.captures_iter(content) {
                 if let Some(list) = cap.get(1) {
                     let list_str = list.as_str();
                     // Extract quoted strings
-                    if let Ok(string_re) = Regex::new(r#""([^"]*)""#) {
-                        for string_cap in string_re.captures_iter(list_str) {
+                    if let Some(ref string_regex) = string_re {
+                        for string_cap in string_regex.captures_iter(list_str) {
                             if let Some(item) = string_cap.get(1) {
                                 items.push(item.as_str().to_string());
                             }

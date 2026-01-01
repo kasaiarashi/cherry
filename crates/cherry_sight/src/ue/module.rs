@@ -3,6 +3,7 @@
 //! UE5 module representation
 
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 /// Type of UE module
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,23 +23,25 @@ pub enum ModuleType {
     ClientOnly,
 }
 
-impl ModuleType {
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for ModuleType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "Runtime" => Some(Self::Runtime),
-            "RuntimeNoCommandlet" => Some(Self::RuntimeNoCommandlet),
-            "RuntimeAndProgram" => Some(Self::RuntimeAndProgram),
-            "CookedOnly" => Some(Self::CookedOnly),
-            "UncookedOnly" => Some(Self::UncookedOnly),
-            "Developer" => Some(Self::Developer),
-            "DeveloperTool" => Some(Self::DeveloperTool),
-            "Editor" => Some(Self::Editor),
-            "EditorNoCommandlet" => Some(Self::EditorNoCommandlet),
-            "EditorAndProgram" => Some(Self::EditorAndProgram),
-            "Program" => Some(Self::Program),
-            "ServerOnly" => Some(Self::ServerOnly),
-            "ClientOnly" => Some(Self::ClientOnly),
-            _ => None,
+            "Runtime" => Ok(Self::Runtime),
+            "RuntimeNoCommandlet" => Ok(Self::RuntimeNoCommandlet),
+            "RuntimeAndProgram" => Ok(Self::RuntimeAndProgram),
+            "CookedOnly" => Ok(Self::CookedOnly),
+            "UncookedOnly" => Ok(Self::UncookedOnly),
+            "Developer" => Ok(Self::Developer),
+            "DeveloperTool" => Ok(Self::DeveloperTool),
+            "Editor" => Ok(Self::Editor),
+            "EditorNoCommandlet" => Ok(Self::EditorNoCommandlet),
+            "EditorAndProgram" => Ok(Self::EditorAndProgram),
+            "Program" => Ok(Self::Program),
+            "ServerOnly" => Ok(Self::ServerOnly),
+            "ClientOnly" => Ok(Self::ClientOnly),
+            _ => Err(format!("Unknown module type: {}", s)),
         }
     }
 }
@@ -63,7 +66,7 @@ impl UEModule {
         path: &Path,
         _project_root: &Path,
     ) -> Option<Self> {
-        let module_type = ModuleType::from_str(module_type)?;
+        let module_type = ModuleType::from_str(module_type).ok()?;
 
         Some(Self {
             name: name.to_string(),
@@ -127,13 +130,13 @@ mod tests {
     fn test_module_type_from_str() {
         assert_eq!(
             ModuleType::from_str("Runtime"),
-            Some(ModuleType::Runtime)
+            Ok(ModuleType::Runtime)
         );
         assert_eq!(
             ModuleType::from_str("Editor"),
-            Some(ModuleType::Editor)
+            Ok(ModuleType::Editor)
         );
-        assert_eq!(ModuleType::from_str("Invalid"), None);
+        assert!(ModuleType::from_str("Invalid").is_err());
     }
 
     #[test]

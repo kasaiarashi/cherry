@@ -30,7 +30,7 @@ pub enum Declaration {
     Variable(VariableDecl),
     TypeAlias(TypeAliasDecl),
     Template(TemplateDecl),
-    UsingDeclaration(UsingDecl),
+    Using(UsingDecl),
     UsingDirective(UsingDirective),
     // UE-specific declarations
     UClass(UClassDecl),

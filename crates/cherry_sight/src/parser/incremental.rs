@@ -105,7 +105,7 @@ impl Position {
         Self { row: 0, column: 0 }
     }
 
-    fn to_point(&self) -> Point {
+    fn to_point(self) -> Point {
         Point {
             row: self.row,
             column: self.column,

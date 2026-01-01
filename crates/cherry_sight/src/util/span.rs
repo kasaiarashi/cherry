@@ -80,7 +80,7 @@ impl Span {
     }
 
     /// Convert to a text range
-    pub const fn to_range(&self) -> TextRange {
+    pub const fn to_range(self) -> TextRange {
         TextRange {
             start: self.start,
             end: self.end,
@@ -157,7 +157,7 @@ impl TextRange {
     }
 
     /// Convert to a standard Range
-    pub fn to_std_range(&self) -> Range<usize> {
+    pub fn to_std_range(self) -> Range<usize> {
         self.start as usize..self.end as usize
     }
 }

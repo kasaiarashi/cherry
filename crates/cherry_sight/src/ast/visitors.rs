@@ -39,7 +39,6 @@ pub trait AstVisitor {
 }
 
 /// Walk functions for default traversal
-
 pub fn walk_translation_unit<V: AstVisitor + ?Sized>(visitor: &mut V, unit: &TranslationUnit) {
     for decl in &unit.declarations {
         visitor.visit_declaration(decl);
@@ -55,7 +54,7 @@ pub fn walk_declaration<V: AstVisitor + ?Sized>(visitor: &mut V, decl: &Declarat
         Declaration::Variable(var) => visitor.visit_variable(var),
         Declaration::TypeAlias(_) => {}
         Declaration::Template(_) => {}
-        Declaration::UsingDeclaration(_) => {}
+        Declaration::Using(_) => {}
         Declaration::UsingDirective(_) => {}
         Declaration::UClass(uclass) => visitor.visit_class(&uclass.class_decl),
         Declaration::UStruct(ustruct) => visitor.visit_class(&ustruct.struct_decl),
