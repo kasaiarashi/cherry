@@ -17,6 +17,7 @@ pub mod util;
 pub mod intelligence;
 pub mod completion;
 pub mod diagnostics;
+pub mod refactoring;
 
 // Re-export commonly used types
 pub use ast::{TranslationUnit, Declaration};
