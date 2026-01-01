@@ -15,6 +15,7 @@ pub mod lsp;
 pub mod types;
 pub mod util;
 pub mod intelligence;
+pub mod completion;
 
 // Re-export commonly used types
 pub use ast::{TranslationUnit, Declaration};

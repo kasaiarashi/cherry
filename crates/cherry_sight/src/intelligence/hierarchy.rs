@@ -218,6 +218,7 @@ impl<'a> CallHierarchyBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::index::symbol::Symbol;
     use crate::util::Interner;
 
     #[test]
