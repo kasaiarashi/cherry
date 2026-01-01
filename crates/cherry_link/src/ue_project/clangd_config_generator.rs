@@ -261,6 +261,7 @@ pub fn generate_ue_clangd_config(
     // C++ standard and mode
     add_flags.push("/std:c++20".to_string());
     add_flags.push("/TP".to_string()); // Treat as C++
+    add_flags.push("-ferror-limit=0".to_string()); // Don't stop on too many errors
 
     // Force include macro helper if provided
     if let Some(helper_path) = macro_helper_path {
@@ -324,7 +325,10 @@ pub fn generate_ue_clangd_config(
                 "*".to_string(), // Suppress all diagnostics for UE
             ]),
         }),
-        index: None, // Use clangd defaults
+        index: Some(IndexSection {
+            background: Some("Skip".to_string()), // Don't index in background - saves memory/CPU
+            standard_library: Some("No".to_string()),
+        })
     };
 
     // Generate YAML with document separator
