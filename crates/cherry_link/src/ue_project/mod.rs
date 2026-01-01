@@ -7,11 +7,10 @@
 //! - Build dependency graphs
 //! - Discover include paths
 //! - Generate preprocessor defines
-//! - Generate clangd configuration for IntelliSense support
+//! - Provide project model for cherry-sight code intelligence
 
 pub mod build_cs_parser;
 pub mod cherrysight_manager;
-pub mod clangd_config_generator;
 pub mod defines_builder;
 pub mod dependency_resolver;
 pub mod include_path_builder;
@@ -21,14 +20,12 @@ pub mod uproject_parser;
 
 // Re-export commonly used types
 pub use project_model::{
-    ClangdConfig, CompileFlags, DiagnosticsConfig, IncludePaths, IndexConfig, ModuleCache,
-    ModuleDependencies, ModuleType, UEModule, UEPlugin, UEProject, UPluginFile, UProjectFile,
-    UProjectModule, UProjectPluginReference,
+    IncludePaths, ModuleCache, ModuleDependencies, ModuleType, UEModule, UEPlugin, UEProject,
+    UPluginFile, UProjectFile, UProjectModule, UProjectPluginReference,
 };
 
 pub use build_cs_parser::{parse_build_cs, parse_build_cs_from_str};
 pub use cherrysight_manager::CherrySightManager;
-pub use clangd_config_generator::{generate_clangd_config, write_clangd_config};
 pub use defines_builder::{build_all_defines, build_module_api_defines, build_standard_defines};
 pub use dependency_resolver::{resolve_dependencies, DependencyGraph};
 pub use include_path_builder::{infer_module_include_paths, IncludePathBuilder};

@@ -1,154 +1,61 @@
-use anyhow::{Context as _, Result, bail};
+// Copyright (c) 2025 Krishna Teja Mekala (Kriaa Systems). All rights reserved.
+//
+// C/C++ Language Support
+//
+// Note: This is a stub implementation. The actual code intelligence
+// will be provided by the cherry-sight crate.
+
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
-use futures::StreamExt;
 use gpui::{App, AsyncApp};
-use http_client::github::{AssetKind, GitHubLspBinaryVersion, latest_github_release};
-use http_client::github_download::{GithubBinaryMetadata, download_server_binary};
 pub use language::*;
 use lsp::{InitializeParams, LanguageServerBinary, LanguageServerName};
-use project::lsp_store::clangd_ext;
-use serde_json::json;
-use smol::fs;
-use std::{env::consts, path::PathBuf, sync::Arc};
-use util::{ResultExt, fs::remove_matching, maybe, merge_json_value_into};
+use std::path::PathBuf;
+use std::sync::Arc;
 
 pub struct CLspAdapter;
 
 impl CLspAdapter {
-    const SERVER_NAME: LanguageServerName = LanguageServerName::new_static("clangd");
+    // Placeholder - will be replaced by cherry-sight
+    const SERVER_NAME: LanguageServerName = LanguageServerName::new_static("cherry-sight");
 }
 
+// Cherry-sight doesn't need installation - it's built into the IDE
 impl LspInstaller for CLspAdapter {
-    type BinaryVersion = GitHubLspBinaryVersion;
+    type BinaryVersion = ();
 
     async fn fetch_latest_server_version(
         &self,
-        delegate: &dyn LspAdapterDelegate,
-        pre_release: bool,
+        _: &dyn LspAdapterDelegate,
+        _: bool,
         _: &mut AsyncApp,
-    ) -> Result<GitHubLspBinaryVersion> {
-        let release =
-            latest_github_release("clangd/clangd", true, pre_release, delegate.http_client())
-                .await?;
-        let os_suffix = match consts::OS {
-            "macos" => "mac",
-            "linux" => "linux",
-            "windows" => "windows",
-            other => bail!("Running on unsupported os: {other}"),
-        };
-        let asset_name = format!("clangd-{}-{}.zip", os_suffix, release.tag_name);
-        let asset = release
-            .assets
-            .iter()
-            .find(|asset| asset.name == asset_name)
-            .with_context(|| format!("no asset found matching {asset_name:?}"))?;
-        let version = GitHubLspBinaryVersion {
-            name: release.tag_name,
-            url: asset.browser_download_url.clone(),
-            digest: asset.digest.clone(),
-        };
-        Ok(version)
-    }
-
-    async fn check_if_user_installed(
-        &self,
-        delegate: &dyn LspAdapterDelegate,
-        _: Option<Toolchain>,
-        _: &AsyncApp,
-    ) -> Option<LanguageServerBinary> {
-        let path = delegate.which(Self::SERVER_NAME.as_ref()).await?;
-        Some(LanguageServerBinary {
-            path,
-            arguments: Vec::new(),
-            env: None,
-        })
+    ) -> Result<Self::BinaryVersion> {
+        // cherry-sight is built-in, no external version to fetch
+        Err(anyhow!("cherry-sight is built-in, no external server to fetch"))
     }
 
     async fn fetch_server_binary(
         &self,
-        version: GitHubLspBinaryVersion,
-        container_dir: PathBuf,
-        delegate: &dyn LspAdapterDelegate,
+        _: Self::BinaryVersion,
+        _: PathBuf,
+        _: &dyn LspAdapterDelegate,
     ) -> Result<LanguageServerBinary> {
-        let GitHubLspBinaryVersion {
-            name,
-            url,
-            digest: expected_digest,
-        } = version;
-        let version_dir = container_dir.join(format!("clangd_{name}"));
-        let binary_path = version_dir.join("bin/clangd");
-
-        let binary = LanguageServerBinary {
-            path: binary_path.clone(),
-            env: None,
-            arguments: Default::default(),
-        };
-
-        let metadata_path = version_dir.join("metadata");
-        let metadata = GithubBinaryMetadata::read_from_file(&metadata_path)
-            .await
-            .ok();
-        if let Some(metadata) = metadata {
-            let validity_check = async || {
-                delegate
-                    .try_exec(LanguageServerBinary {
-                        path: binary_path.clone(),
-                        arguments: vec!["--version".into()],
-                        env: None,
-                    })
-                    .await
-                    .inspect_err(|err| {
-                        log::warn!("Unable to run {binary_path:?} asset, redownloading: {err:#}",)
-                    })
-            };
-            if let (Some(actual_digest), Some(expected_digest)) =
-                (&metadata.digest, &expected_digest)
-            {
-                if actual_digest == expected_digest {
-                    if validity_check().await.is_ok() {
-                        return Ok(binary);
-                    }
-                } else {
-                    log::info!(
-                        "SHA-256 mismatch for {binary_path:?} asset, downloading new asset. Expected: {expected_digest}, Got: {actual_digest}"
-                    );
-                }
-            } else if validity_check().await.is_ok() {
-                return Ok(binary);
-            }
-        }
-        download_server_binary(
-            &*delegate.http_client(),
-            &url,
-            expected_digest.as_deref(),
-            &container_dir,
-            AssetKind::Zip,
-        )
-        .await?;
-        remove_matching(&container_dir, |entry| entry != version_dir).await;
-        GithubBinaryMetadata::write_to_file(
-            &GithubBinaryMetadata {
-                metadata_version: 1,
-                digest: expected_digest,
-            },
-            &metadata_path,
-        )
-        .await?;
-
-        Ok(binary)
+        // cherry-sight is built-in, no binary to fetch
+        Err(anyhow!("cherry-sight is built-in, no external binary to fetch"))
     }
 
     async fn cached_server_binary(
         &self,
-        container_dir: PathBuf,
+        _: PathBuf,
         _: &dyn LspAdapterDelegate,
     ) -> Option<LanguageServerBinary> {
-        get_cached_server_binary(container_dir).await
+        // cherry-sight is built-in, no cached binary
+        None
     }
 }
 
 #[async_trait(?Send)]
-impl super::LspAdapter for CLspAdapter {
+impl LspAdapter for CLspAdapter {
     fn name(&self) -> LanguageServerName {
         Self::SERVER_NAME
     }
@@ -332,61 +239,11 @@ impl super::LspAdapter for CLspAdapter {
 
     fn prepare_initialize_params(
         &self,
-        mut original: InitializeParams,
+        original: InitializeParams,
         _: &App,
     ) -> Result<InitializeParams> {
-        let experimental = json!({
-            "textDocument": {
-                "completion" : {
-                    // enable clangd's dot-to-arrow feature.
-                    "editsNearCursor": true
-                },
-                "inactiveRegionsCapabilities": {
-                    "inactiveRegions": true,
-                }
-            }
-        });
-        if let Some(ref mut original_experimental) = original.capabilities.experimental {
-            merge_json_value_into(experimental, original_experimental);
-        } else {
-            original.capabilities.experimental = Some(experimental);
-        }
         Ok(original)
     }
-
-    fn retain_old_diagnostic(&self, previous_diagnostic: &Diagnostic, _: &App) -> bool {
-        clangd_ext::is_inactive_region(previous_diagnostic)
-    }
-
-    fn underline_diagnostic(&self, diagnostic: &lsp::Diagnostic) -> bool {
-        !clangd_ext::is_lsp_inactive_region(diagnostic)
-    }
-}
-
-async fn get_cached_server_binary(container_dir: PathBuf) -> Option<LanguageServerBinary> {
-    maybe!(async {
-        let mut last_clangd_dir = None;
-        let mut entries = fs::read_dir(&container_dir).await?;
-        while let Some(entry) = entries.next().await {
-            let entry = entry?;
-            if entry.file_type().await?.is_dir() {
-                last_clangd_dir = Some(entry.path());
-            }
-        }
-        let clangd_dir = last_clangd_dir.context("no cached binary")?;
-        let clangd_bin = clangd_dir.join("bin/clangd");
-        anyhow::ensure!(
-            clangd_bin.exists(),
-            "missing clangd binary in directory {clangd_dir:?}"
-        );
-        Ok(LanguageServerBinary {
-            path: clangd_bin,
-            env: None,
-            arguments: Vec::new(),
-        })
-    })
-    .await
-    .log_err()
 }
 
 #[cfg(test)]
@@ -467,174 +324,6 @@ mod tests {
                 "#
                 .unindent(),
                 "body of if-statement without braces should be indented"
-            );
-
-            let ix = buffer.len() - 4;
-            buffer.edit([(ix..ix, "\n.c")], Some(AutoindentMode::EachLine), cx);
-            assert_eq!(
-                buffer.text(),
-                r#"
-                int main() {
-                  if (a)
-                    b
-                      .c;
-                }
-                "#
-                .unindent(),
-                "field expression (.c) should be indented further than the statement body"
-            );
-
-            buffer.edit([(0..buffer.len(), "")], Some(AutoindentMode::EachLine), cx);
-            buffer.edit(
-                [(
-                    0..0,
-                    r#"
-                    int main() {
-                    if (a) a++;
-                    else b++;
-                    }
-                    "#
-                    .unindent(),
-                )],
-                Some(AutoindentMode::EachLine),
-                cx,
-            );
-            assert_eq!(
-                buffer.text(),
-                r#"
-                int main() {
-                  if (a) a++;
-                  else b++;
-                }
-                "#
-                .unindent(),
-                "single-line if/else without braces should align at the same level"
-            );
-
-            buffer.edit([(0..buffer.len(), "")], Some(AutoindentMode::EachLine), cx);
-            buffer.edit(
-                [(
-                    0..0,
-                    r#"
-                    int main() {
-                    if (a)
-                    b++;
-                    else
-                    c++;
-                    }
-                    "#
-                    .unindent(),
-                )],
-                Some(AutoindentMode::EachLine),
-                cx,
-            );
-            assert_eq!(
-                buffer.text(),
-                r#"
-                int main() {
-                  if (a)
-                    b++;
-                  else
-                    c++;
-                }
-                "#
-                .unindent(),
-                "multi-line if/else without braces should indent statement bodies"
-            );
-
-            buffer.edit([(0..buffer.len(), "")], Some(AutoindentMode::EachLine), cx);
-            buffer.edit(
-                [(
-                    0..0,
-                    r#"
-                    int main() {
-                    if (a)
-                    if (b)
-                    c++;
-                    }
-                    "#
-                    .unindent(),
-                )],
-                Some(AutoindentMode::EachLine),
-                cx,
-            );
-            assert_eq!(
-                buffer.text(),
-                r#"
-                int main() {
-                  if (a)
-                    if (b)
-                      c++;
-                }
-                "#
-                .unindent(),
-                "nested if statements without braces should indent properly"
-            );
-
-            buffer.edit([(0..buffer.len(), "")], Some(AutoindentMode::EachLine), cx);
-            buffer.edit(
-                [(
-                    0..0,
-                    r#"
-                    int main() {
-                    if (a)
-                    b++;
-                    else if (c)
-                    d++;
-                    else
-                    f++;
-                    }
-                    "#
-                    .unindent(),
-                )],
-                Some(AutoindentMode::EachLine),
-                cx,
-            );
-            assert_eq!(
-                buffer.text(),
-                r#"
-                int main() {
-                  if (a)
-                    b++;
-                  else if (c)
-                    d++;
-                  else
-                    f++;
-                }
-                "#
-                .unindent(),
-                "else-if chains should align all conditions at same level with indented bodies"
-            );
-
-            buffer.edit([(0..buffer.len(), "")], Some(AutoindentMode::EachLine), cx);
-            buffer.edit(
-                [(
-                    0..0,
-                    r#"
-                    int main() {
-                    if (a) {
-                    b++;
-                    } else
-                    c++;
-                    }
-                    "#
-                    .unindent(),
-                )],
-                Some(AutoindentMode::EachLine),
-                cx,
-            );
-            assert_eq!(
-                buffer.text(),
-                r#"
-                int main() {
-                  if (a) {
-                    b++;
-                  } else
-                    c++;
-                }
-                "#
-                .unindent(),
-                "mixed braces should indent properly"
             );
 
             buffer

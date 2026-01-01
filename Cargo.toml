@@ -28,6 +28,7 @@ members = [
     "crates/call",
     "crates/channel",
     "crates/cherry_link",
+    "crates/cherry_sight",
     "crates/cli",
     "crates/client",
     "crates/clock",

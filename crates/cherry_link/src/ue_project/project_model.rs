@@ -147,31 +147,6 @@ pub struct UProjectPluginReference {
 /// Parsed .uplugin file (same structure as .uproject)
 pub type UPluginFile = UProjectFile;
 
-/// Clangd configuration to be generated
-#[derive(Debug, Clone)]
-pub struct ClangdConfig {
-    pub compile_flags: CompileFlags,
-    pub diagnostics: Option<DiagnosticsConfig>,
-    pub index: Option<IndexConfig>,
-}
-
-#[derive(Debug, Clone)]
-pub struct CompileFlags {
-    pub add: Vec<String>, // -I/path, -DDEFINE, etc.
-    pub remove: Vec<String>, // Flags to remove if present
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct DiagnosticsConfig {
-    pub unused_includes: Option<String>, // "Strict", "None"
-    pub missing_includes: Option<String>,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct IndexConfig {
-    pub background: Option<String>, // "Build", "Skip"
-}
-
 /// Cache for parsed modules to avoid re-parsing unchanged files
 #[derive(Debug, Clone)]
 pub struct ModuleCache {

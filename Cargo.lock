@@ -3099,6 +3099,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "cherry_sight"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "collections",
+ "criterion",
+ "crossbeam",
+ "dashmap 6.1.0",
+ "glob",
+ "indexmap",
+ "lasso",
+ "log",
+ "lsp-types",
+ "parking_lot",
+ "pretty_assertions",
+ "rayon",
+ "regex",
+ "rustc-hash 2.1.1",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+ "tree-sitter",
+ "tree-sitter-cpp 0.23.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "util",
+ "walkdir",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9304,7 +9336,7 @@ dependencies = [
  "tree-sitter",
  "tree-sitter-bash",
  "tree-sitter-c",
- "tree-sitter-cpp",
+ "tree-sitter-cpp 0.23.4 (git+https://github.com/tree-sitter/tree-sitter-cpp?rev=5cb9b693cfd7bfacab1d9ff4acac1a4150700609)",
  "tree-sitter-css",
  "tree-sitter-diff",
  "tree-sitter-gitcommit",
@@ -9323,6 +9355,16 @@ dependencies = [
  "url",
  "util",
  "workspace",
+]
+
+[[package]]
+name = "lasso"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e14eda50a3494b3bf7b9ce51c52434a761e383d7238ce1dd5dcec2fbc13e9fb"
+dependencies = [
+ "dashmap 6.1.0",
+ "hashbrown 0.14.5",
 ]
 
 [[package]]
@@ -17625,6 +17667,16 @@ name = "tree-sitter-c"
 version = "0.23.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afd2b1bf1585dc2ef6d69e87d01db8adb059006649dd5f96f31aa789ee6e9c71"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-cpp"
+version = "0.23.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df2196ea9d47b4ab4a31b9297eaa5a5d19a0b121dceb9f118f6790ad0ab94743"
 dependencies = [
  "cc",
  "tree-sitter-language",

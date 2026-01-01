@@ -1,0 +1,63 @@
+[package]
+name = "cherry_sight"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "GPL-3.0-or-later"
+description = "ReSharper-level C++ code intelligence for Unreal Engine 5"
+
+[lib]
+path = "src/lib.rs"
+doctest = false
+
+[features]
+test-support = []
+
+[dependencies]
+# Parsing
+tree-sitter.workspace = true
+tree-sitter-cpp = "0.23"
+
+# Parallelism
+rayon.workspace = true
+crossbeam.workspace = true
+
+# Async runtime for LSP
+tokio = { version = "1", features = ["full", "sync", "rt-multi-thread"] }
+
+# Data structures
+dashmap = "6.0"
+lasso = { version = "0.7", features = ["multi-threaded"] }
+indexmap.workspace = true
+smallvec.workspace = true
+rustc-hash.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Logging
+log.workspace = true
+tracing = "0.1"
+
+# LSP types
+lsp-types.workspace = true
+
+# Utilities
+parking_lot.workspace = true
+regex.workspace = true
+walkdir.workspace = true
+glob = "0.3"
+
+# Internal workspace dependencies
+util.workspace = true
+collections.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+tempfile = "3.13"
+criterion = "0.5"
