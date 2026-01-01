@@ -12695,6 +12695,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "buffer_diff",
+ "cherry_link",
  "circular-buffer",
  "client",
  "clock",

@@ -725,6 +725,198 @@ impl LocalLspStore {
                 }
             }
 
+            // Auto-configure clangd for Unreal Engine projects
+            if adapter.name() == clangd_ext::CLANGD_SERVER_NAME {
+                // Check if this is a UE project
+                if cherry_link::is_unreal_project(worktree_abs_path.as_ref()) {
+                    if let Some(uproject_path) = cherry_link::find_uproject_path(worktree_abs_path.as_ref()) {
+                        // Try to parse .uproject to get engine association
+                        if let Ok(uproject_content) = std::fs::read_to_string(&uproject_path) {
+                            if let Ok(uproject_file) = serde_json::from_str::<serde_json::Value>(&uproject_content) {
+                                if let Some(engine_association) = uproject_file.get("EngineAssociation").and_then(|v| v.as_str()) {
+                                    // Try to find engine path
+                                    if let Some(engine_path) = cherry_link::ue_project::find_engine_path(engine_association) {
+                                        // Check for compile_commands.json in both project root and engine root
+                                        let project_root = uproject_path.parent().unwrap_or(worktree_abs_path.as_ref());
+                                        let project_compile_commands = project_root.join("compile_commands.json");
+                                        let engine_compile_commands = engine_path.join("compile_commands.json");
+
+                                        let compile_commands_path = if project_compile_commands.exists() {
+                                            Some(project_root.to_path_buf())
+                                        } else if engine_compile_commands.exists() {
+                                            Some(engine_path.clone())
+                                        } else {
+                                            None
+                                        };
+
+                                        // Only add if compile_commands.json exists or trigger generation
+                                        if let Some(compile_commands_dir) = compile_commands_path {
+                                            // Check if --compile-commands-dir is already in arguments
+                                            let has_compile_commands_dir = binary.arguments.iter().any(|arg| {
+                                                arg.to_str().map_or(false, |s| s.starts_with("--compile-commands-dir"))
+                                            });
+
+                                            if !has_compile_commands_dir {
+                                                log::info!(
+                                                    "Auto-configuring clangd for UE project with compile_commands.json from: {}",
+                                                    compile_commands_dir.display()
+                                                );
+                                                binary.arguments.push(format!("--compile-commands-dir={}", compile_commands_dir.display()).into());
+
+                                                // Also add query-driver to help clangd find system headers
+                                                binary.arguments.push("--query-driver=**".into());
+
+                                                // Suppress MSVC intrinsic warnings (like _m_prefetch)
+                                                binary.arguments.push("--header-insertion=never".into());
+                                                binary.arguments.push("--clang-tidy=false".into());
+                                            }
+                                        } else {
+                                            // compile_commands.json doesn't exist, generate it automatically
+                                            log::info!(
+                                                "UE project detected but compile_commands.json not found. Generating it automatically..."
+                                            );
+
+                                            // Extract project name from .uproject path
+                                            let project_name = uproject_path.file_stem()
+                                                .and_then(|s| s.to_str())
+                                                .unwrap_or("UnknownProject");
+
+                                            // Build UBT command
+                                            let ubt_script = engine_path.join("Engine\\Build\\BatchFiles\\Build.bat");
+
+                                            if ubt_script.exists() {
+                                                let uproject_path_clone = uproject_path.clone();
+                                                let engine_path_clone = engine_path.clone();
+                                                let project_name = project_name.to_string();
+
+                                                // Run UBT in background thread
+                                                std::thread::spawn(move || {
+                                                    log::info!(
+                                                        "Step 1/2: Building project to generate .generated.h files for: {}",
+                                                        project_name
+                                                    );
+
+                                                    // First, build the project to ensure all .generated.h files exist
+                                                    let build_output = std::process::Command::new(&ubt_script)
+                                                        .arg(format!("{}Editor", project_name))
+                                                        .arg("Win64")
+                                                        .arg("Development")
+                                                        .arg(format!("-Project={}", uproject_path_clone.display()))
+                                                        .current_dir(&engine_path_clone)
+                                                        .output();
+
+                                                    match build_output {
+                                                        Ok(output) if output.status.success() => {
+                                                            log::info!("Project build completed successfully");
+                                                        }
+                                                        Ok(output) => {
+                                                            log::warn!("Project build completed with warnings/errors. Continuing with database generation...");
+                                                            let stderr = String::from_utf8_lossy(&output.stderr);
+                                                            log::debug!("Build output: {}", stderr);
+                                                        }
+                                                        Err(e) => {
+                                                            log::warn!("Failed to build project: {}. Continuing with database generation...", e);
+                                                        }
+                                                    }
+
+                                                    log::info!(
+                                                        "Step 2/2: Generating compile_commands.json for project: {}",
+                                                        project_name
+                                                    );
+
+                                                    // Generate compile_commands.json at the project root
+                                                    let project_root = uproject_path_clone.parent()
+                                                        .expect("uproject should have a parent directory");
+
+                                                    let output = std::process::Command::new(&ubt_script)
+                                                        .arg("-Mode=GenerateClangDatabase")
+                                                        .arg(format!("-Project={}", uproject_path_clone.display()))
+                                                        .arg(format!("{}Editor", project_name))
+                                                        .arg("Win64")
+                                                        .arg("Development")
+                                                        .current_dir(project_root)
+                                                        .output();
+
+                                                    match output {
+                                                        Ok(output) if output.status.success() => {
+                                                            let project_root = uproject_path_clone.parent()
+                                                                .expect("uproject should have a parent directory");
+                                                            let compile_commands_path = project_root.join("compile_commands.json");
+
+                                                            if compile_commands_path.exists() {
+                                                                // Verify the file has content
+                                                                if let Ok(metadata) = std::fs::metadata(&compile_commands_path) {
+                                                                    log::info!(
+                                                                        "Successfully generated compile_commands.json at: {} ({} bytes)",
+                                                                        compile_commands_path.display(),
+                                                                        metadata.len()
+                                                                    );
+
+                                                                    // Trigger clangd reload by touching the file
+                                                                    // This updates the modification timestamp, causing clangd to detect the change
+                                                                    if let Ok(file) = std::fs::OpenOptions::new()
+                                                                        .write(true)
+                                                                        .append(true)
+                                                                        .open(&compile_commands_path)
+                                                                    {
+                                                                        drop(file); // Just opening and closing updates the timestamp
+                                                                        log::info!("Triggered clangd auto-reload by updating file timestamp");
+                                                                    }
+
+                                                                    // Also create/update .clangd file to ensure clangd picks up changes
+                                                                    let clangd_config_path = project_root.join(".clangd");
+                                                                    let clangd_config = r#"# Auto-generated configuration for Unreal Engine
+CompileFlags:
+  Add:
+    # Suppress MSVC intrinsic warnings
+    - -Wno-microsoft-include
+    - -Wno-ignored-pragma-intrinsic
+    - -Wno-builtin-macro-redefined
+    - -Wno-deprecated-declarations
+  CompilationDatabase: .
+"#;
+                                                                    if std::fs::write(&clangd_config_path, clangd_config).is_ok() {
+                                                                        log::info!("Created .clangd configuration at: {}", clangd_config_path.display());
+                                                                        log::info!("Clangd is restarting automatically...");
+                                                                    }
+                                                                } else {
+                                                                    log::warn!("compile_commands.json was created but cannot read metadata");
+                                                                }
+                                                            } else {
+                                                                log::error!("UBT reported success but compile_commands.json was not created at: {}", compile_commands_path.display());
+                                                            }
+                                                        }
+                                                        Ok(output) => {
+                                                            let stderr = String::from_utf8_lossy(&output.stderr);
+                                                            log::error!(
+                                                                "UBT failed to generate compile_commands.json: {}",
+                                                                stderr
+                                                            );
+                                                        }
+                                                        Err(e) => {
+                                                            log::error!(
+                                                                "Failed to run UBT: {}. Make sure the engine is properly installed at: {}",
+                                                                e,
+                                                                engine_path_clone.display()
+                                                            );
+                                                        }
+                                                    }
+                                                });
+                                            } else {
+                                                log::warn!(
+                                                    "UBT script not found at: {}. Cannot generate compile_commands.json automatically.",
+                                                    ubt_script.display()
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             binary.env = Some(shell_env);
             Ok(binary)
         })
@@ -11017,6 +11209,36 @@ impl LspStore {
                     .ok()
             })
             .detach();
+        }
+    }
+
+    /// Restart language servers for a specific worktree and adapter name
+    pub fn restart_language_servers_for_worktree(
+        &mut self,
+        worktree_path: &Path,
+        adapter_name: LanguageServerName,
+        cx: &mut Context<Self>,
+    ) {
+        // Find all buffers in this worktree
+        let mut buffers_to_restart = Vec::new();
+
+        for buffer_handle in self.buffer_store.read(cx).buffers() {
+            let buffer = buffer_handle.read(cx);
+            if let Some(file) = buffer.file() {
+                // Check if the file is in the worktree by comparing paths
+                if let Some(path) = file.full_path(cx).to_path_buf().parent() {
+                    if path.starts_with(worktree_path) {
+                        buffers_to_restart.push(buffer_handle.clone());
+                    }
+                }
+            }
+        }
+
+        if !buffers_to_restart.is_empty() {
+            let mut only_restart_servers = HashSet::default();
+            only_restart_servers.insert(LanguageServerSelector::Name(adapter_name));
+
+            self.restart_language_servers_for_buffers(buffers_to_restart, only_restart_servers, cx);
         }
     }
 

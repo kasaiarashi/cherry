@@ -34,3 +34,44 @@ pub use dependency_resolver::{resolve_dependencies, DependencyGraph};
 pub use include_path_builder::{infer_module_include_paths, IncludePathBuilder};
 pub use uplugin_parser::{parse_uplugin, parse_uplugin_from_str};
 pub use uproject_parser::{parse_uproject, parse_uproject_from_str};
+
+use std::path::PathBuf;
+
+/// Find the engine path based on engine association string (e.g., "5.7", "5.6")
+///
+/// This function tries common installation locations for Unreal Engine on Windows:
+/// 1. W:\Softwares\UE_<version>
+/// 2. C:\Program Files\Epic Games\UE_<version>
+/// 3. Environment variable UE_<version>_PATH
+///
+/// Returns None if the engine cannot be found.
+pub fn find_engine_path(engine_association: &str) -> Option<PathBuf> {
+    // Try common installation paths
+    let common_paths = [
+        format!("W:\\Softwares\\UE_{}", engine_association),
+        format!("C:\\Program Files\\Epic Games\\UE_{}", engine_association),
+    ];
+
+    for path_str in &common_paths {
+        let path = PathBuf::from(path_str);
+        if path.exists() && path.join("Engine").exists() {
+            log::info!("Found Unreal Engine {} at: {}", engine_association, path.display());
+            return Some(path);
+        }
+    }
+
+    // Try environment variable
+    let env_var_name = format!("UE_{}_PATH", engine_association.replace('.', "_"));
+    if let Ok(env_path) = std::env::var(&env_var_name) {
+        let path = PathBuf::from(env_path);
+        if path.exists() && path.join("Engine").exists() {
+            log::info!("Found Unreal Engine {} from environment variable {}: {}",
+                      engine_association, env_var_name, path.display());
+            return Some(path);
+        }
+    }
+
+    log::warn!("Could not find Unreal Engine {} installation. Tried common paths and environment variable {}",
+              engine_association, env_var_name);
+    None
+}

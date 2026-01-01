@@ -47,6 +47,16 @@ pub fn generate_clangd_config(
 ) -> Result<String> {
     let mut add_flags = Vec::new();
 
+    // ============================================================================
+    // CRITICAL: Platform/Language specification (fixes NSString errors on Windows)
+    // ============================================================================
+    // Explicitly tell clang this is C++ (not Objective-C++) to prevent parsing
+    // Apple platform-specific headers like NSString
+    add_flags.push("-xc++".to_string());
+
+    // Specify Windows as the target platform to exclude non-Windows headers
+    add_flags.push("--target=x86_64-pc-windows-msvc".to_string());
+
     // Add include paths
     for path in include_paths {
         add_flags.push(format!("-I{}", path.display()));
@@ -69,13 +79,17 @@ pub fn generate_clangd_config(
     // Add clang-specific flags for better UE support
     add_flags.push("-fms-extensions".to_string()); // Microsoft extensions (for __declspec, etc.)
     add_flags.push("-fms-compatibility".to_string()); // Better MSVC compatibility
+    add_flags.push("-fms-compatibility-version=19.38".to_string()); // VS 2022 17.8
     add_flags.push("-fdelayed-template-parsing".to_string()); // MSVC-style template parsing
+    add_flags.push("-ferror-limit=0".to_string()); // Show all errors (not just first few)
 
     let config = ClangdConfigFile {
         compile_flags: CompileFlagsSection {
             add: add_flags,
             remove: Some(vec![
                 "-W*".to_string(), // Remove default warnings, we'll add back what we need
+                "--target=*".to_string(), // Remove any conflicting target specs
+                "-x*".to_string(), // Remove any conflicting language specs
             ]),
         },
         diagnostics: Some(DiagnosticsSection {
