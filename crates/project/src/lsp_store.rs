@@ -757,11 +757,31 @@ impl LocalLspStore {
                                             });
 
                                             if !has_compile_commands_dir {
+                                                // Create .cherry directory for Cherry-specific files
+                                                let cherry_dir = project_root.join(".cherry");
+                                                if !cherry_dir.exists() {
+                                                    if let Err(e) = std::fs::create_dir_all(&cherry_dir) {
+                                                        log::warn!("Failed to create .cherry directory: {}", e);
+                                                    }
+                                                }
+
+                                                // Copy compile_commands.json to .cherry directory
+                                                let cherry_compile_commands_path = cherry_dir.join("compile_commands.json");
+                                                let source = compile_commands_dir.join("compile_commands.json");
+                                                if source.exists() && !cherry_compile_commands_path.exists() {
+                                                    if let Err(e) = std::fs::copy(&source, &cherry_compile_commands_path) {
+                                                        log::warn!("Failed to copy compile_commands.json to .cherry: {}", e);
+                                                    } else {
+                                                        log::info!("Copied compile_commands.json from {} to .cherry directory", compile_commands_dir.display());
+                                                    }
+                                                }
+
+                                                // Point clangd to .cherry directory
                                                 log::info!(
-                                                    "Auto-configuring clangd for UE project with compile_commands.json from: {}",
-                                                    compile_commands_dir.display()
+                                                    "Auto-configuring clangd for UE project with compile_commands.json at: {}",
+                                                    cherry_dir.display()
                                                 );
-                                                binary.arguments.push(format!("--compile-commands-dir={}", compile_commands_dir.display()).into());
+                                                binary.arguments.push(format!("--compile-commands-dir={}", cherry_dir.display()).into());
 
                                                 // Also add query-driver to help clangd find system headers
                                                 binary.arguments.push("--query-driver=**".into());
@@ -769,6 +789,51 @@ impl LocalLspStore {
                                                 // Suppress MSVC intrinsic warnings (like _m_prefetch)
                                                 binary.arguments.push("--header-insertion=never".into());
                                                 binary.arguments.push("--clang-tidy=false".into());
+
+                                                // Create .clangd configuration file at project root (clangd walks up directories to find it)
+                                                let clangd_config_path = project_root.join(".clangd");
+                                                let clangd_config = r#"# Auto-generated configuration for Unreal Engine
+CompileFlags:
+  CompilationDatabase: .cherry
+  Add:
+    # MSVC compatibility for Unreal Engine
+    - -fms-extensions
+    - -fms-compatibility
+    - -fdelayed-template-parsing
+    # Suppress warnings
+    - -Wno-microsoft-include
+    - -Wno-ignored-pragma-intrinsic
+    - -Wno-builtin-macro-redefined
+    - -Wno-deprecated-declarations
+    - -Wno-deprecated-builtins
+    - -Wno-builtin-requires-header
+    - -Wno-unknown-pragmas
+    - -Wno-unused-value
+    - -Wno-#pragma-messages
+    - -Wno-nonportable-include-path
+    - -Wno-pragma-pack
+  Remove:
+    # Remove flags that conflict with clang
+    - -m32
+    - -m64
+    - /EH*
+    - /GR*
+    - /W*
+    - /wd*
+Diagnostics:
+  UnusedIncludes: None
+  ClangTidy:
+    Remove: '*'
+  Suppress:
+    - builtin_definition
+    - pp_file_not_found
+"#;
+                                                log::info!("Creating .clangd configuration at: {}", clangd_config_path.display());
+                                                if let Err(e) = std::fs::write(&clangd_config_path, clangd_config) {
+                                                    log::warn!("Failed to create .clangd file: {}", e);
+                                                } else {
+                                                    log::info!("✓ Created .clangd configuration to suppress warnings at: {}", clangd_config_path.display());
+                                                }
                                             }
                                         } else {
                                             // compile_commands.json doesn't exist, generate it automatically
@@ -839,66 +904,133 @@ impl LocalLspStore {
 
                                                     match output {
                                                         Ok(output) if output.status.success() => {
+                                                            log::info!("✓ UBT GenerateClangDatabase command completed successfully");
+
                                                             let project_root = uproject_path_clone.parent()
                                                                 .expect("uproject should have a parent directory");
-                                                            let compile_commands_path = project_root.join("compile_commands.json");
 
-                                                            if compile_commands_path.exists() {
+                                                            // UBT generates compile_commands.json at the engine root
+                                                            let engine_compile_commands = engine_path_clone.join("compile_commands.json");
+                                                            log::info!("Looking for compile_commands.json at engine root: {}", engine_compile_commands.display());
+
+                                                            // Create .cherry directory for Cherry-specific files
+                                                            let cherry_dir = project_root.join(".cherry");
+                                                            if !cherry_dir.exists() {
+                                                                if let Err(e) = std::fs::create_dir_all(&cherry_dir) {
+                                                                    log::warn!("Failed to create .cherry directory: {}", e);
+                                                                }
+                                                            }
+
+                                                            // We'll copy it to .cherry directory
+                                                            let cherry_compile_commands = cherry_dir.join("compile_commands.json");
+                                                            log::info!("Will copy to .cherry directory: {}", cherry_compile_commands.display());
+
+                                                            if engine_compile_commands.exists() {
+                                                                log::info!("✓ Found compile_commands.json at engine root");
                                                                 // Verify the file has content
-                                                                if let Ok(metadata) = std::fs::metadata(&compile_commands_path) {
+                                                                if let Ok(metadata) = std::fs::metadata(&engine_compile_commands) {
                                                                     log::info!(
-                                                                        "Successfully generated compile_commands.json at: {} ({} bytes)",
-                                                                        compile_commands_path.display(),
+                                                                        "Successfully generated compile_commands.json at engine root: {} ({} bytes)",
+                                                                        engine_compile_commands.display(),
                                                                         metadata.len()
                                                                     );
 
+                                                                    // Copy to .cherry directory for clangd to find
+                                                                    if let Err(e) = std::fs::copy(&engine_compile_commands, &cherry_compile_commands) {
+                                                                        log::warn!("Failed to copy compile_commands.json to .cherry: {}", e);
+                                                                    } else {
+                                                                        log::info!("Copied compile_commands.json to .cherry: {}", cherry_compile_commands.display());
+                                                                    }
+
                                                                     // Trigger clangd reload by touching the file
-                                                                    // This updates the modification timestamp, causing clangd to detect the change
                                                                     if let Ok(file) = std::fs::OpenOptions::new()
                                                                         .write(true)
                                                                         .append(true)
-                                                                        .open(&compile_commands_path)
+                                                                        .open(&cherry_compile_commands)
                                                                     {
-                                                                        drop(file); // Just opening and closing updates the timestamp
+                                                                        drop(file);
                                                                         log::info!("Triggered clangd auto-reload by updating file timestamp");
                                                                     }
 
-                                                                    // Also create/update .clangd file to ensure clangd picks up changes
+                                                                    // Create .clangd configuration file at project root (clangd walks up directories to find it)
                                                                     let clangd_config_path = project_root.join(".clangd");
+                                                                    log::info!("Creating .clangd configuration at: {}", clangd_config_path.display());
+
                                                                     let clangd_config = r#"# Auto-generated configuration for Unreal Engine
 CompileFlags:
+  CompilationDatabase: .cherry
   Add:
-    # Suppress MSVC intrinsic warnings
+    # MSVC compatibility for Unreal Engine
+    - -fms-extensions
+    - -fms-compatibility
+    - -fdelayed-template-parsing
+    # Suppress warnings
     - -Wno-microsoft-include
     - -Wno-ignored-pragma-intrinsic
     - -Wno-builtin-macro-redefined
     - -Wno-deprecated-declarations
-  CompilationDatabase: .
+    - -Wno-deprecated-builtins
+    - -Wno-builtin-requires-header
+    - -Wno-unknown-pragmas
+    - -Wno-unused-value
+    - -Wno-#pragma-messages
+    - -Wno-nonportable-include-path
+    - -Wno-pragma-pack
+  Remove:
+    # Remove flags that conflict with clang
+    - -m32
+    - -m64
+    - /EH*
+    - /GR*
+    - /W*
+    - /wd*
+Diagnostics:
+  UnusedIncludes: None
+  ClangTidy:
+    Remove: '*'
+  Suppress:
+    - builtin_definition
+    - pp_file_not_found
 "#;
-                                                                    if std::fs::write(&clangd_config_path, clangd_config).is_ok() {
-                                                                        log::info!("Created .clangd configuration at: {}", clangd_config_path.display());
-                                                                        log::info!("Clangd is restarting automatically...");
+                                                                    log::info!("Writing .clangd file content ({} bytes)", clangd_config.len());
+                                                                    match std::fs::write(&clangd_config_path, clangd_config) {
+                                                                        Ok(_) => {
+                                                                            log::info!("✓ Created .clangd configuration at: {}", clangd_config_path.display());
+                                                                            log::info!("✓ Clangd will auto-reload to suppress warnings");
+
+                                                                            // Verify the file was actually created
+                                                                            if clangd_config_path.exists() {
+                                                                                log::info!("✓ Verified .clangd file exists");
+                                                                            } else {
+                                                                                log::error!("✗ .clangd file was written but doesn't exist!");
+                                                                            }
+                                                                        }
+                                                                        Err(e) => {
+                                                                            log::error!("✗ Failed to create .clangd file at {}: {}", clangd_config_path.display(), e);
+                                                                            log::error!("  You may need to manually create this file to suppress warnings");
+                                                                        }
                                                                     }
                                                                 } else {
-                                                                    log::warn!("compile_commands.json was created but cannot read metadata");
+                                                                    log::warn!("compile_commands.json was created but cannot read metadata at: {}", engine_compile_commands.display());
                                                                 }
                                                             } else {
-                                                                log::error!("UBT reported success but compile_commands.json was not created at: {}", compile_commands_path.display());
+                                                                log::error!("✗ UBT reported success but compile_commands.json was NOT found at engine root: {}", engine_compile_commands.display());
+                                                                log::error!("  Expected location: {}", engine_compile_commands.display());
+                                                                log::error!("  This means .clangd will NOT be created. Please check if UBT generated the file elsewhere.");
                                                             }
                                                         }
                                                         Ok(output) => {
                                                             let stderr = String::from_utf8_lossy(&output.stderr);
-                                                            log::error!(
-                                                                "UBT failed to generate compile_commands.json: {}",
-                                                                stderr
-                                                            );
+                                                            let stdout = String::from_utf8_lossy(&output.stdout);
+                                                            log::error!("✗ UBT GenerateClangDatabase command failed with exit code: {:?}", output.status.code());
+                                                            log::error!("  Stderr: {}", stderr);
+                                                            log::error!("  Stdout: {}", stdout);
+                                                            log::error!("  This means .clangd will NOT be created.");
                                                         }
                                                         Err(e) => {
-                                                            log::error!(
-                                                                "Failed to run UBT: {}. Make sure the engine is properly installed at: {}",
-                                                                e,
-                                                                engine_path_clone.display()
-                                                            );
+                                                            log::error!("✗ Failed to run UBT command: {}", e);
+                                                            log::error!("  Make sure the engine is properly installed at: {}", engine_path_clone.display());
+                                                            log::error!("  This means .clangd will NOT be created.");
                                                         }
                                                     }
                                                 });
