@@ -86,6 +86,7 @@ pub struct UEPlugin {
 #[serde(rename_all = "PascalCase")]
 pub struct UProjectFile {
     pub file_version: i32,
+    #[serde(default)]
     pub engine_association: String,
     #[serde(default)]
     pub modules: Vec<UProjectModule>,
@@ -93,10 +94,36 @@ pub struct UProjectFile {
     pub plugins: Vec<UProjectPluginReference>,
     #[serde(default)]
     pub target_platforms: Vec<String>,
+
+    // Optional fields for .uplugin files
+    #[serde(default)]
+    pub version: Option<i32>,
+    #[serde(default)]
+    pub version_name: Option<String>,
+    #[serde(default)]
+    pub friendly_name: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
     #[serde(default)]
     pub category: Option<String>,
     #[serde(default)]
-    pub description: Option<String>,
+    pub created_by: Option<String>,
+    #[serde(default)]
+    pub created_by_url: Option<String>,
+    #[serde(default, rename = "DocsURL")]
+    pub docs_url: Option<String>,
+    #[serde(default, rename = "MarketplaceURL")]
+    pub marketplace_url: Option<String>,
+    #[serde(default, rename = "SupportURL")]
+    pub support_url: Option<String>,
+    #[serde(default)]
+    pub can_contain_content: Option<bool>,
+    #[serde(default)]
+    pub is_beta_version: Option<bool>,
+    #[serde(default)]
+    pub is_experimental_version: Option<bool>,
+    #[serde(default)]
+    pub installed: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
