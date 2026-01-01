@@ -1,4 +1,5 @@
 use anyhow::Result;
+use cherry_link::CherryLinkConnection;
 use collections::VecDeque;
 use editor::{Editor, EditorMode, MultiBuffer, SizingBehavior};
 use gpui::{
@@ -21,6 +22,7 @@ const MAX_LOG_ENTRIES: usize = 50000;
 
 pub struct BuildPanel {
     workspace: WeakEntity<Workspace>,
+    connection: Option<Entity<CherryLinkConnection>>,
     logs: VecDeque<BuildLogEntry>,
     focus_handle: FocusHandle,
     width: Option<Pixels>,
@@ -95,6 +97,7 @@ impl BuildPanel {
 
         Self {
             workspace,
+            connection: None,
             logs: VecDeque::with_capacity(MAX_LOG_ENTRIES),
             focus_handle: cx.focus_handle(),
             width: None,
@@ -105,6 +108,10 @@ impl BuildPanel {
             log_buffer,
             log_editor: None,
         }
+    }
+
+    pub fn set_connection(&mut self, connection: Entity<CherryLinkConnection>, _cx: &mut Context<Self>) {
+        self.connection = Some(connection);
     }
 
     pub fn add_line(&mut self, line: String, cx: &mut Context<Self>) {
@@ -182,6 +189,26 @@ impl BuildPanel {
             .child(
                 h_flex()
                     .gap_1()
+                    .when(self.is_building, |this| {
+                        this.child(
+                            ui::IconButton::new("stop-build", IconName::Stop)
+                                .icon_size(IconSize::Small)
+                                .icon_color(ui::Color::Error)
+                                .tooltip(ui::Tooltip::text("Stop Build"))
+                                .on_click(cx.listener(|this, _, _window, cx| {
+                                    // Send cancel request to CherryLink for Live Coding builds
+                                    if let Some(connection) = &this.connection {
+                                        connection.update(cx, |conn, cx| {
+                                            conn.build_cancel(cx);
+                                        });
+                                    }
+
+                                    // Mark as not building
+                                    this.is_building = false;
+                                    cx.notify();
+                                })),
+                        )
+                    })
                     .child(
                         ui::IconButton::new("clear-build-logs", IconName::Trash)
                             .icon_size(IconSize::Small)

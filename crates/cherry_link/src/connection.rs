@@ -302,6 +302,7 @@ impl CherryLinkConnection {
                             "compiling" => BuildStatus::Compiling,
                             "success" => BuildStatus::Success,
                             "failed" => BuildStatus::Failed,
+                            "cancelled" => BuildStatus::Cancelled,
                             _ => BuildStatus::Idle,
                         };
                         return Some(IncomingNotification::BuildStatusChanged(status));
@@ -456,6 +457,15 @@ impl CherryLinkConnection {
         self.send_request("build/liveCoding", serde_json::json!({}));
         self.build_status = BuildStatus::Compiling;
         cx.emit(CherryLinkEvent::BuildStatusChanged(self.build_status));
+        cx.notify();
+    }
+
+    /// Send a build cancel request
+    pub fn build_cancel(&mut self, cx: &mut Context<Self>) {
+        if !self.is_connected() {
+            return;
+        }
+        self.send_request("build/cancel", serde_json::json!({}));
         cx.notify();
     }
 

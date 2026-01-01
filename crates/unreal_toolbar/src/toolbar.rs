@@ -6,7 +6,7 @@ use gpui::{
 use futures::{channel::mpsc, StreamExt};
 use std::io::BufReader;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use ui::{
@@ -64,6 +64,8 @@ pub struct UnrealToolbar {
     _subscriptions: Vec<Subscription>,
     /// Running build process flag
     is_building: Arc<Mutex<bool>>,
+    /// Build process ID for killing
+    build_process_id: Arc<Mutex<Option<u32>>>,
     /// Build output reader task
     _build_task: Option<Task<()>>,
 }
@@ -79,7 +81,51 @@ impl UnrealToolbar {
             visible: true,
             _subscriptions: Vec::new(),
             is_building: Arc::new(Mutex::new(false)),
+            build_process_id: Arc::new(Mutex::new(None)),
             _build_task: None,
+        }
+    }
+
+    pub fn stop_build(&mut self, _cx: &mut Context<Self>) {
+        if let Some(pid) = *self.build_process_id.lock().unwrap() {
+            log::info!("Requesting build stop for PID: {}", pid);
+
+            #[cfg(target_os = "windows")]
+            {
+                // Use taskkill without /F (force) or /T (tree) flags
+                // This sends a termination request that allows the process to clean up
+                // and doesn't kill child processes (preventing editor crashes)
+                let _ = Command::new("taskkill")
+                    .args(&["/PID", &pid.to_string()])
+                    .spawn();
+
+                // If the process doesn't respond after a timeout, force kill only the main process
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    let _ = Command::new("taskkill")
+                        .args(&["/F", "/PID", &pid.to_string()])
+                        .output();
+                });
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                // On Unix-like systems, send SIGTERM first
+                let _ = Command::new("kill")
+                    .args(&["-TERM", &pid.to_string()])
+                    .spawn();
+
+                // Force kill after timeout if needed
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    let _ = Command::new("kill")
+                        .args(&["-9", &pid.to_string()])
+                        .spawn();
+                });
+            }
+
+            *self.build_process_id.lock().unwrap() = None;
+            *self.is_building.lock().unwrap() = false;
         }
     }
 
@@ -353,6 +399,7 @@ impl UnrealToolbar {
         }
 
         let is_building = self.is_building.clone();
+        let build_process_id = self.build_process_id.clone();
         let workspace = self.workspace.clone();
 
         log::info!("Starting build: {:?} {} {} {} -Project={} -WaitMutex -FromMsBuild -architecture={}",
@@ -363,6 +410,7 @@ impl UnrealToolbar {
 
         // Spawn background thread to run build and send output
         let tx_clone = tx.clone();
+        let build_pid_clone = build_process_id.clone();
         thread::spawn(move || {
             #[cfg(target_os = "windows")]
             let mut cmd = {
@@ -403,7 +451,14 @@ impl UnrealToolbar {
 
             match cmd.spawn() {
                 Ok(mut child) => {
-                    log::info!("Build process spawned successfully");
+                    let child_id = child.id();
+                    log::info!("Build process spawned successfully with PID: {}", child_id);
+
+                    // Store process ID for later termination
+                    if let Ok(mut guard) = build_pid_clone.lock() {
+                        *guard = Some(child_id);
+                    }
+
                     let stdout = child.stdout.take();
                     let stderr = child.stderr.take();
 
@@ -488,9 +543,20 @@ impl UnrealToolbar {
 
                     // Wait for process
                     let success = child.wait().map(|s| s.success()).unwrap_or(false);
+
+                    // Clear the process ID
+                    if let Ok(mut guard) = build_pid_clone.lock() {
+                        *guard = None;
+                    }
+
                     let _ = tx_clone.unbounded_send(BuildMessage::Finished(success));
                 }
                 Err(e) => {
+                    // Clear the process ID on error
+                    if let Ok(mut guard) = build_pid_clone.lock() {
+                        *guard = None;
+                    }
+
                     let _ = tx_clone.unbounded_send(BuildMessage::Line(format!("Failed to start build: {}", e)));
                     let _ = tx_clone.unbounded_send(BuildMessage::Finished(false));
                 }
@@ -878,10 +944,9 @@ impl UnrealToolbar {
             .icon_size(IconSize::Small)
             .icon_color(if is_running { Color::Error } else { Color::Muted })
             .disabled(!is_running)
-            .tooltip(Tooltip::text("Stop Unreal Engine (not implemented)"))
-            .on_click(cx.listener(|_this, _, _window, _cx| {
-                // TODO: Implement stopping UE process
-                log::info!("Stop UE not implemented");
+            .tooltip(Tooltip::text("Stop Build"))
+            .on_click(cx.listener(|this, _, _window, cx| {
+                this.stop_build(cx);
             }))
     }
 

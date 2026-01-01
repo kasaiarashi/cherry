@@ -71,8 +71,21 @@ bool FBuildService::TriggerLiveCoding()
 
 bool FBuildService::CancelLiveCoding()
 {
-	UE_LOG(LogCherryLink, Warning, TEXT("BuildService: Cancel Live Coding not supported"));
-	return false;
+	// Live Coding doesn't provide a direct cancel API, but we can mark it as not compiling
+	// and broadcast a cancelled status
+	if (!bIsCompiling)
+	{
+		UE_LOG(LogCherryLink, Warning, TEXT("BuildService: No build in progress to cancel"));
+		return false;
+	}
+
+	UE_LOG(LogCherryLink, Log, TEXT("BuildService: Cancelling Live Coding compile..."));
+	bIsCompiling = false;
+	BroadcastBuildStatus(TEXT("Cancelled"));
+
+	// Note: Live Coding API doesn't provide a way to cancel in-progress compilation
+	// The build will continue in the background, but we mark it as cancelled in our state
+	return true;
 }
 
 bool FBuildService::IsLiveCodingEnabled() const
@@ -173,6 +186,14 @@ void FBuildService::HandleRequest(const FString& JsonMessage)
 		TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
 		Result->SetBoolField(TEXT("success"), bSuccess);
 		Result->SetBoolField(TEXT("liveCodingEnabled"), IsLiveCodingEnabled());
+		ServerPtr->SendResponse(Id, MakeShared<FJsonValueObject>(Result));
+	}
+	else if (Method == TEXT("build/cancel"))
+	{
+		bool bSuccess = CancelLiveCoding();
+
+		TSharedPtr<FJsonObject> Result = MakeShared<FJsonObject>();
+		Result->SetBoolField(TEXT("success"), bSuccess);
 		ServerPtr->SendResponse(Id, MakeShared<FJsonValueObject>(Result));
 	}
 	else if (Method == TEXT("build/getStatus"))

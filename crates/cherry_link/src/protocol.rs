@@ -76,6 +76,7 @@ pub enum BuildStatus {
     Compiling,
     Success,
     Failed,
+    Cancelled,
 }
 
 impl std::fmt::Display for BuildStatus {
@@ -85,6 +86,7 @@ impl std::fmt::Display for BuildStatus {
             BuildStatus::Compiling => write!(f, "Compiling"),
             BuildStatus::Success => write!(f, "Success"),
             BuildStatus::Failed => write!(f, "Failed"),
+            BuildStatus::Cancelled => write!(f, "Cancelled"),
         }
     }
 }

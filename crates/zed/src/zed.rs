@@ -707,7 +707,7 @@ fn initialize_panels(
             }
         }
 
-        // Set up UnrealPanel connection if available
+        // Set up UnrealPanel and BuildPanel connection if available
         if let Some(conn) = ue_connection {
             if let Ok(panel) = unreal_panel.await {
                 let mut ctx = cx.clone();
@@ -718,9 +718,19 @@ fn initialize_panels(
                     workspace.add_panel(panel.clone(), window, cx);
                 }).log_err();
             }
+
+            if let Ok(panel) = build_panel.await {
+                let mut ctx = cx.clone();
+                panel.update(&mut ctx, |panel, cx| {
+                    panel.set_connection(conn.clone(), cx);
+                }).ok();
+                workspace_handle.update_in(&mut ctx, |workspace, window, cx| {
+                    workspace.add_panel(panel.clone(), window, cx);
+                }).log_err();
+            }
         }
 
-        // Note: unreal_panel is handled separately above to set the connection
+        // Note: unreal_panel and build_panel are handled separately above to set the connection
         futures::join!(
             add_panel_when_ready(project_panel, workspace_handle.clone(), cx.clone()),
             add_panel_when_ready(outline_panel, workspace_handle.clone(), cx.clone()),
@@ -729,7 +739,6 @@ fn initialize_panels(
             add_panel_when_ready(channels_panel, workspace_handle.clone(), cx.clone()),
             add_panel_when_ready(notification_panel, workspace_handle.clone(), cx.clone()),
             add_panel_when_ready(debug_panel, workspace_handle.clone(), cx.clone()),
-            add_panel_when_ready(build_panel, workspace_handle.clone(), cx.clone()),
             initialize_agent_panel(workspace_handle.clone(), prompt_builder, cx.clone()).map(|r| r.log_err()),
             initialize_agents_panel(workspace_handle, cx.clone()).map(|r| r.log_err())
         );
