@@ -147,6 +147,61 @@ pub const SERVER_PROGRESS_THROTTLE_TIMEOUT: Duration = Duration::from_millis(100
 const WORKSPACE_DIAGNOSTICS_TOKEN_START: &str = "id:";
 const SERVER_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Default clangd configuration for Unreal Engine projects (embedded fallback).
+/// Priority: 1. Project's .cherry/clangd_config.yaml, 2. Global config_dir/lsp/clangd_ue.yaml, 3. Embedded default
+const DEFAULT_CLANGD_UE_CONFIG: &str = include_str!("../../../assets/lsp/clangd_ue.yaml");
+
+/// Loads clangd config template with the following priority:
+/// 1. Project's .cherry/clangd_config.yaml (if exists, use it)
+/// 2. Global config_dir/lsp/clangd_ue.yaml (copy to project, then use)
+/// 3. Embedded default (create global, copy to project, then use)
+fn load_clangd_config_template(cherry_dir: &std::path::Path) -> (String, String) {
+    let project_config = cherry_dir.join("clangd_config.yaml");
+    let global_config = paths::config_dir().join("lsp").join("clangd_ue.yaml");
+
+    // 1. If project config exists, use it directly
+    if project_config.exists() {
+        match std::fs::read_to_string(&project_config) {
+            Ok(content) => return (content, format!("project: {}", project_config.display())),
+            Err(e) => log::warn!("Failed to read project config: {}", e),
+        }
+    }
+
+    // 2. Ensure global config exists (create from embedded if needed)
+    if !global_config.exists() {
+        // Create the lsp directory if it doesn't exist
+        if let Some(parent) = global_config.parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                log::warn!("Failed to create global config directory: {}", e);
+            }
+        }
+        // Write embedded config to global location
+        if let Err(e) = std::fs::write(&global_config, DEFAULT_CLANGD_UE_CONFIG) {
+            log::warn!("Failed to create global config from embedded: {}", e);
+        } else {
+            log::info!("Created global clangd config at: {}", global_config.display());
+        }
+    }
+
+    // 3. Read global config and copy to project
+    let template = match std::fs::read_to_string(&global_config) {
+        Ok(content) => content,
+        Err(e) => {
+            log::warn!("Failed to read global config: {}, using embedded", e);
+            DEFAULT_CLANGD_UE_CONFIG.to_string()
+        }
+    };
+
+    // Copy to project config
+    if let Err(e) = std::fs::write(&project_config, &template) {
+        log::warn!("Failed to copy config to project: {}", e);
+    } else {
+        log::info!("Copied clangd config to project: {}", project_config.display());
+    }
+
+    (template, format!("global->project: {}", project_config.display()))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 pub enum ProgressToken {
     Number(i32),
@@ -804,50 +859,41 @@ impl LocalLspStore {
                                                 binary.arguments.push("--header-insertion=never".into());
                                                 binary.arguments.push("--clang-tidy=false".into());
 
-                                                // Create .clangd configuration file at project root (clangd walks up directories to find it)
-                                                let clangd_config_path = project_root.join(".clangd");
+                                                // Use CherrySightManager for enhanced clangd configuration
+                                                let manager = cherry_link::ue_project::CherrySightManager::new(
+                                                    project_root.to_path_buf(),
+                                                    uproject_path.clone(),
+                                                );
 
-                                                let clangd_config = r#"# Auto-generated configuration for Unreal Engine
-CompileFlags:
-  CompilationDatabase: .cherry
-  Add:
-    # MSVC compatibility for Unreal Engine
-    - -fms-extensions
-    - -fms-compatibility
-    - -fdelayed-template-parsing
-    # Suppress warnings
-    - -Wno-microsoft-include
-    - -Wno-ignored-pragma-intrinsic
-    - -Wno-builtin-macro-redefined
-    - -Wno-deprecated-declarations
-    - -Wno-deprecated-builtins
-    - -Wno-builtin-requires-header
-    - -Wno-unknown-pragmas
-    - -Wno-unused-value
-    - -Wno-#pragma-messages
-    - -Wno-nonportable-include-path
-    - -Wno-pragma-pack
-  Remove:
-    # Remove flags that conflict with clang
-    - -m32
-    - -m64
-    - /EH*
-    - /GR*
-    - /W*
-    - /wd*
-Diagnostics:
-  UnusedIncludes: None
-  ClangTidy:
-    Remove: '*'
-  Suppress:
-    - builtin_definition
-    - pp_file_not_found
-"#;
-                                                log::info!("Creating .clangd configuration at: {}", clangd_config_path.display());
-                                                if let Err(e) = std::fs::write(&clangd_config_path, clangd_config) {
-                                                    log::warn!("Failed to create .clangd file: {}", e);
-                                                } else {
-                                                    log::info!("✓ Created .clangd configuration to suppress warnings at: {}", clangd_config_path.display());
+                                                match manager.auto_configure() {
+                                                    Ok(_) => {
+                                                        log::info!("✓ CherrySightManager configuration complete");
+                                                    }
+                                                    Err(e) => {
+                                                        log::warn!("CherrySightManager failed: {}. Falling back to template.", e);
+
+                                                        // Fallback to template-based approach
+                                                        let clangd_config_path = project_root.join(".clangd");
+                                                        let engine_path_str = compile_commands_dir.display().to_string().replace("\\", "/");
+                                                        let project_path_str = project_root.display().to_string().replace("\\", "/");
+                                                        let engine_source = compile_commands_dir.join("Engine").join("Source");
+                                                        let core_minimal = engine_source.join("Runtime/Core/Public/CoreMinimal.h");
+                                                        let core_minimal_str = core_minimal.display().to_string().replace("\\", "/");
+
+                                                        let (template, source) = load_clangd_config_template(&cherry_dir);
+                                                        log::info!("Using clangd config from: {}", source);
+
+                                                        let clangd_config = template
+                                                            .replace("{{ENGINE_PATH}}", &engine_path_str)
+                                                            .replace("{{PROJECT_PATH}}", &project_path_str)
+                                                            .replace("{{CORE_MINIMAL_PATH}}", &core_minimal_str);
+
+                                                        if let Err(e) = std::fs::write(&clangd_config_path, &clangd_config) {
+                                                            log::warn!("Failed to create .clangd file: {}", e);
+                                                        } else {
+                                                            log::info!("✓ Created .clangd configuration at: {}", clangd_config_path.display());
+                                                        }
+                                                    }
                                                 }
                                             }
                                         } else {
@@ -980,62 +1026,40 @@ Diagnostics:
                                                                         log::info!("Triggered clangd auto-reload by updating file timestamp");
                                                                     }
 
-                                                                    // Create .clangd configuration file at project root (clangd walks up directories to find it)
-                                                                    let clangd_config_path = project_root.join(".clangd");
-                                                                    log::info!("Creating .clangd configuration at: {}", clangd_config_path.display());
+                                                                    // Use CherrySightManager for enhanced clangd configuration
+                                                                    let manager = cherry_link::ue_project::CherrySightManager::new(
+                                                                        project_root.to_path_buf(),
+                                                                        uproject_path_clone.clone(),
+                                                                    );
 
-                                                                    let clangd_config = r#"# Auto-generated configuration for Unreal Engine
-CompileFlags:
-  CompilationDatabase: .cherry
-  Add:
-    # MSVC compatibility for Unreal Engine
-    - -fms-extensions
-    - -fms-compatibility
-    - -fdelayed-template-parsing
-    # Suppress warnings
-    - -Wno-microsoft-include
-    - -Wno-ignored-pragma-intrinsic
-    - -Wno-builtin-macro-redefined
-    - -Wno-deprecated-declarations
-    - -Wno-deprecated-builtins
-    - -Wno-builtin-requires-header
-    - -Wno-unknown-pragmas
-    - -Wno-unused-value
-    - -Wno-#pragma-messages
-    - -Wno-nonportable-include-path
-    - -Wno-pragma-pack
-  Remove:
-    # Remove flags that conflict with clang
-    - -m32
-    - -m64
-    - /EH*
-    - /GR*
-    - /W*
-    - /wd*
-Diagnostics:
-  UnusedIncludes: None
-  ClangTidy:
-    Remove: '*'
-  Suppress:
-    - builtin_definition
-    - pp_file_not_found
-"#;
-                                                                    log::info!("Writing .clangd file content ({} bytes)", clangd_config.len());
-                                                                    match std::fs::write(&clangd_config_path, clangd_config) {
+                                                                    match manager.auto_configure() {
                                                                         Ok(_) => {
-                                                                            log::info!("✓ Created .clangd configuration at: {}", clangd_config_path.display());
-                                                                            log::info!("✓ Clangd will auto-reload to suppress warnings");
-
-                                                                            // Verify the file was actually created
-                                                                            if clangd_config_path.exists() {
-                                                                                log::info!("✓ Verified .clangd file exists");
-                                                                            } else {
-                                                                                log::error!("✗ .clangd file was written but doesn't exist!");
-                                                                            }
+                                                                            log::info!("✓ CherrySightManager configuration complete");
                                                                         }
                                                                         Err(e) => {
-                                                                            log::error!("✗ Failed to create .clangd file at {}: {}", clangd_config_path.display(), e);
-                                                                            log::error!("  You may need to manually create this file to suppress warnings");
+                                                                            log::warn!("CherrySightManager failed: {}. Falling back to template.", e);
+
+                                                                            // Fallback to template-based approach
+                                                                            let clangd_config_path = project_root.join(".clangd");
+                                                                            let engine_path_str = engine_path_clone.display().to_string().replace("\\", "/");
+                                                                            let project_path_str = project_root.display().to_string().replace("\\", "/");
+                                                                            let engine_source = engine_path_clone.join("Engine").join("Source");
+                                                                            let core_minimal = engine_source.join("Runtime/Core/Public/CoreMinimal.h");
+                                                                            let core_minimal_str = core_minimal.display().to_string().replace("\\", "/");
+
+                                                                            let (template, source) = load_clangd_config_template(&cherry_dir);
+                                                                            log::info!("Using clangd config from: {}", source);
+
+                                                                            let clangd_config = template
+                                                                                .replace("{{ENGINE_PATH}}", &engine_path_str)
+                                                                                .replace("{{PROJECT_PATH}}", &project_path_str)
+                                                                                .replace("{{CORE_MINIMAL_PATH}}", &core_minimal_str);
+
+                                                                            if let Err(e) = std::fs::write(&clangd_config_path, &clangd_config) {
+                                                                                log::error!("✗ Failed to create .clangd file: {}", e);
+                                                                            } else {
+                                                                                log::info!("✓ Created .clangd configuration at: {}", clangd_config_path.display());
+                                                                            }
                                                                         }
                                                                     }
                                                                 } else {
