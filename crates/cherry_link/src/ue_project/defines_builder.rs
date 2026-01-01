@@ -34,10 +34,21 @@ pub fn build_standard_defines(platform: &str, configuration: &str) -> Vec<String
     defines.push("WITH_UNREAL_DEVELOPER_TOOLS=1".to_string());
     defines.push("WITH_APPLICATION_CORE=1".to_string());
     defines.push("WITH_COREUOBJECT=1".to_string());
-    defines.push("WITH_PLUGIN_SUPPORT=1".to_string()); // Required by UBT
+
+    // Critical UBT-required defines
+    defines.push("WITH_PLUGIN_SUPPORT=1".to_string());
+    defines.push("IS_MONOLITHIC=0".to_string()); // Modular build (not monolithic)
+    defines.push("IS_PROGRAM=0".to_string()); // Game/Editor, not standalone program
+
+    // Additional UE build system defines
     defines.push("WITH_PERFCOUNTERS=1".to_string());
     defines.push("USE_STATS_WITHOUT_ENGINE=0".to_string());
     defines.push("WITH_LOGGING_TO_MEMORY=0".to_string());
+    defines.push("STATS=1".to_string());
+    defines.push("UE_ENABLE_ICU=1".to_string()); // Internationalization
+    defines.push("WITH_VERSE_VM=0".to_string());
+    defines.push("WITH_DEV_AUTOMATION_TESTS=1".to_string());
+    defines.push("WITH_PERF_AUTOMATION_TESTS=1".to_string());
 
     // Platform-specific defines
     match platform {
