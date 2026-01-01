@@ -6,11 +6,14 @@
 #include "Services/LogService.h"
 #include "Services/PlayService.h"
 #include "Services/BuildService.h"
+#include "SourceAccess/CherrySourceCodeAccessor.h"
 
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
 #include "HAL/PlatformFilemanager.h"
 #include "Interfaces/IProjectManager.h"
+#include "Features/IModularFeatures.h"
+#include "Modules/ModuleManager.h"
 
 #define LOCTEXT_NAMESPACE "FCherryLinkModule"
 
@@ -35,6 +38,19 @@ void FCherryLinkModule::StartupModule()
 	}
 
 	RegisterMenus();
+	RegisterSourceCodeAccessor();
+}
+
+void FCherryLinkModule::RegisterSourceCodeAccessor()
+{
+	// Register Cherry as a source code editor
+	CherrySourceCodeAccessor = MakeShared<FCherrySourceCodeAccessor>();
+	CherrySourceCodeAccessor->Startup();
+
+	// Register as a modular feature
+	IModularFeatures::Get().RegisterModularFeature(TEXT("SourceCodeAccessor"), CherrySourceCodeAccessor.Get());
+
+	UE_LOG(LogCherryLink, Log, TEXT("CherryLink: Registered Cherry as source code editor"));
 }
 
 void FCherryLinkModule::ShutdownModule()
@@ -44,6 +60,14 @@ void FCherryLinkModule::ShutdownModule()
 	UnregisterMenus();
 	DeletePortFile();
 	ShutdownServices();
+
+	// Unregister source code accessor
+	if (CherrySourceCodeAccessor.IsValid())
+	{
+		IModularFeatures::Get().UnregisterModularFeature(TEXT("SourceCodeAccessor"), CherrySourceCodeAccessor.Get());
+		CherrySourceCodeAccessor->Shutdown();
+		CherrySourceCodeAccessor.Reset();
+	}
 
 	if (Server.IsValid())
 	{

@@ -367,9 +367,9 @@ pub(crate) fn check_postgres_and_protobuf_migrations() -> NamedJob {
         release_job(&[])
             .runs_on(runners::LINUX_DEFAULT)
             .add_env(("GIT_AUTHOR_NAME", "Protobuf Action"))
-            .add_env(("GIT_AUTHOR_EMAIL", "ci@zed.dev"))
+            .add_env(("GIT_AUTHOR_EMAIL", "ci@kriaa.in/cherry"))
             .add_env(("GIT_COMMITTER_NAME", "Protobuf Action"))
-            .add_env(("GIT_COMMITTER_EMAIL", "ci@zed.dev"))
+            .add_env(("GIT_COMMITTER_EMAIL", "ci@kriaa.in/cherry"))
             .add_step(steps::checkout_repo().with(("fetch-depth", 0))) // fetch full history
             .add_step(remove_untracked_files())
             .add_step(ensure_fresh_merge())

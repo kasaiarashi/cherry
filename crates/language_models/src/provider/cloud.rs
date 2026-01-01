@@ -621,7 +621,7 @@ impl LanguageModel for CloudLanguageModel {
     }
 
     fn telemetry_id(&self) -> String {
-        format!("zed.dev/{}", self.model.id)
+        format!("kriaa.in/cherry/{}", self.model.id)
     }
 
     fn tool_input_format(&self) -> LanguageModelToolSchemaFormat {

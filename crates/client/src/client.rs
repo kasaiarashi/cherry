@@ -1733,9 +1733,9 @@ pub const ZED_URL_SCHEME: &str = "zed";
 /// A parsed Zed link that can be handled internally by the application.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ZedLink {
-    /// Join a channel: `zed.dev/channel/channel-name-123` or `zed://channel/channel-name-123`
+    /// Join a channel: `kriaa.in/cherry/channel/channel-name-123` or `zed://channel/channel-name-123`
     Channel { channel_id: u64 },
-    /// Open channel notes: `zed.dev/channel/channel-name-123/notes` or with heading `notes#heading`
+    /// Open channel notes: `kriaa.in/cherry/channel/channel-name-123/notes` or with heading `notes#heading`
     ChannelNotes {
         channel_id: u64,
         heading: Option<String>,

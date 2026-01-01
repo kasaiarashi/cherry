@@ -51,7 +51,7 @@ To use the Deno Language Server with TypeScript and TSX files, you will likely w
 }
 ```
 
-See [Configuring supported languages](../configuring-languages.md) in the Zed documentation for more information.
+See [Configuring supported languages](../configuring-languages.md) in the Cherry documentation for more information.
 
 <!--
 TBD: Deno TypeScript REPL instructions [docs/repl#typescript-deno](../repl.md#typescript-deno)
@@ -59,7 +59,7 @@ TBD: Deno TypeScript REPL instructions [docs/repl#typescript-deno](../repl.md#ty
 
 ## Configuration completion
 
-To get completions for `deno.json` or `package.json` you can add the following to your `settings.json`: (More info here https://zed.dev/docs/languages/json)
+To get completions for `deno.json` or `package.json` you can add the following to your `settings.json`: (More info here https://kriaa.in/cherry/docs/languages/json)
 
 ```json [settings]
 "lsp": {

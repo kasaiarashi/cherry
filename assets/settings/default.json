@@ -919,7 +919,7 @@
     // The default model to use when creating new threads.
     "default_model": {
       // The provider to use.
-      "provider": "zed.dev",
+      "provider": "kriaa.in/cherry",
       // The model to use.
       "model": "claude-sonnet-4",
     },
@@ -940,7 +940,7 @@
       //
       // To set parameters for a specific provider and model:
       // {
-      //   "provider": "zed.dev",
+      //   "provider": "kriaa.in/cherry",
       //   "model": "claude-sonnet-4",
       //   "temperature": 1.0
       // }
@@ -2069,7 +2069,8 @@
     "x_ai": {
       "api_url": "https://api.x.ai/v1",
     },
-    "zed.dev": {},
+    "zed_dot_dev": {},
+    "kriaa.in/cherry": {},
   },
   "session": {
     // Whether or not to restore unsaved buffers on restart.
@@ -2178,7 +2179,7 @@
   },
   // The server to connect to. If the environment variable
   // ZED_SERVER_URL is set, it will override this setting.
-  "server_url": "https://zed.dev",
+  "server_url": "https://kriaa.in/cherry",
   // Settings overrides to use when using Zed Preview.
   // Mostly useful for developers who are managing multiple instances of Zed.
   "preview": {

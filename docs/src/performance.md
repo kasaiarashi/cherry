@@ -1,4 +1,4 @@
-How to use our internal tools to profile and keep Zed fast.
+How to use our internal tools to profile and keep Cherry fast.
 
 # Rough quick CPU profiling (Flamechart)
 
@@ -28,7 +28,7 @@ fn should_appear_in_profile(kitty: Cat) {
 }
 ```
 
-Then either compile Zed with `ZTRACING=1 cargo r --features tracy --release`. The release build is optional but highly recommended as like every program Zeds performance characteristics change dramatically with optimizations. You do not want to chase slowdowns that do not exist in release.
+Then either compile Cherry with `ZTRACING=1 cargo r --features tracy --release`. The release build is optional but highly recommended as like every program Zeds performance characteristics change dramatically with optimizations. You do not want to chase slowdowns that do not exist in release.
 
 ## One time Setup/Building the profiler:
 

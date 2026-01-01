@@ -1,8 +1,8 @@
-# Zed Server
+# Cherry Server
 
-This crate is what we run at https://collab.zed.dev.
+This crate is what we run at https://collab.kriaa.in/cherry.
 
-It contains our back-end logic for collaboration, to which we connect from the Zed client via a websocket after authenticating via https://zed.dev, which is a separate repo running on Vercel.
+It contains our back-end logic for collaboration, to which we connect from the Cherry client via a websocket after authenticating via https://kriaa.in/cherry, which is a separate repo running on Vercel.
 
 # Local Development
 
@@ -34,26 +34,26 @@ To use a different set of admin users, create `crates/collab/seed.json`.
 
 ## Testing collaborative features locally
 
-In one terminal, run Zed's collaboration server and the livekit dev server:
+In one terminal, run Cherry's collaboration server and the livekit dev server:
 
 ```sh
 foreman start
 ```
 
-In a second terminal, run two or more instances of Zed.
+In a second terminal, run two or more instances of Cherry.
 
 ```sh
 script/zed-local -2
 ```
 
-This script starts one to four instances of Zed, depending on the `-2`, `-3` or `-4` flags. Each instance will be connected to the local `collab` server, signed in as a different user from `seed.json` or `seed.default.json`.
+This script starts one to four instances of Cherry, depending on the `-2`, `-3` or `-4` flags. Each instance will be connected to the local `collab` server, signed in as a different user from `seed.json` or `seed.default.json`.
 
 # Deployment
 
 We run two instances of collab:
 
-- Staging (https://staging-collab.zed.dev)
-- Production (https://collab.zed.dev)
+- Staging (https://staging-collab.kriaa.in/cherry)
+- Production (https://collab.kriaa.in/cherry)
 
 Both of these run on the Kubernetes cluster hosted in Digital Ocean.
 

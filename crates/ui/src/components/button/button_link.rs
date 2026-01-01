@@ -92,7 +92,8 @@ impl Component for ButtonLink {
                 .child(
                     example_group(vec![single_example(
                         "Simple",
-                        ButtonLink::new("zed.dev", "https://zed.dev").into_any_element(),
+                        ButtonLink::new("kriaa.in/cherry", "https://kriaa.in/cherry")
+                            .into_any_element(),
                     )])
                     .vertical(),
                 )

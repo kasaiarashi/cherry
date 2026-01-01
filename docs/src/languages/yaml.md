@@ -7,7 +7,7 @@ YAML support is available natively in Cherry.
 
 ## Configuration
 
-You can configure various [yaml-language-server settings](https://github.com/redhat-developer/yaml-language-server?tab=readme-ov-file#language-server-settings) by adding them to your Zed settings.json in a `yaml-language-server` block under the `lsp` key. For example:
+You can configure various [yaml-language-server settings](https://github.com/redhat-developer/yaml-language-server?tab=readme-ov-file#language-server-settings) by adding them to your Cherry settings.json in a `yaml-language-server` block under the `lsp` key. For example:
 
 ```json [settings]
   "lsp": {
@@ -32,7 +32,7 @@ Note, settings keys must be nested, so `yaml.keyOrdering` becomes `{"yaml": { "k
 
 ## Formatting
 
-By default, Zed uses Prettier for formatting YAML files.
+By default, Cherry uses Prettier for formatting YAML files.
 
 ### Prettier Formatting
 
@@ -53,7 +53,7 @@ You can customize the formatting behavior of Prettier. For example to use single
 
 ### yaml-language-server Formatting
 
-To use `yaml-language-server` instead of Prettier for YAML formatting, add the following to your Zed `settings.json`:
+To use `yaml-language-server` instead of Prettier for YAML formatting, add the following to your Cherry `settings.json`:
 
 ```json [settings]
   "languages": {

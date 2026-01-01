@@ -173,7 +173,10 @@ pub(crate) fn request_prediction_with_zeta1(
                             move |cx| {
                                 cx.new(|cx| {
                                     ErrorMessagePrompt::new(error_message.clone(), cx)
-                                        .with_link_button("Update Zed", "https://zed.dev/releases")
+                                        .with_link_button(
+                                            "Update Zed",
+                                            "https://kriaa.in/cherry/releases",
+                                        )
                                 })
                             },
                         );

@@ -62,7 +62,7 @@ Put another way, it is supposed to answer the question: "Given a program, a list
 
 ## Defining Debug Locators
 
-Zed offers an automatic way to create debug scenarios with _debug locators_.
+Cherry offers an automatic way to create debug scenarios with _debug locators_.
 A locator locates the debug target and figures out how to spawn a debug session for it. Thanks to locators, we can automatically convert existing user tasks (e.g. `cargo run`) and convert them into debug scenarios (e.g. `cargo build` followed by spawning a debugger with `target/debug/my_program` as the program to debug).
 
 > Your extension can define its own debug locators even if it does not expose a debug adapter. We strongly recommend doing so when your extension already exposes language tasks, as it allows users to spawn a debug session without having to manually configure the debug adapter.
@@ -108,7 +108,7 @@ Note however that you do _not_ need to go through a 2-phase resolution; if you c
 
 ## Available Extensions
 
-Check out all the DAP servers that have already been exposed as extensions [on Zed's site](https://zed.dev/extensions?filter=debug-adapters).
+Check out all the DAP servers that have already been exposed as extensions [on Cherry's site](https://kriaa.in/cherry/extensions?filter=debug-adapters).
 
 We recommend taking a look at their repositories as a way to understand how they are generally created and structured.
 

@@ -107,7 +107,7 @@ spec:
             - name: ZED_CLIENT_CHECKSUM_SEED
               valueFrom:
                 secretKeyRef:
-                  name: zed-client
+                  name: cherry-client
                   key: checksum-seed
             - name: LIVEKIT_SERVER
               valueFrom:

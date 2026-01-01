@@ -3,12 +3,12 @@
 name: run_bundling
 env:
   CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: '1'
+  RUST_BACKTRACE: "1"
 on:
   pull_request:
     types:
-    - labeled
-    - synchronize
+      - labeled
+      - synchronize
 jobs:
   bundle_linux_aarch64:
     if: |-
@@ -20,38 +20,38 @@ jobs:
       ZED_CLIENT_CHECKSUM_SEED: ${{ secrets.ZED_CLIENT_CHECKSUM_SEED }}
       ZED_MINIDUMP_ENDPOINT: ${{ secrets.ZED_SENTRY_MINIDUMP_ENDPOINT }}
     steps:
-    - name: steps::checkout_repo
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      with:
-        clean: false
-    - name: steps::setup_sentry
-      uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
-      with:
-        token: ${{ secrets.SENTRY_AUTH_TOKEN }}
-    - name: steps::setup_linux
-      run: ./script/linux
-      shell: bash -euxo pipefail {0}
-    - name: steps::install_mold
-      run: ./script/install-mold
-      shell: bash -euxo pipefail {0}
-    - name: steps::download_wasi_sdk
-      run: ./script/download-wasi-sdk
-      shell: bash -euxo pipefail {0}
-    - name: ./script/bundle-linux
-      run: ./script/bundle-linux
-      shell: bash -euxo pipefail {0}
-    - name: '@actions/upload-artifact zed-linux-aarch64.tar.gz'
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-      with:
-        name: zed-linux-aarch64.tar.gz
-        path: target/release/zed-linux-aarch64.tar.gz
-        if-no-files-found: error
-    - name: '@actions/upload-artifact zed-remote-server-linux-aarch64.gz'
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-      with:
-        name: zed-remote-server-linux-aarch64.gz
-        path: target/zed-remote-server-linux-aarch64.gz
-        if-no-files-found: error
+      - name: steps::checkout_repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          clean: false
+      - name: steps::setup_sentry
+        uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
+        with:
+          token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: steps::setup_linux
+        run: ./script/linux
+        shell: bash -euxo pipefail {0}
+      - name: steps::install_mold
+        run: ./script/install-mold
+        shell: bash -euxo pipefail {0}
+      - name: steps::download_wasi_sdk
+        run: ./script/download-wasi-sdk
+        shell: bash -euxo pipefail {0}
+      - name: ./script/bundle-linux
+        run: ./script/bundle-linux
+        shell: bash -euxo pipefail {0}
+      - name: "@actions/upload-artifact cherry-linux-aarch64.tar.gz"
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: cherry-linux-aarch64.tar.gz
+          path: target/release/cherry-linux-aarch64.tar.gz
+          if-no-files-found: error
+      - name: "@actions/upload-artifact cherry-remote-server-linux-aarch64.gz"
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: cherry-remote-server-linux-aarch64.gz
+          path: target/cherry-remote-server-linux-aarch64.gz
+          if-no-files-found: error
     timeout-minutes: 60
   bundle_linux_x86_64:
     if: |-
@@ -63,38 +63,38 @@ jobs:
       ZED_CLIENT_CHECKSUM_SEED: ${{ secrets.ZED_CLIENT_CHECKSUM_SEED }}
       ZED_MINIDUMP_ENDPOINT: ${{ secrets.ZED_SENTRY_MINIDUMP_ENDPOINT }}
     steps:
-    - name: steps::checkout_repo
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      with:
-        clean: false
-    - name: steps::setup_sentry
-      uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
-      with:
-        token: ${{ secrets.SENTRY_AUTH_TOKEN }}
-    - name: steps::setup_linux
-      run: ./script/linux
-      shell: bash -euxo pipefail {0}
-    - name: steps::install_mold
-      run: ./script/install-mold
-      shell: bash -euxo pipefail {0}
-    - name: steps::download_wasi_sdk
-      run: ./script/download-wasi-sdk
-      shell: bash -euxo pipefail {0}
-    - name: ./script/bundle-linux
-      run: ./script/bundle-linux
-      shell: bash -euxo pipefail {0}
-    - name: '@actions/upload-artifact zed-linux-x86_64.tar.gz'
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-      with:
-        name: zed-linux-x86_64.tar.gz
-        path: target/release/zed-linux-x86_64.tar.gz
-        if-no-files-found: error
-    - name: '@actions/upload-artifact zed-remote-server-linux-x86_64.gz'
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-      with:
-        name: zed-remote-server-linux-x86_64.gz
-        path: target/zed-remote-server-linux-x86_64.gz
-        if-no-files-found: error
+      - name: steps::checkout_repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          clean: false
+      - name: steps::setup_sentry
+        uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
+        with:
+          token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: steps::setup_linux
+        run: ./script/linux
+        shell: bash -euxo pipefail {0}
+      - name: steps::install_mold
+        run: ./script/install-mold
+        shell: bash -euxo pipefail {0}
+      - name: steps::download_wasi_sdk
+        run: ./script/download-wasi-sdk
+        shell: bash -euxo pipefail {0}
+      - name: ./script/bundle-linux
+        run: ./script/bundle-linux
+        shell: bash -euxo pipefail {0}
+      - name: "@actions/upload-artifact cherry-linux-x86_64.tar.gz"
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: cherry-linux-x86_64.tar.gz
+          path: target/release/cherry-linux-x86_64.tar.gz
+          if-no-files-found: error
+      - name: "@actions/upload-artifact cherry-remote-server-linux-x86_64.gz"
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: cherry-remote-server-linux-x86_64.gz
+          path: target/cherry-remote-server-linux-x86_64.gz
+          if-no-files-found: error
     timeout-minutes: 60
   bundle_mac_aarch64:
     if: |-
@@ -111,36 +111,36 @@ jobs:
       APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
       APPLE_NOTARIZATION_ISSUER_ID: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
     steps:
-    - name: steps::checkout_repo
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      with:
-        clean: false
-    - name: steps::setup_node
-      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-      with:
-        node-version: '20'
-    - name: steps::setup_sentry
-      uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
-      with:
-        token: ${{ secrets.SENTRY_AUTH_TOKEN }}
-    - name: steps::clear_target_dir_if_large
-      run: ./script/clear-target-dir-if-larger-than 300
-      shell: bash -euxo pipefail {0}
-    - name: run_bundling::bundle_mac::bundle_mac
-      run: ./script/bundle-mac aarch64-apple-darwin
-      shell: bash -euxo pipefail {0}
-    - name: '@actions/upload-artifact Zed-aarch64.dmg'
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-      with:
-        name: Zed-aarch64.dmg
-        path: target/aarch64-apple-darwin/release/Zed-aarch64.dmg
-        if-no-files-found: error
-    - name: '@actions/upload-artifact zed-remote-server-macos-aarch64.gz'
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-      with:
-        name: zed-remote-server-macos-aarch64.gz
-        path: target/zed-remote-server-macos-aarch64.gz
-        if-no-files-found: error
+      - name: steps::checkout_repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          clean: false
+      - name: steps::setup_node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20"
+      - name: steps::setup_sentry
+        uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
+        with:
+          token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: steps::clear_target_dir_if_large
+        run: ./script/clear-target-dir-if-larger-than 300
+        shell: bash -euxo pipefail {0}
+      - name: run_bundling::bundle_mac::bundle_mac
+        run: ./script/bundle-mac aarch64-apple-darwin
+        shell: bash -euxo pipefail {0}
+      - name: "@actions/upload-artifact Cherry-aarch64.dmg"
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: Cherry-aarch64.dmg
+          path: target/aarch64-apple-darwin/release/Cherry-aarch64.dmg
+          if-no-files-found: error
+      - name: "@actions/upload-artifact cherry-remote-server-macos-aarch64.gz"
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: cherry-remote-server-macos-aarch64.gz
+          path: target/cherry-remote-server-macos-aarch64.gz
+          if-no-files-found: error
     timeout-minutes: 60
   bundle_mac_x86_64:
     if: |-
@@ -157,36 +157,36 @@ jobs:
       APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
       APPLE_NOTARIZATION_ISSUER_ID: ${{ secrets.APPLE_NOTARIZATION_ISSUER_ID }}
     steps:
-    - name: steps::checkout_repo
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      with:
-        clean: false
-    - name: steps::setup_node
-      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-      with:
-        node-version: '20'
-    - name: steps::setup_sentry
-      uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
-      with:
-        token: ${{ secrets.SENTRY_AUTH_TOKEN }}
-    - name: steps::clear_target_dir_if_large
-      run: ./script/clear-target-dir-if-larger-than 300
-      shell: bash -euxo pipefail {0}
-    - name: run_bundling::bundle_mac::bundle_mac
-      run: ./script/bundle-mac x86_64-apple-darwin
-      shell: bash -euxo pipefail {0}
-    - name: '@actions/upload-artifact Zed-x86_64.dmg'
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-      with:
-        name: Zed-x86_64.dmg
-        path: target/x86_64-apple-darwin/release/Zed-x86_64.dmg
-        if-no-files-found: error
-    - name: '@actions/upload-artifact zed-remote-server-macos-x86_64.gz'
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-      with:
-        name: zed-remote-server-macos-x86_64.gz
-        path: target/zed-remote-server-macos-x86_64.gz
-        if-no-files-found: error
+      - name: steps::checkout_repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          clean: false
+      - name: steps::setup_node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "20"
+      - name: steps::setup_sentry
+        uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
+        with:
+          token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: steps::clear_target_dir_if_large
+        run: ./script/clear-target-dir-if-larger-than 300
+        shell: bash -euxo pipefail {0}
+      - name: run_bundling::bundle_mac::bundle_mac
+        run: ./script/bundle-mac x86_64-apple-darwin
+        shell: bash -euxo pipefail {0}
+      - name: "@actions/upload-artifact Cherry-x86_64.dmg"
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: Cherry-x86_64.dmg
+          path: target/x86_64-apple-darwin/release/Cherry-x86_64.dmg
+          if-no-files-found: error
+      - name: "@actions/upload-artifact cherry-remote-server-macos-x86_64.gz"
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: cherry-remote-server-macos-x86_64.gz
+          path: target/cherry-remote-server-macos-x86_64.gz
+          if-no-files-found: error
     timeout-minutes: 60
   bundle_windows_aarch64:
     if: |-
@@ -207,24 +207,24 @@ jobs:
       TIMESTAMP_DIGEST: SHA256
       TIMESTAMP_SERVER: http://timestamp.acs.microsoft.com
     steps:
-    - name: steps::checkout_repo
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      with:
-        clean: false
-    - name: steps::setup_sentry
-      uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
-      with:
-        token: ${{ secrets.SENTRY_AUTH_TOKEN }}
-    - name: run_bundling::bundle_windows::bundle_windows
-      run: script/bundle-windows.ps1 -Architecture aarch64
-      shell: pwsh
-      working-directory: ${{ env.ZED_WORKSPACE }}
-    - name: '@actions/upload-artifact Zed-aarch64.exe'
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-      with:
-        name: Zed-aarch64.exe
-        path: target/Zed-aarch64.exe
-        if-no-files-found: error
+      - name: steps::checkout_repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          clean: false
+      - name: steps::setup_sentry
+        uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
+        with:
+          token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: run_bundling::bundle_windows::bundle_windows
+        run: script/bundle-windows.ps1 -Architecture aarch64
+        shell: pwsh
+        working-directory: ${{ env.ZED_WORKSPACE }}
+      - name: "@actions/upload-artifact Cherry-aarch64.exe"
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: Cherry-aarch64.exe
+          path: target/Cherry-aarch64.exe
+          if-no-files-found: error
     timeout-minutes: 60
   bundle_windows_x86_64:
     if: |-
@@ -245,24 +245,24 @@ jobs:
       TIMESTAMP_DIGEST: SHA256
       TIMESTAMP_SERVER: http://timestamp.acs.microsoft.com
     steps:
-    - name: steps::checkout_repo
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      with:
-        clean: false
-    - name: steps::setup_sentry
-      uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
-      with:
-        token: ${{ secrets.SENTRY_AUTH_TOKEN }}
-    - name: run_bundling::bundle_windows::bundle_windows
-      run: script/bundle-windows.ps1 -Architecture x86_64
-      shell: pwsh
-      working-directory: ${{ env.ZED_WORKSPACE }}
-    - name: '@actions/upload-artifact Zed-x86_64.exe'
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
-      with:
-        name: Zed-x86_64.exe
-        path: target/Zed-x86_64.exe
-        if-no-files-found: error
+      - name: steps::checkout_repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          clean: false
+      - name: steps::setup_sentry
+        uses: matbour/setup-sentry-cli@3e938c54b3018bdd019973689ef984e033b0454b
+        with:
+          token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: run_bundling::bundle_windows::bundle_windows
+        run: script/bundle-windows.ps1 -Architecture x86_64
+        shell: pwsh
+        working-directory: ${{ env.ZED_WORKSPACE }}
+      - name: "@actions/upload-artifact Cherry-x86_64.exe"
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: Cherry-x86_64.exe
+          path: target/Cherry-x86_64.exe
+          if-no-files-found: error
     timeout-minutes: 60
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}

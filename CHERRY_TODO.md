@@ -58,7 +58,7 @@ Currently renders all logs inline:
 **Location**: `crates/cherry_link/src/settings.rs`
 
 Settings struct exists but needs:
-- [ ] Register with Zed's Settings system (`settings::Settings` trait)
+- [ ] Register with Cherry's Settings system (`settings::Settings` trait)
 - [ ] Settings UI in preferences
 - [ ] Settings fields:
   - `enabled: bool`
@@ -96,7 +96,7 @@ Settings struct exists but needs:
 
 Debug button exists but action is empty:
 - [ ] Define debug workflow (attach to UE process?)
-- [ ] Integration with Zed's debugger panel
+- [ ] Integration with Cherry's debugger panel
 - [ ] Breakpoint sync with UE
 
 ### 10. UE Plugin Rename (ZedLink → CherryLink)

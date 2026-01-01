@@ -3,7 +3,7 @@ title: Subprocessor List
 slug: subprocessors
 ---
 
-This page provides information about the Subprocessors Zed has engaged to provide processing activities on Customer Data as defined in the [Zed End User Terms](https://zed.dev/terms).
+This page provides information about the Subprocessors Cherry has engaged to provide processing activities on Customer Data as defined in the [Cherry End User Terms](https://kriaa.in/cherry/terms).
 
 | Subprocessor        | Purpose                  | Location      |
 | ------------------- | ------------------------ | ------------- |

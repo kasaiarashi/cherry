@@ -10644,7 +10644,7 @@ fn git_remove_index(path: &Path, repo: &git2::Repository) {
 fn git_commit(msg: &'static str, repo: &git2::Repository) {
     use git2::Signature;
 
-    let signature = Signature::now("test", "test@zed.dev").unwrap();
+    let signature = Signature::now("test", "test@kriaa.in/cherry").unwrap();
     let oid = repo.index().unwrap().write_tree().unwrap();
     let tree = repo.find_tree(oid).unwrap();
     if let Ok(head) = repo.head() {
@@ -10677,7 +10677,7 @@ fn git_cherry_pick(commit: &git2::Commit<'_>, repo: &git2::Repository) {
 fn git_stash(repo: &mut git2::Repository) {
     use git2::Signature;
 
-    let signature = Signature::now("test", "test@zed.dev").unwrap();
+    let signature = Signature::now("test", "test@kriaa.in/cherry").unwrap();
     repo.stash_save(&signature, "N/A", None)
         .expect("Failed to stash");
 }

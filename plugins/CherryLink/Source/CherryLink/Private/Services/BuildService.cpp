@@ -6,6 +6,8 @@
 
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonSerializer.h"
+#include "ILiveCodingModule.h"
+#include "Modules/ModuleManager.h"
 
 FBuildService::FBuildService(TSharedPtr<FCherryLinkServer> InServer)
 	: Server(InServer)
@@ -40,8 +42,31 @@ void FBuildService::Shutdown()
 
 bool FBuildService::TriggerLiveCoding()
 {
-	UE_LOG(LogCherryLink, Warning, TEXT("BuildService: Live Coding not available"));
-	return false;
+	// Check if Live Coding module is available
+	if (!FModuleManager::Get().IsModuleLoaded("LiveCoding"))
+	{
+		UE_LOG(LogCherryLink, Warning, TEXT("BuildService: Live Coding module not loaded"));
+		return false;
+	}
+
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>("LiveCoding");
+	if (!LiveCoding)
+	{
+		UE_LOG(LogCherryLink, Warning, TEXT("BuildService: Failed to get Live Coding module"));
+		return false;
+	}
+
+	if (!LiveCoding->IsEnabledForSession())
+	{
+		UE_LOG(LogCherryLink, Warning, TEXT("BuildService: Live Coding is not enabled for this session"));
+		return false;
+	}
+
+	// Trigger Live Coding compile
+	UE_LOG(LogCherryLink, Log, TEXT("BuildService: Triggering Live Coding compile..."));
+	LiveCoding->Compile();
+
+	return true;
 }
 
 bool FBuildService::CancelLiveCoding()
@@ -52,7 +77,18 @@ bool FBuildService::CancelLiveCoding()
 
 bool FBuildService::IsLiveCodingEnabled() const
 {
-	return false;
+	if (!FModuleManager::Get().IsModuleLoaded("LiveCoding"))
+	{
+		return false;
+	}
+
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>("LiveCoding");
+	if (!LiveCoding)
+	{
+		return false;
+	}
+
+	return LiveCoding->IsEnabledForSession();
 }
 
 bool FBuildService::IsCompiling() const

@@ -292,7 +292,7 @@ impl JsonSchema for LanguageModelProviderSetting {
                         "openrouter",
                         "vercel",
                         "x_ai",
-                        "zed.dev"
+                        "kriaa.in/cherry"
                     ]
                 },
                 {

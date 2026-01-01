@@ -1,4 +1,4 @@
-name: Publish zed-extension CLI
+name: Publish cherry-extension CLI
 
 on:
   push:
@@ -11,8 +11,8 @@ env:
 
 jobs:
   publish:
-    name: Publish zed-extension CLI
-    if: github.repository_owner == 'zed-industries'
+    name: Publish cherry-extension CLI
+    if: github.repository_owner == 'cherry-industries'
     runs-on:
       - ubuntu-latest
     steps:

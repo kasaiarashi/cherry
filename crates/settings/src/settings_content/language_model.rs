@@ -20,7 +20,7 @@ pub struct AllLanguageModelSettingsContent {
     pub openai_compatible: Option<HashMap<Arc<str>, OpenAiCompatibleSettingsContent>>,
     pub vercel: Option<VercelSettingsContent>,
     pub x_ai: Option<XAiSettingsContent>,
-    #[serde(rename = "zed.dev")]
+    #[serde(rename = "kriaa.in/cherry")]
     pub zed_dot_dev: Option<ZedDotDevSettingsContent>,
 }
 

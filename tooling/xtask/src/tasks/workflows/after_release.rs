@@ -68,9 +68,9 @@ fn post_to_discord(deps: &[&NamedJob]) -> NamedJob {
     fn get_release_url() -> Step<Run> {
         named::bash(format!(
             r#"if [ "{IS_PRERELEASE}" == "true" ]; then
-    URL="https://zed.dev/releases/preview"
+    URL="https://kriaa.in/cherry/releases/preview"
 else
-    URL="https://zed.dev/releases/stable"
+    URL="https://kriaa.in/cherry/releases/stable"
 fi
 
 echo "URL=$URL" >> "$GITHUB_OUTPUT"

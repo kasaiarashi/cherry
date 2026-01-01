@@ -7643,7 +7643,7 @@ actions!(
         ///
         /// If you want to open a specific channel, use `zed::OpenCherryUrl` with a channel notes URL -
         /// can be copied via "Copy link to section" in the context menu of the channel notes
-        /// buffer. These URLs look like `https://zed.dev/channel/channel-name-CHANNEL_ID/notes`.
+        /// buffer. These URLs look like `https://kriaa.in/cherry/channel/channel-name-CHANNEL_ID/notes`.
         OpenChannelNotes,
         /// Mutes your microphone.
         Mute,

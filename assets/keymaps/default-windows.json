@@ -37,6 +37,7 @@
       "shift-f5": "debugger::Stop",
       "ctrl-shift-f5": "debugger::RerunSession",
       "f6": "debugger::Pause",
+      "ctrl-f9": "unreal::LiveCodingBuild",
       "f10": "debugger::StepOver",
       "shift-f11": "debugger::StepOut",
       "f11": "cherry::ToggleFullScreen",

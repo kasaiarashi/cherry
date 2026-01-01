@@ -7,11 +7,11 @@ C++ support is available natively in Cherry.
 
 ## Binary
 
-You can configure which `clangd` binary Zed should use.
+You can configure which `clangd` binary Cherry should use.
 
-By default, Zed will try to find a `clangd` in your `$PATH` and try to use that. If that binary successfully executes, it's used. Otherwise, Zed will fall back to installing its own `clangd` version and use that.
+By default, Cherry will try to find a `clangd` in your `$PATH` and try to use that. If that binary successfully executes, it's used. Otherwise, Cherry will fall back to installing its own `clangd` version and use that.
 
-If you want to install a pre-release `clangd` version instead you can instruct Zed to do so by setting `pre_release` to `true` in your `settings.json`:
+If you want to install a pre-release `clangd` version instead you can instruct Cherry to do so by setting `pre_release` to `true` in your `settings.json`:
 
 ```json [settings]
 {
@@ -25,7 +25,7 @@ If you want to install a pre-release `clangd` version instead you can instruct Z
 }
 ```
 
-If you want to disable Zed looking for a `clangd` binary, you can set `ignore_system_version` to `true` in your `settings.json`:
+If you want to disable Cherry looking for a `clangd` binary, you can set `ignore_system_version` to `true` in your `settings.json`:
 
 ```json [settings]
 {
@@ -75,7 +75,7 @@ You can pass any number of arguments to clangd. To see a full set of available o
 
 ## Formatting
 
-By default Zed will use the `clangd` language server for formatting C++ code. The Clangd is the same as the `clang-format` CLI tool. To configure this you can add a `.clang-format` file. For example:
+By default Cherry will use the `clangd` language server for formatting C++ code. The Clangd is the same as the `clang-format` CLI tool. To configure this you can add a `.clang-format` file. For example:
 
 ```yaml
 # yaml-language-server: $schema=https://json.schemastore.org/clang-format-21.x.json
@@ -92,7 +92,7 @@ PointerAlignment: Left
 
 See [Clang-Format Style Options](https://clang.llvm.org/docs/ClangFormatStyleOptions.html) for a complete list of options.
 
-You can trigger formatting via {#kb editor::Format} or the `editor: format` action from the command palette or by adding `format_on_save` to your Zed settings:
+You can trigger formatting via {#kb editor::Format} or the `editor: format` action from the command palette or by adding `format_on_save` to your Cherry settings:
 
 ```json [settings]
   "languages": {
@@ -161,7 +161,7 @@ You can use CodeLLDB or GDB to debug native binaries. (Make sure that your build
 
 ## Protocol Extensions
 
-Zed currently implements the following `clangd` [extensions](https://clangd.llvm.org/extensions):
+Cherry currently implements the following `clangd` [extensions](https://clangd.llvm.org/extensions):
 
 ### Inactive Regions
 

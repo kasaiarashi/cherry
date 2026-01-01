@@ -12,32 +12,32 @@ on:
         required: true
 jobs:
   create_release:
-    if: (github.repository_owner == 'zed-industries' || github.repository_owner == 'zed-extensions')
+    if: (github.repository_owner == 'cherry-industries' || github.repository_owner == 'cherry-extensions')
     runs-on: namespace-profile-2x4-ubuntu-2404
     steps:
-    - id: generate-token
-      name: extension_bump::generate_token
-      uses: actions/create-github-app-token@v2
-      with:
-        app-id: ${{ secrets.app-id }}
-        private-key: ${{ secrets.app-secret }}
-        owner: zed-industries
-        repositories: extensions
-    - name: steps::checkout_repo
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      with:
-        clean: false
-    - id: get-extension-id
-      name: extension_release::get_extension_id
-      run: |
-        EXTENSION_ID="$(sed -n 's/id = \"\(.*\)\"/\1/p' < extension.toml)"
+      - id: generate-token
+        name: extension_bump::generate_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.app-id }}
+          private-key: ${{ secrets.app-secret }}
+          owner: cherry-industries
+          repositories: extensions
+      - name: steps::checkout_repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          clean: false
+      - id: get-extension-id
+        name: extension_release::get_extension_id
+        run: |
+          EXTENSION_ID="$(sed -n 's/id = \"\(.*\)\"/\1/p' < extension.toml)"
 
-        echo "extension_id=${EXTENSION_ID}" >> "$GITHUB_OUTPUT"
-      shell: bash -euxo pipefail {0}
-    - name: extension_release::release_action
-      uses: huacnlee/zed-extension-action@v2
-      with:
-        extension-name: ${{ steps.get-extension-id.outputs.extension_id }}
-        push-to: zed-industries/extensions
-      env:
-        COMMITTER_TOKEN: ${{ steps.generate-token.outputs.token }}
+          echo "extension_id=${EXTENSION_ID}" >> "$GITHUB_OUTPUT"
+        shell: bash -euxo pipefail {0}
+      - name: extension_release::release_action
+        uses: huacnlee/cherry-extension-action@v2
+        with:
+          extension-name: ${{ steps.get-extension-id.outputs.extension_id }}
+          push-to: cherry-industries/extensions
+        env:
+          COMMITTER_TOKEN: ${{ steps.generate-token.outputs.token }}

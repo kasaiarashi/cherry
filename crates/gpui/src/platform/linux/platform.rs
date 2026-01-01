@@ -70,7 +70,7 @@ impl<T> ResultExt for anyhow::Result<T> {
                         Notification::new("Zed failed to launch")
                             .body(Some(
                                 format!(
-                                    "{e:?}. See https://zed.dev/docs/linux for troubleshooting steps."
+                                    "{e:?}. See https://kriaa.in/cherry/docs/linux for troubleshooting steps."
                                 )
                                 .as_str(),
                             ))

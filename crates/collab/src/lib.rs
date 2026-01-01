@@ -160,12 +160,12 @@ impl Config {
         self.zed_environment == "development".into()
     }
 
-    /// Returns the base `zed.dev` URL.
+    /// Returns the base `kriaa.in/cherry` URL.
     pub fn zed_dot_dev_url(&self) -> &str {
         match self.zed_environment.as_ref() {
             "development" => "http://localhost:3000",
-            "staging" => "https://staging.zed.dev",
-            _ => "https://zed.dev",
+            "staging" => "https://staging.kriaa.in/cherry",
+            _ => "https://kriaa.in/cherry",
         }
     }
 

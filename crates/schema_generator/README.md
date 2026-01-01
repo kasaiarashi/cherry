@@ -1,6 +1,6 @@
-# Zed Schema Generator
+# Cherry Schema Generator
 
-Prints various Zed schemas to stdout.
+Prints various Cherry schemas to stdout.
 
 ## Usage
 

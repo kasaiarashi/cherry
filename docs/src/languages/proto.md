@@ -60,7 +60,7 @@ IndentWidth: 4
 ColumnLimit: 120
 ```
 
-Or you can have zed directly invoke `clang-format` by specifying it as a [formatter](https://zed.dev/docs/configuring-zed#formatter) in your settings:
+Or you can have zed directly invoke `clang-format` by specifying it as a [formatter](https://kriaa.in/cherry/docs/configuring-zed#formatter) in your settings:
 
 ```json [settings]
   "languages": {

@@ -1,6 +1,6 @@
 ZED_ENVIRONMENT=staging
 RUST_LOG=info
-INVITE_LINK_PREFIX=https://staging.zed.dev/invites/
+INVITE_LINK_PREFIX=https://staging.kriaa.in/cherry/invites/
 DATABASE_MAX_CONNECTIONS=5
 LLM_DATABASE_MAX_CONNECTIONS=5
 AUTO_JOIN_CHANNEL_ID=8

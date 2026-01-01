@@ -1,5 +1,6 @@
 mod icon_theme_selector;
 
+use cherry_actions::{ExtensionCategoryFilter, Extensions};
 use fs::Fs;
 use fuzzy::{StringMatch, StringMatchCandidate, match_strings};
 use gpui::{
@@ -16,7 +17,6 @@ use theme::{
 use ui::{ListItem, ListItemSpacing, prelude::*, v_flex};
 use util::ResultExt;
 use workspace::{ModalView, Workspace, ui::HighlightedLabel, with_active_or_new_workspace};
-use cherry_actions::{ExtensionCategoryFilter, Extensions};
 
 use crate::icon_theme_selector::{IconThemeSelector, IconThemeSelectorDelegate};
 
@@ -502,7 +502,7 @@ impl PickerDelegate for ThemeSelectorDelegate {
                         .icon_size(IconSize::Small)
                         .icon_color(Color::Muted)
                         .on_click(cx.listener(|_, _, _, cx| {
-                            cx.open_url("https://zed.dev/docs/themes");
+                            cx.open_url("https://kriaa.in/cherry/docs/themes");
                         })),
                 )
                 .child(

@@ -2121,7 +2121,7 @@ mod tests {
 
     // #[perf]
     // fn project_search() {
-    //     let path = Path::new("/Users/someonetoignore/work/zed/zed.dev/node_modules");
+    //     let path = Path::new("/Users/someonetoignore/work/zed/kriaa.in/cherry/node_modules");
     //     let path_matcher =
     //         PathMatcher::new(&["**/node_modules/**".to_owned()], PathStyle::Posix).unwrap();
     //     assert!(

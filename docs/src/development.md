@@ -1,6 +1,6 @@
-# Developing Zed
+# Developing Cherry
 
-See the platform-specific instructions for building Zed from source:
+See the platform-specific instructions for building Cherry from source:
 
 - [macOS](./development/macos.md)
 - [Linux](./development/linux.md)
@@ -8,9 +8,9 @@ See the platform-specific instructions for building Zed from source:
 
 ## Keychain access
 
-Zed stores secrets in the system keychain.
+Cherry stores secrets in the system keychain.
 
-However, when running a development build of Zed on macOS (and perhaps other
+However, when running a development build of Cherry on macOS (and perhaps other
 platforms) trying to access the keychain results in a lot of keychain prompts
 that require entering your password over and over.
 
@@ -20,14 +20,14 @@ your password again the next time something changes in the binary.
 
 This quickly becomes annoying and impedes development speed.
 
-That is why, by default, when running a development build of Zed an alternative
+That is why, by default, when running a development build of Cherry an alternative
 credential provider is used in order to bypass the system keychain.
 
 > Note: This is **only** the case for development builds. For all non-development
 > release channels the system keychain is always used.
 
 If you need to test something out using the real system keychain in a
-development build, run Zed with the following environment variable set:
+development build, run Cherry with the following environment variable set:
 
 ```
 ZED_DEVELOPMENT_USE_KEYCHAIN=1
@@ -35,7 +35,7 @@ ZED_DEVELOPMENT_USE_KEYCHAIN=1
 
 ## Performance Measurements
 
-Zed includes a frame time measurement system that can be used to profile how long it takes to render each frame. This is particularly useful when comparing rendering performance between different versions or when optimizing frame rendering code.
+Cherry includes a frame time measurement system that can be used to profile how long it takes to render each frame. This is particularly useful when comparing rendering performance between different versions or when optimizing frame rendering code.
 
 ### Using ZED_MEASUREMENTS
 
@@ -45,7 +45,7 @@ To enable performance measurements, set the `ZED_MEASUREMENTS` environment varia
 export ZED_MEASUREMENTS=1
 ```
 
-When enabled, Zed will print frame rendering timing information to stderr, showing how long each frame takes to render.
+When enabled, Cherry will print frame rendering timing information to stderr, showing how long each frame takes to render.
 
 ### Performance Comparison Workflow
 
@@ -60,12 +60,12 @@ Here's a typical workflow for comparing frame rendering performance between diff
 2. **Test the first version:**
 
    - Checkout the commit you want to measure
-   - Run Zed in release mode and use it for 5-10 seconds: `cargo run --release &> version-a`
+   - Run Cherry in release mode and use it for 5-10 seconds: `cargo run --release &> version-a`
 
 3. **Test the second version:**
 
    - Checkout another commit you want to compare
-   - Run Zed in release mode and use it for 5-10 seconds: `cargo run --release &> version-b`
+   - Run Cherry in release mode and use it for 5-10 seconds: `cargo run --release &> version-b`
 
 4. **Generate comparison:**
 
@@ -85,5 +85,5 @@ in-depth examples and explanations.
 
 - [CONTRIBUTING.md](https://github.com/zed-industries/zed/blob/main/CONTRIBUTING.md)
 - [Debugging Crashes](./development/debugging-crashes.md)
-- [Code of Conduct](https://zed.dev/code-of-conduct)
-- [Zed Contributor License](https://zed.dev/cla)
+- [Code of Conduct](https://kriaa.in/cherry/code-of-conduct)
+- [Cherry Contributor License](https://kriaa.in/cherry/cla)

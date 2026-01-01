@@ -835,6 +835,29 @@ impl UnrealToolbar {
             }))
     }
 
+    fn render_live_coding_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let is_connected = self.is_connected(cx);
+
+        let tooltip = if !is_connected {
+            "Not connected to Unreal Engine"
+        } else {
+            "Live Reload Code (Ctrl+F9)"
+        };
+
+        IconButton::new("live-coding", IconName::Hash)
+            .icon_size(IconSize::Small)
+            .icon_color(if is_connected { Color::Accent } else { Color::Muted })
+            .disabled(!is_connected)
+            .tooltip(Tooltip::text(tooltip))
+            .on_click(cx.listener(|this, _, _window, cx| {
+                if let Some(connection) = &this.connection {
+                    connection.update(cx, |conn, cx| {
+                        conn.build_live_coding(cx);
+                    });
+                }
+            }))
+    }
+
     fn render_launch_debug_button(&self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let has_engine = self.engine_path(cx).is_some();
         let is_running = self.is_building();
@@ -949,6 +972,7 @@ impl Render for UnrealToolbar {
             .child(self.render_separator(cx))
             // Build Section
             .child(self.render_build_button(window, cx))
+            .child(self.render_live_coding_button(window, cx))
             // Separator
             .child(self.render_separator(cx))
             // Launch Section: Launch, Debug, Stop

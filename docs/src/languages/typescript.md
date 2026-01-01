@@ -13,7 +13,7 @@ TBD: Document the difference between Language servers
 
 ## Language servers
 
-By default Zed uses [vtsls](https://github.com/yioneko/vtsls) for TypeScript, TSX, and JavaScript files.
+By default Cherry uses [vtsls](https://github.com/yioneko/vtsls) for TypeScript, TSX, and JavaScript files.
 You can configure the use of [typescript-language-server](https://github.com/typescript-language-server/typescript-language-server) per language in your settings file:
 
 ```json [settings]
@@ -94,9 +94,9 @@ To get all the features (autocomplete, linting, etc.) from the [Tailwind CSS lan
 
 ## Inlay Hints
 
-Zed sets the following initialization options to make the language server send back inlay hints (that is, when Zed has inlay hints enabled in the settings).
+Cherry sets the following initialization options to make the language server send back inlay hints (that is, when Cherry has inlay hints enabled in the settings).
 
-You can override these settings in your Zed `settings.json` when using `typescript-language-server`:
+You can override these settings in your Cherry `settings.json` when using `typescript-language-server`:
 
 ```json [settings]
 {
@@ -186,7 +186,7 @@ When using `vtsls`:
 
 ## Debugging
 
-Zed supports debugging TypeScript code out of the box with `vscode-js-debug`.
+Cherry supports debugging TypeScript code out of the box with `vscode-js-debug`.
 The following can be debugged without writing additional configuration:
 
 - Tasks from `package.json`
@@ -198,7 +198,7 @@ Run {#action debugger::Start} ({#kb debugger::Start}) to see a contextual list o
 
 > **Note:** Node test is automatically detected when `@types/node` is present in `package.json` (requires Node.js 20+).
 
-As for all languages, configurations from `.vscode/launch.json` are also available for debugging in Zed.
+As for all languages, configurations from `.vscode/launch.json` are also available for debugging in Cherry.
 
 If your use-case isn't covered by any of these, you can take full control by adding debug configurations to `.zed/debug.json`. See below for example configurations.
 
@@ -233,5 +233,5 @@ Given an externally-ran web server (e.g., with `npx serve` or `npx live-server`)
 
 ## See also
 
-- [Zed Yarn documentation](./yarn.md) for a walkthrough of configuring your project to use Yarn.
-- [Zed Deno documentation](./deno.md)
+- [Cherry Yarn documentation](./yarn.md) for a walkthrough of configuring your project to use Yarn.
+- [Cherry Deno documentation](./deno.md)

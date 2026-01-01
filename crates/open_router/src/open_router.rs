@@ -451,7 +451,7 @@ pub async fn stream_completion(
         .uri(uri)
         .header("Content-Type", "application/json")
         .header("Authorization", format!("Bearer {}", api_key))
-        .header("HTTP-Referer", "https://zed.dev")
+        .header("HTTP-Referer", "https://kriaa.in/cherry")
         .header("X-Title", "Zed Editor");
 
     let request = request_builder
@@ -544,7 +544,7 @@ pub async fn list_models(
         .uri(uri)
         .header("Accept", "application/json")
         .header("Authorization", format!("Bearer {}", api_key))
-        .header("HTTP-Referer", "https://zed.dev")
+        .header("HTTP-Referer", "https://kriaa.in/cherry")
         .header("X-Title", "Zed Editor");
 
     let request = request_builder

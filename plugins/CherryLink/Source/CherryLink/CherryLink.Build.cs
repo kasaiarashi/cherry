@@ -40,7 +40,9 @@ public class CherryLink : ModuleRules
 			"ToolMenus",
 			"EditorSubsystem",
 			"Projects",
-			"SourceCodeAccess"
+			"SourceCodeAccess",
+			"LiveCoding",
+			"DesktopPlatform"
 		});
 	}
 }

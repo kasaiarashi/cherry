@@ -1723,11 +1723,11 @@ mod tests {
 
     #[gpui::test]
     async fn test_raw_links_detection() {
-        let parsed = parse("Checkout this https://zed.dev link").await;
+        let parsed = parse("Checkout this https://kriaa.in/cherry link").await;
 
         assert_eq!(
             parsed.children,
-            vec![p("Checkout this https://zed.dev link", 0..34)]
+            vec![p("Checkout this https://kriaa.in/cherry link", 0..34)]
         );
     }
 
@@ -1768,7 +1768,7 @@ mod tests {
 
     #[gpui::test]
     async fn test_image_alt_text() {
-        let parsed = parse("[![Zed](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/zed-industries/zed/main/assets/badge/v0.json)](https://zed.dev)\n ").await;
+        let parsed = parse("[![Zed](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/zed-industries/zed/main/assets/badge/v0.json)](https://kriaa.in/cherry)\n ").await;
 
         let paragraph = if let ParsedMarkdownElement::Paragraph(text) = &parsed.children[0] {
             text

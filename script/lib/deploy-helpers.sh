@@ -27,9 +27,9 @@ function tag_for_environment {
 
 function url_for_environment {
   if [[ "$1" == "production" ]]; then
-    echo "https://collab.zed.dev"
+    echo "https://collab.kriaa.in/cherry"
   elif [[ "$1" == "staging" ]]; then
-    echo "https://collab-staging.zed.dev"
+    echo "https://collab-staging.kriaa.in/cherry"
   else
     echo "Invalid environment name '${environment}'" >&2
     exit 1

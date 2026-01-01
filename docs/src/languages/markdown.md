@@ -7,7 +7,7 @@ Markdown support is available natively in Cherry.
 
 ## Syntax Highlighting Code Blocks
 
-Zed supports language-specific syntax highlighting of markdown code blocks by leveraging [tree-sitter language grammars](../extensions/languages.md#grammar). All [Zed supported languages](../languages.md), including those provided by official or community extensions, are available for use in markdown code blocks. All you need to do is provide a language name after the opening <kbd>```</kbd> code fence like so:
+Cherry supports language-specific syntax highlighting of markdown code blocks by leveraging [tree-sitter language grammars](../extensions/languages.md#grammar). All [Cherry supported languages](../languages.md), including those provided by official or community extensions, are available for use in markdown code blocks. All you need to do is provide a language name after the opening <kbd>```</kbd> code fence like so:
 
 ````python
 ```python
@@ -23,7 +23,7 @@ def fib(n):
 
 ### Format
 
-Zed supports using Prettier to automatically re-format Markdown documents. You can trigger this manually via the {#action editor::Format} action or via the {#kb editor::Format} keyboard shortcut. Alternately, you can automatically format by enabling [`format_on_save`](../configuring-zed.md#format-on-save) in your settings.json:
+Cherry supports using Prettier to automatically re-format Markdown documents. You can trigger this manually via the {#action editor::Format} action or via the {#kb editor::Format} keyboard shortcut. Alternately, you can automatically format by enabling [`format_on_save`](../configuring-zed.md#format-on-save) in your settings.json:
 
 ```json [settings]
   "languages": {
@@ -35,7 +35,7 @@ Zed supports using Prettier to automatically re-format Markdown documents. You c
 
 ### List Continuation
 
-Zed automatically continues lists when you press Enter at the end of a list item. Supported list types:
+Cherry automatically continues lists when you press Enter at the end of a list item. Supported list types:
 
 - Unordered lists (`-`, `*`, or `+` markers)
 - Ordered lists (numbers are auto-incremented)
@@ -55,7 +55,7 @@ To disable this behavior:
 
 ### List Indentation
 
-Zed indents list items when you press Tab while the cursor is on a line containing only a list marker. This allows you to quickly create nested lists.
+Cherry indents list items when you press Tab while the cursor is on a line containing only a list marker. This allows you to quickly create nested lists.
 
 To disable this behavior:
 
@@ -69,7 +69,7 @@ To disable this behavior:
 
 ### Trailing Whitespace
 
-By default Zed will remove trailing whitespace on save. If you rely on invisible trailing whitespace being converted to `<br />` in Markdown files you can disable this behavior with:
+By default Cherry will remove trailing whitespace on save. If you rely on invisible trailing whitespace being converted to `<br />` in Markdown files you can disable this behavior with:
 
 ```json [settings]
   "languages": {

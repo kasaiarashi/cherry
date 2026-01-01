@@ -12,7 +12,7 @@
 
 # Configuration
 
-- [Configuring Zed](./configuring-zed.md)
+- [Configuring Cherry](./configuring-zed.md)
 - [Configuring Languages](./configuring-languages.md)
   - [Toolchains](./toolchains.md)
 - [Key bindings](./key-bindings.md)
@@ -30,7 +30,7 @@
 <!-- - [Globs](./globs.md) -->
 <!-- - [Fonts](./fonts.md) -->
 
-# Using Zed
+# Using Cherry
 
 - [Multibuffers](./multibuffers.md)
 - [Command Palette](./command-palette.md)
@@ -170,9 +170,9 @@
 - [Yarn](./languages/yarn.md)
 - [Zig](./languages/zig.md)
 
-# Developing Zed
+# Developing Cherry
 
-- [Developing Zed](./development.md)
+- [Developing Cherry](./development.md)
   - [macOS](./development/macos.md)
   - [Linux](./development/linux.md)
   - [Windows](./development/windows.md)

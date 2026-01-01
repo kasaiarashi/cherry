@@ -17,9 +17,9 @@ This extension is automatically installed, but if you do not want to use it, you
 
 ## Formatting
 
-By default Zed uses [Prettier](https://prettier.io/) for formatting HTML.
+By default Cherry uses [Prettier](https://prettier.io/) for formatting HTML.
 
-You can disable `format_on_save` by adding the following to your Zed `settings.json`:
+You can disable `format_on_save` by adding the following to your Cherry `settings.json`:
 
 ```json [settings]
   "languages": {
@@ -33,7 +33,7 @@ You can still trigger formatting manually with {#kb editor::Format} or by openin
 
 ### LSP Formatting
 
-To use the `vscode-html-language-server` language server auto-formatting instead of Prettier, add the following to your Zed settings:
+To use the `vscode-html-language-server` language server auto-formatting instead of Prettier, add the following to your Cherry settings:
 
 ```json [settings]
   "languages": {
@@ -43,7 +43,7 @@ To use the `vscode-html-language-server` language server auto-formatting instead
   }
 ```
 
-You can customize various [formatting options](https://code.visualstudio.com/docs/languages/html#_formatting) for `vscode-html-language-server` via your Zed `settings.json`:
+You can customize various [formatting options](https://code.visualstudio.com/docs/languages/html#_formatting) for `vscode-html-language-server` via your Cherry `settings.json`:
 
 ```json [settings]
   "lsp": {

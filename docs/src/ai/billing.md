@@ -1,20 +1,20 @@
 # Billing
 
 We use Stripe as our payments provider, and Orb for invoicing and metering. All Pro plans require payment via credit card or other supported payment method.
-For invoice-based billing, a Business plan is required. Contact [sales@zed.dev](mailto:sales@zed.dev) for more information.
+For invoice-based billing, a Business plan is required. Contact [sales@kriaa.in/cherry](mailto:sales@kriaa.in/cherry) for more information.
 
 ## Billing Information {#settings}
 
-You can access billing information and settings at [dashboard.zed.dev/account](https://dashboard.zed.dev/account).
+You can access billing information and settings at [dashboard.kriaa.in/cherry/account](https://dashboard.kriaa.in/cherry/account).
 Most of the page embeds information from our invoicing/metering partner, Orb (we're planning on a more native experience soon!).
 
 ## Billing Cycles {#billing-cycles}
 
-Zed is billed on a monthly basis based on the date you initially subscribe. You'll receive _at least_ one invoice from Zed each month you're subscribed to Zed Pro, and more than one if you use more than $10 in incremental token spend within the month.
+Cherry is billed on a monthly basis based on the date you initially subscribe. You'll receive _at least_ one invoice from Cherry each month you're subscribed to Cherry Pro, and more than one if you use more than $10 in incremental token spend within the month.
 
 ## Threshold Billing {#threshold-billing}
 
-Zed utilizes threshold billing to ensure timely collection of owed monies and prevent abuse. Every time your usage of Zed's hosted models crosses a $10 spend threshold, a new invoice is generated, and the threshold resets to $0.
+Cherry utilizes threshold billing to ensure timely collection of owed monies and prevent abuse. Every time your usage of Cherry's hosted models crosses a $10 spend threshold, a new invoice is generated, and the threshold resets to $0.
 
 For example,
 
@@ -24,17 +24,17 @@ For example,
 
 ## Payment Failures {#payment-failures}
 
-If payment of an invoice fails, Zed will block usage of our hosted models until the payment is complete. Email [billing-support@zed.dev](mailto:billing-support@zed.dev) for assistance.
+If payment of an invoice fails, Cherry will block usage of our hosted models until the payment is complete. Email [billing-support@kriaa.in/cherry](mailto:billing-support@kriaa.in/cherry) for assistance.
 
 ## Invoice History {#invoice-history}
 
-You can access your invoice history by navigating to [dashboard.zed.dev/account](https://dashboard.zed.dev/account) and clicking `Invoice history` within the embedded Orb portal.
+You can access your invoice history by navigating to [dashboard.kriaa.in/cherry/account](https://dashboard.kriaa.in/cherry/account) and clicking `Invoice history` within the embedded Orb portal.
 
-If you require historical Stripe invoices, email [billing-support@zed.dev](mailto:billing-support@zed.dev)
+If you require historical Stripe invoices, email [billing-support@kriaa.in/cherry](mailto:billing-support@kriaa.in/cherry)
 
 ## Updating Billing Information {#updating-billing-info}
 
-Email [billing-support@zed.dev](mailto:billing-support@zed.dev) for help updating payment methods, names, addresses, and tax information.
+Email [billing-support@kriaa.in/cherry](mailto:billing-support@kriaa.in/cherry) for help updating payment methods, names, addresses, and tax information.
 
 > We'll be updating our account page shortly to allow for self-service updates. Stay tuned!
 
@@ -42,9 +42,9 @@ Please note that changes to billing information will **only** affect future invo
 
 ## Sales Tax {#sales-tax}
 
-Zed partners with [Sphere](https://www.getsphere.com/) to calculate indirect tax rate for invoices, based on customer location and the product being sold. Tax is listed as a separate line item on invoices, based preferentially on your billing address, followed by the card issue country known to Stripe.
+Cherry partners with [Sphere](https://www.getsphere.com/) to calculate indirect tax rate for invoices, based on customer location and the product being sold. Tax is listed as a separate line item on invoices, based preferentially on your billing address, followed by the card issue country known to Stripe.
 
 If you have a VAT/GST ID, you can add it at during checkout. Check the box that denotes you as a business.
 
 Please note that changes to VAT/GST IDs and address will **only** affect future invoices — **we cannot modify historical invoices**.
-Questions or issues can be directed to [billing-support@zed.dev](mailto:billing-support@zed.dev).
+Questions or issues can be directed to [billing-support@kriaa.in/cherry](mailto:billing-support@kriaa.in/cherry).

@@ -1,6 +1,6 @@
 # Tasks
 
-Zed supports ways to spawn (and rerun) commands using its integrated terminal to output the results. These commands can read a limited subset of Zed state (such as a path to the file currently being edited or selected text).
+Cherry supports ways to spawn (and rerun) commands using its integrated terminal to output the results. These commands can read a limited subset of Cherry state (such as a path to the file currently being edited or selected text).
 
 ```json [tasks]
 [
@@ -64,14 +64,14 @@ Keep `"use_new_terminal": false` and set `"allow_concurrent_runs": true` to allo
 
 Tasks can be defined:
 
-- in the global `tasks.json` file; such tasks are available in all Zed projects you work on. This file is usually located in `~/.config/zed/tasks.json`. You can edit them by using the `zed: open tasks` action.
+- in the global `tasks.json` file; such tasks are available in all Cherry projects you work on. This file is usually located in `~/.config/zed/tasks.json`. You can edit them by using the `zed: open tasks` action.
 - in the worktree-specific (local) `.zed/tasks.json` file; such tasks are available only when working on a project with that worktree included. You can edit worktree-specific tasks by using the `zed: open project tasks` action.
 - on the fly with [oneshot tasks](#oneshot-tasks). These tasks are project-specific and do not persist across sessions.
 - by language extension.
 
 ## Variables
 
-Zed tasks act just like your shell; that also means that you can reference environmental variables via sh-esque `$VAR_NAME` syntax. A couple of additional environmental variables are set for your convenience.
+Cherry tasks act just like your shell; that also means that you can reference environmental variables via sh-esque `$VAR_NAME` syntax. A couple of additional environmental variables are set for your convenience.
 These variables allow you to pull information from the current editor and use it in your tasks. The following variables are available:
 
 - `ZED_COLUMN`: current line column
@@ -220,7 +220,7 @@ This could be useful for launching a terminal application that you want to use i
 
 ## Binding runnable tags to task templates
 
-Zed supports overriding the default action for inline runnable indicators via workspace-local and global `tasks.json` file with the following precedence hierarchy:
+Cherry supports overriding the default action for inline runnable indicators via workspace-local and global `tasks.json` file with the following precedence hierarchy:
 
 1. Workspace `tasks.json`
 2. Global `tasks.json`
@@ -240,4 +240,4 @@ In doing so, you can change which task is shown in the runnables indicator.
 
 ## Keybindings to run tasks bound to runnables
 
-When you have a task definition that is bound to the runnable, you can quickly run it using [Code Actions](https://zed.dev/docs/configuring-languages?#code-actions) that you can trigger either via `editor: Toggle Code Actions` command or by the `cmd-.`/`ctrl-.` shortcut. Your task will be the first in the dropdown. The task will run immediately if there are no additional Code Actions for this line.
+When you have a task definition that is bound to the runnable, you can quickly run it using [Code Actions](https://kriaa.in/cherry/docs/configuring-languages?#code-actions) that you can trigger either via `editor: Toggle Code Actions` command or by the `cmd-.`/`ctrl-.` shortcut. Your task will be the first in the dropdown. The task will run immediately if there are no additional Code Actions for this line.

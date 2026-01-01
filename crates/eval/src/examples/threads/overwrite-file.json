@@ -210,7 +210,7 @@
   ],
   "model": {
     "model": "claude-3-7-sonnet-latest",
-    "provider": "zed.dev"
+    "provider": "kriaa.in/cherry"
   },
   "profile": "Write",
   "request_token_usage": [

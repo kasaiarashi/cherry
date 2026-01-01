@@ -139,7 +139,7 @@ impl Workspace {
             cx.new(|cx| {
                 ErrorMessagePrompt::new(err.to_string(), cx).with_link_button(
                     "See docs",
-                    "https://zed.dev/docs/linux#i-cant-open-any-files",
+                    "https://kriaa.in/cherry/docs/linux#i-cant-open-any-files",
                 )
             })
         });

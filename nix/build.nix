@@ -335,7 +335,7 @@ craneLib.buildPackage (
     meta = {
       description = "High-performance, multiplayer code editor from the creators of Atom and Tree-sitter";
       homepage = "https://zed.dev";
-      changelog = "https://zed.dev/releases/preview";
+      changelog = "https://kriaa.in/cherry/releases/preview";
       license = lib.licenses.gpl3Only;
       mainProgram = "zed";
       platforms = lib.platforms.linux ++ lib.platforms.darwin;

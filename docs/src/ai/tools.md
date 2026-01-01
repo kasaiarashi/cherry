@@ -1,6 +1,6 @@
 # Tools
 
-Zed's built-in agent has access to a variety of tools that allow it to interact with your codebase and perform tasks.
+Cherry's built-in agent has access to a variety of tools that allow it to interact with your codebase and perform tasks.
 
 ## Read & Search Tools
 

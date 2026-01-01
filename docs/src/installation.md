@@ -1,18 +1,18 @@
-# Installing Zed
+# Installing Cherry
 
-## Download Zed
+## Download Cherry
 
 ### macOS
 
-Get the latest stable builds via [the download page](https://zed.dev/download). If you want to download our preview build, you can find it on its [releases page](https://zed.dev/releases/preview). After the first manual installation, Zed will periodically check for install updates.
+Get the latest stable builds via [the download page](https://kriaa.in/cherry/download). If you want to download our preview build, you can find it on its [releases page](https://kriaa.in/cherry/releases/preview). After the first manual installation, Cherry will periodically check for install updates.
 
-You can also install Zed stable via Homebrew:
+You can also install Cherry stable via Homebrew:
 
 ```sh
 brew install --cask zed
 ```
 
-As well as Zed preview:
+As well as Cherry preview:
 
 ```sh
 brew install --cask zed@preview
@@ -20,41 +20,41 @@ brew install --cask zed@preview
 
 ### Windows
 
-Get the latest stable builds via [the download page](https://zed.dev/download). If you want to download our preview build, you can find it on its [releases page](https://zed.dev/releases/preview). After the first manual installation, Zed will periodically check for install updates.
+Get the latest stable builds via [the download page](https://kriaa.in/cherry/download). If you want to download our preview build, you can find it on its [releases page](https://kriaa.in/cherry/releases/preview). After the first manual installation, Cherry will periodically check for install updates.
 
-Additionally, you can install Zed using winget:
+Additionally, you can install Cherry using winget:
 
 ```sh
-winget install -e --id ZedIndustries.Zed
+winget install -e --id ZedIndustries.Cherry
 ```
 
 ### Linux
 
-For most Linux users, the easiest way to install Zed is through our installation script:
+For most Linux users, the easiest way to install Cherry is through our installation script:
 
 ```sh
-curl -f https://zed.dev/install.sh | sh
+curl -f https://kriaa.in/cherry/install.sh | sh
 ```
 
 If you'd like to help us test our new features, you can also install our preview build:
 
 ```sh
-curl -f https://zed.dev/install.sh | ZED_CHANNEL=preview sh
+curl -f https://kriaa.in/cherry/install.sh | ZED_CHANNEL=preview sh
 ```
 
 This script supports `x86_64` and `AArch64`, as well as common Linux distributions: Ubuntu, Arch, Debian, RedHat, CentOS, Fedora, and more.
 
-If Zed is installed using this installation script, it can be uninstalled at any time by running the shell command `zed --uninstall`. The shell will then prompt you whether you'd like to keep your preferences or delete them. After making a choice, you should see a message that Zed was successfully uninstalled.
+If Cherry is installed using this installation script, it can be uninstalled at any time by running the shell command `zed --uninstall`. The shell will then prompt you whether you'd like to keep your preferences or delete them. After making a choice, you should see a message that Cherry was successfully uninstalled.
 
-If this script is insufficient for your use case, you run into problems running Zed, or there are errors in uninstalling Zed, please see our [Linux-specific documentation](./linux.md).
+If this script is insufficient for your use case, you run into problems running Cherry, or there are errors in uninstalling Cherry, please see our [Linux-specific documentation](./linux.md).
 
 ## System Requirements
 
 ### macOS
 
-Zed supports the follow macOS releases:
+Cherry supports the follow macOS releases:
 
-| Version       | Codename | Apple Status   | Zed Status          |
+| Version       | Codename | Apple Status   | Cherry Status          |
 | ------------- | -------- | -------------- | ------------------- |
 | macOS 26.x    | Tahoe    | Supported      | Supported           |
 | macOS 15.x    | Sequoia  | Supported      | Supported           |
@@ -64,11 +64,11 @@ Zed supports the follow macOS releases:
 | macOS 11.x    | Big Sur  | EOL 2023-09-26 | Partially Supported |
 | macOS 10.15.x | Catalina | EOL 2022-09-12 | Partially Supported |
 
-The macOS releases labelled "Partially Supported" (Big Sur and Catalina) do not support screen sharing via Zed Collaboration. These features use the [LiveKit SDK](https://livekit.io) which relies upon [ScreenCaptureKit.framework](https://developer.apple.com/documentation/screencapturekit/) only available on macOS 12 (Monterey) and newer.
+The macOS releases labelled "Partially Supported" (Big Sur and Catalina) do not support screen sharing via Cherry Collaboration. These features use the [LiveKit SDK](https://livekit.io) which relies upon [ScreenCaptureKit.framework](https://developer.apple.com/documentation/screencapturekit/) only available on macOS 12 (Monterey) and newer.
 
 #### Mac Hardware
 
-Zed supports machines with Intel (x86_64) or Apple (aarch64) processors that meet the above macOS requirements:
+Cherry supports machines with Intel (x86_64) or Apple (aarch64) processors that meet the above macOS requirements:
 
 - MacBook Pro (Early 2015 and newer)
 - MacBook Air (Early 2015 and newer)
@@ -81,9 +81,9 @@ Zed supports machines with Intel (x86_64) or Apple (aarch64) processors that mee
 
 ### Linux
 
-Zed supports 64-bit Intel/AMD (x86_64) and 64-bit Arm (aarch64) processors.
+Cherry supports 64-bit Intel/AMD (x86_64) and 64-bit Arm (aarch64) processors.
 
-Zed requires a Vulkan 1.3 driver and the following desktop portals:
+Cherry requires a Vulkan 1.3 driver and the following desktop portals:
 
 - `org.freedesktop.portal.FileChooser`
 - `org.freedesktop.portal.OpenURI`
@@ -91,17 +91,17 @@ Zed requires a Vulkan 1.3 driver and the following desktop portals:
 
 ### Windows
 
-Zed supports the following Windows releases:
-| Version | Zed Status |
+Cherry supports the following Windows releases:
+| Version | Cherry Status |
 | ------------------------- | ------------------- |
 | Windows 11, version 22H2 and later | Supported |
 | Windows 10, version 1903 and later | Supported |
 
-A 64-bit operating system is required to run Zed.
+A 64-bit operating system is required to run Cherry.
 
 #### Windows Hardware
 
-Zed supports machines with x64 (Intel, AMD) or Arm64 (Qualcomm) processors that meet the following requirements:
+Cherry supports machines with x64 (Intel, AMD) or Arm64 (Qualcomm) processors that meet the following requirements:
 
 - Graphics: A GPU that supports DirectX 11 (most PCs from 2012+).
 - Driver: Current NVIDIA/AMD/Intel/Qualcomm driver (not the Microsoft Basic Display Adapter).

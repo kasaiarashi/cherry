@@ -1,16 +1,16 @@
 # AI
 
-Learn how to get started using AI with Zed and all its capabilities.
+Learn how to get started using AI with Cherry and all its capabilities.
 
-## Setting up AI in Zed
+## Setting up AI in Cherry
 
 - [Configuration](./configuration.md): Learn how to set up different language model providers like Anthropic, OpenAI, Ollama, Google AI, and more.
 
-- [External Agents](./external-agents.md): Learn how to plug in your favorite agent into Zed.
+- [External Agents](./external-agents.md): Learn how to plug in your favorite agent into Cherry.
 
-- [Subscription](./subscription.md): Learn about Zed's hosted models and other billing-related information.
+- [Subscription](./subscription.md): Learn about Cherry's hosted models and other billing-related information.
 
-- [Privacy and Security](./privacy-and-security.md): Understand how Zed handles privacy and security with AI features.
+- [Privacy and Security](./privacy-and-security.md): Understand how Cherry handles privacy and security with AI features.
 
 ## Agentic Editing
 
@@ -18,7 +18,7 @@ Learn how to get started using AI with Zed and all its capabilities.
 
 - [Rules](./rules.md): How to define rules for AI interactions.
 
-- [Tools](./tools.md): Explore the tools that power Zed's built-in agent.
+- [Tools](./tools.md): Explore the tools that power Cherry's built-in agent.
 
 - [Model Context Protocol](./mcp.md): Learn about how to configure and use MCP servers.
 
@@ -26,7 +26,7 @@ Learn how to get started using AI with Zed and all its capabilities.
 
 ## Edit Prediction
 
-- [Edit Prediction](./edit-prediction.md): Learn about Zed's AI prediction feature that helps autocomplete your code.
+- [Edit Prediction](./edit-prediction.md): Learn about Cherry's AI prediction feature that helps autocomplete your code.
 
 ## Text Threads
 

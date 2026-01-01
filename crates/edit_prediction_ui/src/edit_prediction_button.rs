@@ -1,4 +1,5 @@
 use anyhow::Result;
+use cherry_actions::{OpenBrowser, OpenSettingsAt};
 use client::{Client, UserStore, zed_urls};
 use cloud_llm_client::UsageLimit;
 use codestral::CodestralEditPredictionDelegate;
@@ -44,7 +45,6 @@ use workspace::{
     StatusItemView, Toast, Workspace, create_and_open_local_file, item::ItemHandle,
     notifications::NotificationId,
 };
-use cherry_actions::{OpenBrowser, OpenSettingsAt};
 
 use crate::{
     CaptureExample, RatePredictions, rate_prediction_modal::PredictEditsRatePredictionsFeatureFlag,
@@ -60,7 +60,7 @@ actions!(
 
 const COPILOT_SETTINGS_PATH: &str = "/settings/copilot";
 const COPILOT_SETTINGS_URL: &str = concat!("https://github.com", "/settings/copilot");
-const PRIVACY_DOCS: &str = "https://zed.dev/docs/ai/privacy-and-security";
+const PRIVACY_DOCS: &str = "https://kriaa.in/cherry/docs/ai/privacy-and-security";
 
 struct CopilotErrorToast;
 

@@ -15,7 +15,7 @@ on:
 
 jobs:
   stale:
-    if: github.repository_owner == 'zed-industries'
+    if: github.repository_owner == 'cherry-industries'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/stale@997185467fa4f803885201cee163a9f38240193d # v10
@@ -23,12 +23,12 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-issue-message: >
             Hi there!
-            Zed development moves fast and a significant number of bugs become outdated.
-            If you can reproduce this bug on the latest stable Zed, please let us know by leaving a comment with the Zed version.
+            Cherry development moves fast and a significant number of bugs become outdated.
+            If you can reproduce this bug on the latest stable Cherry, please let us know by leaving a comment with the Cherry version.
             If the bug doesn't appear for you anymore, feel free to close the issue yourself; otherwise, the bot will close it in a couple of weeks.
 
             Thanks for your help!
-          close-issue-message: "This issue was closed due to inactivity. If you're still experiencing this problem, please leave a comment with your Zed version so that we can reopen the issue."
+          close-issue-message: "This issue was closed due to inactivity. If you're still experiencing this problem, please leave a comment with your Cherry version so that we can reopen the issue."
           days-before-stale: 60
           days-before-close: 14
           only-issue-types: "Bug,Crash"

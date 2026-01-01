@@ -1,4 +1,5 @@
 use crate::multibuffer_hint::MultibufferHint;
+use cherry_actions::OpenOnboarding;
 use client::{Client, UserStore, zed_urls};
 use db::kvp::KEY_VALUE_STORE;
 use fs::Fs;
@@ -25,7 +26,6 @@ use workspace::{
     notifications::NotifyResultExt as _,
     open_new, register_serializable_item, with_active_or_new_workspace,
 };
-use cherry_actions::OpenOnboarding;
 
 mod base_keymap_picker;
 mod basics_page;
@@ -51,7 +51,7 @@ pub struct ImportCursorSettings {
 }
 
 pub const FIRST_OPEN: &str = "first_open";
-pub const DOCS_URL: &str = "https://zed.dev/docs/";
+pub const DOCS_URL: &str = "https://kriaa.in/cherry/docs/";
 
 actions!(
     onboarding,

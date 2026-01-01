@@ -37,6 +37,13 @@ use ai_onboarding::AgentPanelOnboarding;
 use anyhow::{Result, anyhow};
 use assistant_slash_command::SlashCommandWorkingSet;
 use assistant_text_thread::{TextThread, TextThreadEvent, TextThreadSummary};
+use cherry_actions::{
+    DecreaseBufferFontSize, IncreaseBufferFontSize, ResetBufferFontSize,
+    agent::{
+        OpenAcpOnboardingModal, OpenOnboardingModal, OpenSettings, ResetAgentZoom, ResetOnboarding,
+    },
+    assistant::{OpenRulesLibrary, ToggleFocus},
+};
 use client::{UserStore, zed_urls};
 use cloud_llm_client::{Plan, PlanV1, PlanV2, UsageLimit};
 use editor::{Anchor, AnchorRangeExt as _, Editor, EditorEvent, MultiBuffer};
@@ -64,13 +71,6 @@ use util::ResultExt as _;
 use workspace::{
     CollaboratorId, DraggedSelection, DraggedTab, ToggleZoom, ToolbarItemView, Workspace,
     dock::{DockPosition, Panel, PanelEvent},
-};
-use cherry_actions::{
-    DecreaseBufferFontSize, IncreaseBufferFontSize, ResetBufferFontSize,
-    agent::{
-        OpenAcpOnboardingModal, OpenOnboardingModal, OpenSettings, ResetAgentZoom, ResetOnboarding,
-    },
-    assistant::{OpenRulesLibrary, ToggleFocus},
 };
 
 const AGENT_PANEL_KEY: &str = "agent_panel";
@@ -2504,7 +2504,7 @@ impl AgentPanel {
         let zed_provider_configured = AgentSettings::get_global(cx)
             .default_model
             .as_ref()
-            .is_some_and(|selection| selection.provider.0.as_str() == "zed.dev");
+            .is_some_and(|selection| selection.provider.0.as_str() == "kriaa.in/cherry");
 
         let callout = if zed_provider_configured {
             Callout::new()

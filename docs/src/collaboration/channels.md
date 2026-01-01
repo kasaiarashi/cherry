@@ -18,7 +18,7 @@ You can mix channels for your day job, as well as side-projects in your collab p
 
 Joining a channel adds you to a shared room where you can work on projects together.
 
-_Join [our channel tree](https://zed.dev/channel/zed-283) to get an idea of how you can organize yours._
+_Join [our channel tree](https://kriaa.in/cherry/channel/zed-283) to get an idea of how you can organize yours._
 
 ## Inviting People
 
@@ -28,13 +28,13 @@ You can invite collaborators by right clicking and selecting `Manage members`.
 When you have subchannels nested under others, permissions are inherited.
 For instance, adding people to the top-level channel in your channel tree will automatically give them access to its subchannels.
 
-Once you have added someone, they can either join your channel by clicking on it in their Zed sidebar, or you can share the link to the channel so that they can join directly.
+Once you have added someone, they can either join your channel by clicking on it in their Cherry sidebar, or you can share the link to the channel so that they can join directly.
 
 ## Voice Chat
 
 You can mute/unmute your microphone via the microphone icon in the upper right-hand side of the window.
 
-> Note: When joining a channel, Zed will automatically share your microphone with other users in the call, if your OS allows it.
+> Note: When joining a channel, Cherry will automatically share your microphone with other users in the call, if your OS allows it.
 > If you'd prefer your microphone to be off when joining a channel, you can do so via the [`mute_on_join`](../configuring-zed.md#calls) setting.
 
 ## Sharing Projects
@@ -60,7 +60,7 @@ Collaborators that are currently in that project will be disconnected from the p
 
 Each channel has a Markdown notes file associated with it to keep track of current status, new ideas, or to collaborate on building out the design for the feature that you're working on before diving into code.
 
-This is similar to a Google Doc, except powered by Zed's collaborative software and persisted to our servers.
+This is similar to a Google Doc, except powered by Cherry's collaborative software and persisted to our servers.
 
 Open the channel notes by clicking on the document icon to the right of the channel name in the collaboration panel.
 
@@ -102,7 +102,7 @@ Share your screen with collaborators in the current channel by clicking on the `
 If you have multiple displays, you can choose which one to share via the chevron to the right of the monitor icon.
 
 After you've shared your screen, others can click on the `Screen` entry under your name in the collaboration panel to open a tab that always keeps it visible.
-If they are following you, Zed will automatically switch between following your cursor in their Zed instance and your screen share, depending on whether you are focused on Zed or another application, like a web browser.
+If they are following you, Cherry will automatically switch between following your cursor in their Cherry instance and your screen share, depending on whether you are focused on Cherry or another application, like a web browser.
 
 > Note: Collaborators can see your entire screen when you are screen sharing, so be careful not to share anything you don't want to share.
 > Remember to stop screen sharing when you are finished.

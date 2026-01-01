@@ -316,7 +316,7 @@ impl PickerDelegate for IconThemeSelectorDelegate {
                         .icon_size(IconSize::Small)
                         .icon_color(Color::Muted)
                         .on_click(|_event, _window, cx| {
-                            cx.open_url("https://zed.dev/docs/icon-themes");
+                            cx.open_url("https://kriaa.in/cherry/docs/icon-themes");
                         }),
                 )
                 .child(

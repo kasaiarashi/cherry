@@ -1836,7 +1836,10 @@ impl EditPredictionStore {
                             move |cx| {
                                 cx.new(|cx| {
                                     ErrorMessagePrompt::new(error_message.clone(), cx)
-                                        .with_link_button("Update Zed", "https://zed.dev/releases")
+                                        .with_link_button(
+                                            "Update Zed",
+                                            "https://kriaa.in/cherry/releases",
+                                        )
                                 })
                             },
                         );

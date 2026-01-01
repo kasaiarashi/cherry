@@ -15,6 +15,10 @@ pub use app_menus::*;
 use assets::Assets;
 use audio::{AudioSettings, REPLAY_DURATION};
 use breadcrumbs::Breadcrumbs;
+use cherry_actions::{
+    OpenAccountSettings, OpenBrowser, OpenCherryUrl, OpenDocs, OpenServerSettings,
+    OpenSettingsFile, Quit,
+};
 use client::zed_urls;
 use collections::VecDeque;
 use debugger_ui::debugger_panel::DebugPanel;
@@ -72,8 +76,8 @@ use std::{
 };
 use terminal_view::terminal_panel::{self, TerminalPanel};
 use theme::{ActiveTheme, GlobalTheme, SystemAppearance, ThemeRegistry, ThemeSettings};
-use unreal_panel::{BuildPanel, UnrealPanel};
 use ui::{PopoverMenuHandle, prelude::*};
+use unreal_panel::{BuildPanel, UnrealPanel};
 use util::markdown::MarkdownString;
 use util::rel_path::RelPath;
 use util::{ResultExt, asset_str};
@@ -92,10 +96,6 @@ use workspace::{
     CloseIntent, CloseWindow, NotificationFrame, RestoreBanner, with_active_or_new_workspace,
 };
 use workspace::{Pane, notifications::DetachAndPromptErr};
-use cherry_actions::{
-    OpenAccountSettings, OpenBrowser, OpenDocs, OpenServerSettings, OpenSettingsFile, OpenCherryUrl,
-    Quit,
-};
 
 actions!(
     cherry,
@@ -501,10 +501,10 @@ pub fn initialize_workspace(
             workspace.set_toolbar_item(toolbar.into(), window, cx);
         }
 
-        let ue_connection = Some(connection);
+        let ue_connection = Some(connection.clone());
 
-        initialize_panels(prompt_builder.clone(), ue_connection, window, cx);
-        register_actions(app_state.clone(), workspace, window, cx);
+        initialize_panels(prompt_builder.clone(), ue_connection.clone(), window, cx);
+        register_actions(app_state.clone(), workspace, ue_connection, window, cx);
 
         workspace.focus_handle(cx).focus(window, cx);
     })
@@ -547,7 +547,7 @@ fn unstable_version_notification(cx: &mut App) {
                 .primary_on_click(|window, cx| {
                     window.dispatch_action(
                         cherry_actions::OpenBrowser {
-                            url: "https://zed.dev/download".to_string(),
+                            url: "https://kriaa.in/cherry/download".to_string(),
                         }
                         .boxed_clone(),
                         cx,
@@ -565,7 +565,7 @@ fn initialize_file_watcher(window: &mut Window, cx: &mut Context<Workspace>) {
             db::indoc! {r#"
             inotify_init returned {}
 
-            This may be due to system-wide limits on inotify instances. For troubleshooting see: https://zed.dev/docs/linux
+            This may be due to system-wide limits on inotify instances. For troubleshooting see: https://kriaa.in/cherry/docs/linux
             "#},
             e
         );
@@ -579,7 +579,7 @@ fn initialize_file_watcher(window: &mut Window, cx: &mut Context<Workspace>) {
         cx.spawn(async move |_, cx| {
             if prompt.await == Ok(0) {
                 cx.update(|cx| {
-                    cx.open_url("https://zed.dev/docs/linux#could-not-start-inotify");
+                    cx.open_url("https://kriaa.in/cherry/docs/linux#could-not-start-inotify");
                     cx.quit();
                 })
                 .ok();
@@ -596,7 +596,7 @@ fn initialize_file_watcher(window: &mut Window, cx: &mut Context<Workspace>) {
             db::indoc! {r#"
             ReadDirectoryChangesW initialization failed: {}
 
-            This may occur on network filesystems and WSL paths. For troubleshooting see: https://zed.dev/docs/windows
+            This may occur on network filesystems and WSL paths. For troubleshooting see: https://kriaa.in/cherry/docs/windows
             "#},
             e
         );
@@ -610,7 +610,7 @@ fn initialize_file_watcher(window: &mut Window, cx: &mut Context<Workspace>) {
         cx.spawn(async move |_, cx| {
             if prompt.await == Ok(0) {
                 cx.update(|cx| {
-                    cx.open_url("https://zed.dev/docs/windows");
+                    cx.open_url("https://kriaa.in/cherry/docs/windows");
                     cx.quit()
                 })
                 .ok();
@@ -629,14 +629,14 @@ fn show_software_emulation_warning_if_needed(
         let (graphics_api, docs_url, open_url) = if cfg!(target_os = "windows") {
             (
                 "DirectX",
-                "https://zed.dev/docs/windows",
-                "https://zed.dev/docs/windows",
+                "https://kriaa.in/cherry/docs/windows",
+                "https://kriaa.in/cherry/docs/windows",
             )
         } else {
             (
                 "Vulkan",
-                "https://zed.dev/docs/linux",
-                "https://zed.dev/docs/linux#zed-fails-to-open-windows",
+                "https://kriaa.in/cherry/docs/linux",
+                "https://kriaa.in/cherry/docs/linux#zed-fails-to-open-windows",
             )
         };
         let message = format!(
@@ -849,6 +849,7 @@ async fn initialize_agents_panel(
 fn register_actions(
     app_state: Arc<AppState>,
     workspace: &mut Workspace,
+    ue_connection: Option<Entity<cherry_link::CherryLinkConnection>>,
     _: &mut Window,
     cx: &mut Context<Workspace>,
 ) {
@@ -1232,6 +1233,15 @@ fn register_actions(
             }
         });
     }
+
+    // Register Unreal Engine actions
+    if let Some(connection) = ue_connection {
+        workspace.register_action(move |_, _: &unreal_toolbar::LiveCodingBuild, _, cx| {
+            connection.update(cx, |conn, cx| {
+                conn.build_live_coding(cx);
+            });
+        });
+    }
 }
 
 fn initialize_pane(
@@ -1555,7 +1565,10 @@ fn notify_settings_errors(result: settings::SettingsParseResult, is_user: bool, 
                         .primary_message("Open Settings File")
                         .primary_icon(IconName::Settings)
                         .primary_on_click(|window, cx| {
-                            window.dispatch_action(cherry_actions::OpenSettingsFile.boxed_clone(), cx);
+                            window.dispatch_action(
+                                cherry_actions::OpenSettingsFile.boxed_clone(),
+                                cx,
+                            );
                             cx.emit(DismissEvent);
                         })
                     })

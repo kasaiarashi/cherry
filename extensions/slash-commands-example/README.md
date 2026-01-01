@@ -2,7 +2,7 @@
 
 This is an example extension showcasing how to write slash commands.
 
-See: [Extensions: Slash Commands](https://zed.dev/docs/extensions/slash-commands) in the Zed Docs.
+See: [Extensions: Slash Commands](https://kriaa.in/cherry/docs/extensions/slash-commands) in the Cherry Docs.
 
 ## Pre-requisites
 
@@ -37,7 +37,7 @@ zed_extension_api = "0.1.0"
 EOF
 
 curl -O https://raw.githubusercontent.com/rust-lang/rust/master/LICENSE-APACHE
-echo "# Zed Slash Commands Example Extension" > README.md
+echo "# Cherry Slash Commands Example Extension" > README.md
 echo "Cargo.lock" > .gitignore
 echo "target/" >> .gitignore
 echo "*.wasm" >> .gitignore
@@ -71,14 +71,14 @@ Rename `slash-commands-example.rs` you'll also have to update `Cargo.toml`
 
 Rebuild to see these changes reflected:
 
-1. Open Zed Extensions (`cmd-shift-x` or `ctrl-shift-x`).
+1. Open Cherry Extensions (`cmd-shift-x` or `ctrl-shift-x`).
 2. Click `Rebuild` next to your Dev Extension (formerly "Slash Command Example")
 
 ## Troubleshooting / Logs
 
-- [zed.dev docs: Troubleshooting](https://zed.dev/docs/troubleshooting)
+- [zed.dev docs: Troubleshooting](https://kriaa.in/cherry/docs/troubleshooting)
 
 ## Documentation
 
-- [zed.dev docs: Extensions: Developing Extensions](https://zed.dev/docs/extensions/developing-extensions)
-- [zed.dev docs: Extensions: Slash Commands](https://zed.dev/docs/extensions/slash-commands)
+- [zed.dev docs: Extensions: Developing Extensions](https://kriaa.in/cherry/docs/extensions/developing-extensions)
+- [zed.dev docs: Extensions: Slash Commands](https://kriaa.in/cherry/docs/extensions/slash-commands)

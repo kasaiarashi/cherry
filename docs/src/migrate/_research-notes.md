@@ -36,7 +36,7 @@ All three JetBrains migration guides have been populated with full content:
 
 ### RustRover Guide
 
-- Noted rust-analyzer shared foundation between RustRover and Zed
+- Noted rust-analyzer shared foundation between RustRover and Cherry
 - Addressed licensing/telemetry concerns that motivate some users to switch
 - Included debugger caveats based on community feedback
 
@@ -44,10 +44,10 @@ All three JetBrains migration guides have been populated with full content:
 
 ### Universal Pain Points Addressed
 
-1. Indexing (instant in Zed)
-2. Resource usage (Zed is lightweight)
-3. Startup time (Zed is near-instant)
-4. UI clutter (Zed is minimal by design)
+1. Indexing (instant in Cherry)
+2. Resource usage (Cherry is lightweight)
+3. Startup time (Cherry is near-instant)
+4. UI clutter (Cherry is minimal by design)
 
 ### Universal Missing Features Documented
 
@@ -70,4 +70,4 @@ All three guides emphasize:
 - [ ] Cross-link guides to JetBrains docs for users who want to reference original IDE features
 - [ ] Add a consolidated "hub page" linking to all migration guides
 - [ ] Consider adding VS Code migration guide using similar structure
-- [ ] Review for tone consistency against Zed Documentation Guidelines
+- [ ] Review for tone consistency against Cherry Documentation Guidelines

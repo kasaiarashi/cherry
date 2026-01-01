@@ -8,7 +8,7 @@ on:
 jobs:
   deploy-docs:
     name: Deploy Docs
-    if: github.repository_owner == 'zed-industries'
+    if: github.repository_owner == 'cherry-industries'
     runs-on: namespace-profile-16x32-ubuntu-2204
 
     steps:
@@ -37,7 +37,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: r2 object put -f script/install.sh zed-open-source-website-assets/install.sh
+          command: r2 object put -f script/install.sh cherry-open-source-website-assets/install.sh
 
       - name: Deploy Docs Workers
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3

@@ -11,6 +11,7 @@ class FLogService;
 class FPlayService;
 class FBuildService;
 class FExtender;
+class FCherrySourceCodeAccessor;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogCherryLink, Log, All);
 
@@ -45,6 +46,7 @@ private:
 	void ShutdownServices();
 	void RegisterMenus();
 	void UnregisterMenus();
+	void RegisterSourceCodeAccessor();
 	void WritePortFile();
 	void DeletePortFile();
 
@@ -54,6 +56,7 @@ private:
 	TSharedPtr<FLogService> LogService;
 	TSharedPtr<FPlayService> PlayService;
 	TSharedPtr<FBuildService> BuildService;
+	TSharedPtr<FCherrySourceCodeAccessor> CherrySourceCodeAccessor;
 
 	int32 ServerPort = 21567;
 	TSharedPtr<FExtender> MenuExtender;

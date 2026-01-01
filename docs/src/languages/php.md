@@ -33,7 +33,7 @@ where php
 
 ## Choosing a language server
 
-The PHP extension uses [LSP language servers](https://microsoft.github.io/language-server-protocol) with Phpactor as the default. If you want to use other language servers that support Zed (e.g. Intelephense or PHP Tools), make sure to follow the documentation on how to implement it.
+The PHP extension uses [LSP language servers](https://microsoft.github.io/language-server-protocol) with Phpactor as the default. If you want to use other language servers that support Cherry (e.g. Intelephense or PHP Tools), make sure to follow the documentation on how to implement it.
 
 ### Intelephense
 
@@ -103,7 +103,7 @@ or, set environment variable `DEVSENSE_PHP_LS_LICENSE` on `.env` file in your pr
 DEVSENSE_PHP_LS_LICENSE="your_license_key"
 ```
 
-Check out the documentation of [PHP Tools for Zed](https://docs.devsense.com/other/zed/) for more details.
+Check out the documentation of [PHP Tools for Cherry](https://docs.devsense.com/other/zed/) for more details.
 
 ### Phpactor
 
@@ -121,7 +121,7 @@ To use Phpactor instead of Intelephense or any other tools, add the following to
 
 ## PHPDoc
 
-Zed supports syntax highlighting for PHPDoc comments.
+Cherry supports syntax highlighting for PHPDoc comments.
 
 - Tree-sitter: [claytonrcarter/tree-sitter-phpdoc](https://github.com/claytonrcarter/tree-sitter-phpdoc)
 
@@ -152,5 +152,5 @@ These are common troubleshooting tips, in case you run into issues:
 - Ensure that you have Xdebug installed for the version of PHP you’re running.
 - Ensure that Xdebug is configured to run in `debug` mode.
 - Ensure that Xdebug is actually starting a debugging session.
-- Ensure that the host and port matches between Xdebug and Zed.
+- Ensure that the host and port matches between Xdebug and Cherry.
 - Look at the diagnostics log by using the `xdebug_info()` function in the page you’re trying to debug.

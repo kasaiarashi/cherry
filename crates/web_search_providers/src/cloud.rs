@@ -50,7 +50,7 @@ impl State {
     }
 }
 
-pub const ZED_WEB_SEARCH_PROVIDER_ID: &str = "zed.dev";
+pub const ZED_WEB_SEARCH_PROVIDER_ID: &str = "kriaa.in/cherry";
 
 impl WebSearchProvider for CloudWebSearchProvider {
     fn id(&self) -> WebSearchProviderId {

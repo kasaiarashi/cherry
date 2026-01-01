@@ -1,9 +1,9 @@
 # Collaboration
 
-At Zed, we believe that great things are built by great people working together.
-We have designed Zed to help individuals work faster and help teams of people work together more effectively.
+At Cherry, we believe that great things are built by great people working together.
+We have designed Cherry to help individuals work faster and help teams of people work together more effectively.
 
-In Zed, all collaboration happens in the collaboration panel, which can be opened via {#kb collab_panel::ToggleFocus} or `collab panel: toggle focus` from the command palette.
+In Cherry, all collaboration happens in the collaboration panel, which can be opened via {#kb collab_panel::ToggleFocus} or `collab panel: toggle focus` from the command palette.
 
 You will need to [sign in](../authentication.md#signing-in) in order to access features within the collaboration panel.
 
@@ -21,4 +21,4 @@ The collaboration panel is broken down into two sections:
 >
 > In the future, we will do more to prevent this type of access beyond the shared project and add more control over what collaborators can do, but for now, only collaborate with people you trust.
 
-See our [Data and Privacy FAQs](https://zed.dev/faq#data-and-privacy) for collaboration.
+See our [Data and Privacy FAQs](https://kriaa.in/cherry/faq#data-and-privacy) for collaboration.

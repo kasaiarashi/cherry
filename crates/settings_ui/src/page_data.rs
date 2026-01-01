@@ -6269,7 +6269,7 @@ pub(crate) fn settings_data(cx: &App) -> Vec<SettingsPage> {
                         },
                     }),
                     metadata: Some(Box::new(SettingsFieldMetadata {
-                        placeholder: Some("https://zed.dev"),
+                        placeholder: Some("https://kriaa.in/cherry"),
                         ..Default::default()
                     })),
                     files: USER,

@@ -127,7 +127,7 @@ impl DockerExecConnection {
             "Darwin" => RemoteOs::MacOs,
             "Linux" => RemoteOs::Linux,
             _ => anyhow::bail!(
-                "Prebuilt remote servers are not yet available for {os:?}. See https://zed.dev/docs/remote-development"
+                "Prebuilt remote servers are not yet available for {os:?}. See https://kriaa.in/cherry/docs/remote-development"
             ),
         };
         // exclude armv5,6,7 as they are 32-bit.
@@ -141,7 +141,7 @@ impl DockerExecConnection {
             RemoteArch::X86_64
         } else {
             anyhow::bail!(
-                "Prebuilt remote servers are not yet available for {arch:?}. See https://zed.dev/docs/remote-development"
+                "Prebuilt remote servers are not yet available for {arch:?}. See https://kriaa.in/cherry/docs/remote-development"
             )
         };
 

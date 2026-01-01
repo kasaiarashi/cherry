@@ -1,10 +1,10 @@
-# How to Migrate from RustRover to Zed
+# How to Migrate from RustRover to Cherry
 
-This guide covers how to set up Zed if you're coming from RustRover, including keybindings, settings, and the differences you should expect as a Rust developer.
+This guide covers how to set up Cherry if you're coming from RustRover, including keybindings, settings, and the differences you should expect as a Rust developer.
 
-## Install Zed
+## Install Cherry
 
-Zed is available on macOS, Windows, and Linux.
+Cherry is available on macOS, Windows, and Linux.
 
 For macOS, you can download it from zed.dev/download, or install via Homebrew:
 
@@ -15,18 +15,18 @@ brew install --cask zed
 For Windows, download the installer from zed.dev/download, or install via winget:
 
 ```sh
-winget install Zed.Zed
+winget install Cherry.Cherry
 ```
 
-For most Linux users, the easiest way to install Zed is through our installation script:
+For most Linux users, the easiest way to install Cherry is through our installation script:
 
 ```sh
-curl -f https://zed.dev/install.sh | sh
+curl -f https://kriaa.in/cherry/install.sh | sh
 ```
 
-After installation, you can launch Zed from your Applications folder (macOS), Start menu (Windows), or directly from the terminal using:
+After installation, you can launch Cherry from your Applications folder (macOS), Start menu (Windows), or directly from the terminal using:
 `zed .`
-This opens the current directory in Zed.
+This opens the current directory in Cherry.
 
 ## Set Up the JetBrains Keymap
 
@@ -57,7 +57,7 @@ To edit your settings:
 
 Settings RustRover users typically configure first:
 
-| Zed Setting             | What it does                                                                    |
+| Cherry Setting             | What it does                                                                    |
 | ----------------------- | ------------------------------------------------------------------------------- |
 | `format_on_save`        | Auto-format when saving. Set to `"on"` to enable (uses rustfmt by default).     |
 | `soft_wrap`             | Wrap long lines. Options: `"none"`, `"editor_width"`, `"preferred_line_length"` |
@@ -65,13 +65,13 @@ Settings RustRover users typically configure first:
 | `inlay_hints`           | Show type hints, parameter names, and chaining hints inline.                    |
 | `relative_line_numbers` | Useful if you're coming from IdeaVim.                                           |
 
-Zed also supports per-project settings. Create a `.zed/settings.json` file in your project root to override global settings for that project, similar to how you might use `.idea` folders in RustRover.
+Cherry also supports per-project settings. Create a `.zed/settings.json` file in your project root to override global settings for that project, similar to how you might use `.idea` folders in RustRover.
 
 > **Tip:** If you're joining an existing project, check `format_on_save` before making your first commit. Otherwise you might accidentally reformat an entire file when you only meant to change one line.
 
 ## Open or Create a Project
 
-After setup, press `Cmd+Shift+O` (with JetBrains keymap) to open a folder. This becomes your workspace in Zed. Unlike RustRover, there's no project configuration wizard, no toolchain selection dialog, and no Cargo project setup screen.
+After setup, press `Cmd+Shift+O` (with JetBrains keymap) to open a folder. This becomes your workspace in Cherry. Unlike RustRover, there's no project configuration wizard, no toolchain selection dialog, and no Cargo project setup screen.
 
 To start a new project, use Cargo from the terminal:
 
@@ -87,7 +87,7 @@ Or for a library:
 cargo new --lib my_library
 ```
 
-You can also launch Zed from the terminal inside any existing Cargo project with:
+You can also launch Cherry from the terminal inside any existing Cargo project with:
 `zed .`
 
 Once inside a project:
@@ -100,7 +100,7 @@ Open buffers appear as tabs across the top. The sidebar shows your file tree and
 
 ## Differences in Keybindings
 
-If you chose the JetBrains keymap during onboarding, most of your shortcuts should already feel familiar. Here's a quick reference for how Zed compares to RustRover.
+If you chose the JetBrains keymap during onboarding, most of your shortcuts should already feel familiar. Here's a quick reference for how Cherry compares to RustRover.
 
 ### Common Shared Keybindings
 
@@ -125,9 +125,9 @@ If you chose the JetBrains keymap during onboarding, most of your shortcuts shou
 | Go Back / Forward             | `Cmd + [` / `Cmd + ]`   |
 | Toggle Breakpoint             | `Ctrl + F8`             |
 
-### Different Keybindings (RustRover → Zed)
+### Different Keybindings (RustRover → Cherry)
 
-| Action                 | RustRover   | Zed (JetBrains keymap)   |
+| Action                 | RustRover   | Cherry (JetBrains keymap)   |
 | ---------------------- | ----------- | ------------------------ |
 | File Structure         | `Cmd + F12` | `Cmd + F12` (outline)    |
 | Navigate to Next Error | `F2`        | `F2`                     |
@@ -136,7 +136,7 @@ If you chose the JetBrains keymap during onboarding, most of your shortcuts shou
 | Stop                   | `Cmd + F2`  | `Ctrl + F2`              |
 | Expand Macro           | `Alt+Enter` | `Cmd + Shift + M`        |
 
-### Unique to Zed
+### Unique to Cherry
 
 | Action            | Shortcut                   | Notes                          |
 | ----------------- | -------------------------- | ------------------------------ |
@@ -146,11 +146,11 @@ If you chose the JetBrains keymap during onboarding, most of your shortcuts shou
 ### How to Customize Keybindings
 
 - Open the Command Palette (`Cmd+Shift+A` or `Shift Shift`)
-- Run `Zed: Open Keymap Editor`
+- Run `Cherry: Open Keymap Editor`
 
 This opens a list of all available bindings. You can override individual shortcuts or remove conflicts.
 
-Zed also supports key sequences (multi-key shortcuts).
+Cherry also supports key sequences (multi-key shortcuts).
 
 ## Differences in User Interfaces
 
@@ -158,7 +158,7 @@ Zed also supports key sequences (multi-key shortcuts).
 
 RustRover indexes your project when you first open it to build a model of your codebase. This process runs whenever you open a project or when dependencies change via Cargo.
 
-Zed skips the indexing step. You open a folder and start working right away. Since both editors rely on rust-analyzer for Rust intelligence, the analysis still happens—but in Zed it runs in the background without blocking the UI or showing modal progress dialogs.
+Cherry skips the indexing step. You open a folder and start working right away. Since both editors rely on rust-analyzer for Rust intelligence, the analysis still happens—but in Cherry it runs in the background without blocking the UI or showing modal progress dialogs.
 
 **How to adapt:**
 
@@ -169,23 +169,23 @@ Zed skips the indexing step. You open a folder and start working right away. Sin
 
 ### rust-analyzer: Shared Foundation, Different Integration
 
-Here's what makes the RustRover-to-Zed transition unique: **both editors use rust-analyzer** for Rust language intelligence. This means the core code analysis—completions, go-to-definition, find references, type inference—is fundamentally the same.
+Here's what makes the RustRover-to-Cherry transition unique: **both editors use rust-analyzer** for Rust language intelligence. This means the core code analysis—completions, go-to-definition, find references, type inference—is fundamentally the same.
 
-RustRover integrates rust-analyzer into its JetBrains platform, adding a GUI layer, additional refactorings, and its own indexing on top. Zed uses rust-analyzer more directly through the Language Server Protocol (LSP).
+RustRover integrates rust-analyzer into its JetBrains platform, adding a GUI layer, additional refactorings, and its own indexing on top. Cherry uses rust-analyzer more directly through the Language Server Protocol (LSP).
 
 What this means for you:
 
 - **Completions** — Same quality, powered by rust-analyzer
 - **Type inference** — Identical, it's the same engine
 - **Go to definition / Find usages** — Works the same way
-- **Macro expansion** — Available in both (use `Cmd+Shift+M` in Zed)
+- **Macro expansion** — Available in both (use `Cmd+Shift+M` in Cherry)
 - **Inlay hints** — Both support type hints, parameter hints, and chaining hints
 
 Where you might notice differences:
 
 - Some refactorings available in RustRover may not have rust-analyzer equivalents
-- RustRover's GUI for configuring rust-analyzer is replaced by JSON configuration in Zed
-- RustRover-specific inspections (beyond Clippy) won't exist in Zed
+- RustRover's GUI for configuring rust-analyzer is replaced by JSON configuration in Cherry
+- RustRover-specific inspections (beyond Clippy) won't exist in Cherry
 
 **How to adapt:**
 
@@ -197,7 +197,7 @@ Where you might notice differences:
 
 RustRover manages projects through `.idea` folders containing XML configuration files, toolchain assignments, and run configurations. The Cargo tool window provides a visual interface for your project structure, targets, and dependencies.
 
-Zed keeps it simpler: a project is a folder with a `Cargo.toml`. No project wizard, no toolchain dialogs, no visual Cargo management layer.
+Cherry keeps it simpler: a project is a folder with a `Cargo.toml`. No project wizard, no toolchain dialogs, no visual Cargo management layer.
 
 In practice:
 
@@ -242,7 +242,7 @@ In practice:
 
 RustRover's Cargo tool window provides visual access to your project's targets, dependencies, and common Cargo commands. You can run builds, tests, and benchmarks with a click.
 
-Zed doesn't have a Cargo GUI. You work with Cargo through:
+Cherry doesn't have a Cargo GUI. You work with Cargo through:
 
 - **Terminal** — Run any Cargo command directly
 - **Tasks** — Define shortcuts for common commands
@@ -256,9 +256,9 @@ Zed doesn't have a Cargo GUI. You work with Cargo through:
 
 ### Tool Windows vs. Docks
 
-RustRover organizes auxiliary views into numbered tool windows (Project = 1, Cargo = Alt+1, Terminal = Alt+F12, etc.). Zed uses a similar concept called "docks":
+RustRover organizes auxiliary views into numbered tool windows (Project = 1, Cargo = Alt+1, Terminal = Alt+F12, etc.). Cherry uses a similar concept called "docks":
 
-| RustRover Tool Window | Zed Equivalent | Shortcut (JetBrains keymap) |
+| RustRover Tool Window | Cherry Equivalent | Shortcut (JetBrains keymap) |
 | --------------------- | -------------- | --------------------------- |
 | Project (1)           | Project Panel  | `Cmd + 1`                   |
 | Git (9 or Cmd+0)      | Git Panel      | `Cmd + 0`                   |
@@ -267,25 +267,25 @@ RustRover organizes auxiliary views into numbered tool windows (Project = 1, Car
 | Problems (6)          | Diagnostics    | `Cmd + 6`                   |
 | Debug (5)             | Debug Panel    | `Cmd + 5`                   |
 
-Zed has three dock positions: left, bottom, and right. Panels can be moved between docks by dragging or through settings.
+Cherry has three dock positions: left, bottom, and right. Panels can be moved between docks by dragging or through settings.
 
-Note that there's no dedicated Cargo tool window in Zed. Use the terminal or define tasks for your common Cargo commands.
+Note that there's no dedicated Cargo tool window in Cherry. Use the terminal or define tasks for your common Cargo commands.
 
 ### Debugging
 
-Both RustRover and Zed offer integrated debugging for Rust, but using different backends:
+Both RustRover and Cherry offer integrated debugging for Rust, but using different backends:
 
 - RustRover uses its own debugger integration
-- Zed uses **CodeLLDB** (the same debug adapter popular in VS Code)
+- Cherry uses **CodeLLDB** (the same debug adapter popular in VS Code)
 
-To debug Rust code in Zed:
+To debug Rust code in Cherry:
 
 - Set breakpoints with `Ctrl+F8`
 - Start debugging with `Alt+Shift+F9` or press `F4` and select a debug target
 - Step through code with `F7` (step into), `F8` (step over), `Shift+F8` (step out)
 - Continue execution with `F9`
 
-Zed can automatically detect debuggable targets in your Cargo project. Press `F4` to see available options.
+Cherry can automatically detect debuggable targets in your Cargo project. Press `F4` to see available options.
 
 For more control, create a `.zed/debug.json` file:
 
@@ -318,11 +318,11 @@ For more control, create a `.zed/debug.json` file:
 ]
 ```
 
-> **Note:** Some users have reported that RustRover's debugger can have issues with variable inspection and breakpoints in certain scenarios. CodeLLDB in Zed provides a solid alternative, though debugging Rust can be challenging in any editor due to optimizations and macro-generated code.
+> **Note:** Some users have reported that RustRover's debugger can have issues with variable inspection and breakpoints in certain scenarios. CodeLLDB in Cherry provides a solid alternative, though debugging Rust can be challenging in any editor due to optimizations and macro-generated code.
 
 ### Running Tests
 
-RustRover has a dedicated test runner with a visual interface showing pass/fail status for each test. Zed provides test running through:
+RustRover has a dedicated test runner with a visual interface showing pass/fail status for each test. Cherry provides test running through:
 
 - **Gutter icons** — Click the play button next to `#[test]` functions or test modules
 - **Tasks** — Define `cargo test` commands in `tasks.json`
@@ -338,14 +338,14 @@ The test output appears in the terminal panel. For more detailed output, use:
 
 RustRover has a plugin ecosystem, though it's more limited than other JetBrains IDEs since Rust support is built-in.
 
-Zed's extension ecosystem is smaller and more focused:
+Cherry's extension ecosystem is smaller and more focused:
 
 - Language support and syntax highlighting
 - Themes
 - Slash commands for AI
 - Context servers
 
-Several features that might require plugins in other editors are built into Zed:
+Several features that might require plugins in other editors are built into Cherry:
 
 - Real-time collaboration with voice chat
 - AI coding assistance
@@ -354,9 +354,9 @@ Several features that might require plugins in other editors are built into Zed:
 - rust-analyzer integration
 - rustfmt formatting
 
-### What's Not in Zed
+### What's Not in Cherry
 
-To set expectations clearly, here's what RustRover offers that Zed doesn't have:
+To set expectations clearly, here's what RustRover offers that Cherry doesn't have:
 
 - **Cargo.toml GUI editor** — Edit the file directly (rust-analyzer helps with completions)
 - **Visual dependency management** — Use `cargo add`, `cargo remove`, or edit `Cargo.toml`
@@ -369,23 +369,23 @@ To set expectations clearly, here's what RustRover offers that Zed doesn't have:
 
 If you're moving from RustRover partly due to licensing concerns or telemetry policies, you should know:
 
-- **Zed is open source** (MIT licensed for the editor, AGPL for collaboration services)
+- **Cherry is open source** (MIT licensed for the editor, AGPL for collaboration services)
 - **Telemetry is optional** and can be disabled during onboarding or in settings
 - **No license tiers**: All features are available to everyone
 
-## Collaboration in Zed vs. RustRover
+## Collaboration in Cherry vs. RustRover
 
-RustRover offers Code With Me as a separate feature for collaboration. Zed has collaboration built into the core experience.
+RustRover offers Code With Me as a separate feature for collaboration. Cherry has collaboration built into the core experience.
 
 - Open the Collab Panel in the left dock
-- Create a channel and [invite your collaborators](https://zed.dev/docs/collaboration#inviting-a-collaborator) to join
-- [Share your screen or your codebase](https://zed.dev/docs/collaboration#share-a-project) directly
+- Create a channel and [invite your collaborators](https://kriaa.in/cherry/docs/collaboration#inviting-a-collaborator) to join
+- [Share your screen or your codebase](https://kriaa.in/cherry/docs/collaboration#share-a-project) directly
 
 Once connected, you'll see each other's cursors, selections, and edits in real time. Voice chat is included. There's no need for separate tools or third-party logins.
 
-## Using AI in Zed
+## Using AI in Cherry
 
-If you're used to AI assistants in RustRover (like JetBrains AI Assistant), Zed offers similar capabilities with more flexibility.
+If you're used to AI assistants in RustRover (like JetBrains AI Assistant), Cherry offers similar capabilities with more flexibility.
 
 ### Configuring GitHub Copilot
 
@@ -394,19 +394,19 @@ If you're used to AI assistants in RustRover (like JetBrains AI Assistant), Zed 
 3. Click **Configure** next to "Configure Providers"
 4. Under **GitHub Copilot**, click **Sign in to GitHub**
 
-Once signed in, just start typing. Zed will offer suggestions inline for you to accept.
+Once signed in, just start typing. Cherry will offer suggestions inline for you to accept.
 
 ### Additional AI Options
 
-To use other AI models in Zed, you have several options:
+To use other AI models in Cherry, you have several options:
 
-- Use Zed's hosted models, with higher rate limits. Requires [authentication](https://zed.dev/docs/accounts.html) and subscription to [Zed Pro](https://zed.dev/docs/ai/subscription.html).
-- Bring your own [API keys](https://zed.dev/docs/ai/llm-providers.html), no authentication needed
-- Use [external agents like Claude Code](https://zed.dev/docs/ai/external-agents.html)
+- Use Cherry's hosted models, with higher rate limits. Requires [authentication](https://kriaa.in/cherry/docs/accounts.html) and subscription to [Cherry Pro](https://kriaa.in/cherry/docs/ai/subscription.html).
+- Bring your own [API keys](https://kriaa.in/cherry/docs/ai/llm-providers.html), no authentication needed
+- Use [external agents like Claude Code](https://kriaa.in/cherry/docs/ai/external-agents.html)
 
 ## Advanced Config and Productivity Tweaks
 
-Zed exposes advanced settings for power users who want to fine-tune their environment.
+Cherry exposes advanced settings for power users who want to fine-tune their environment.
 
 Here are a few useful tweaks for Rust developers:
 
@@ -491,11 +491,11 @@ If you work with multiple Cargo projects that aren't in a workspace, you can tel
 
 ## Next Steps
 
-Now that you're set up, here are some resources to help you get the most out of Zed:
+Now that you're set up, here are some resources to help you get the most out of Cherry:
 
-- [Configuring Zed](../configuring-zed.md) — Customize settings, themes, and editor behavior
+- [Configuring Cherry](../configuring-zed.md) — Customize settings, themes, and editor behavior
 - [Key Bindings](../key-bindings.md) — Learn how to customize and extend your keymap
 - [Tasks](../tasks.md) — Set up build and run commands for your projects
-- [AI Features](../ai/overview.md) — Explore Zed's AI capabilities beyond code completion
+- [AI Features](../ai/overview.md) — Explore Cherry's AI capabilities beyond code completion
 - [Collaboration](../collaboration/overview.md) — Share your projects and code together in real time
-- [Rust in Zed](../languages/rust.md) — Rust-specific setup and configuration
+- [Rust in Cherry](../languages/rust.md) — Rust-specific setup and configuration

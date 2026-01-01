@@ -16,7 +16,7 @@ CompileFlags:
   Add: [-xc]
 ```
 
-By default clang and gcc will recognize `*.C` and `*.H` (uppercase extensions) as C++ and not C and so Zed too follows this convention. If you are working with a C-only project (perhaps one with legacy uppercase pathing like `FILENAME.C`) you can override this behavior by adding this to your settings:
+By default clang and gcc will recognize `*.C` and `*.H` (uppercase extensions) as C++ and not C and so Cherry too follows this convention. If you are working with a C-only project (perhaps one with legacy uppercase pathing like `FILENAME.C`) you can override this behavior by adding this to your settings:
 
 ```json [settings]
 {
@@ -28,7 +28,7 @@ By default clang and gcc will recognize `*.C` and `*.H` (uppercase extensions) a
 
 ## Formatting
 
-By default Zed will use the `clangd` language server for formatting C code like the `clang-format` CLI tool. To configure this you can add a `.clang-format` file. For example:
+By default Cherry will use the `clangd` language server for formatting C code like the `clang-format` CLI tool. To configure this you can add a `.clang-format` file. For example:
 
 ```yaml
 # yaml-language-server: $schema=https://json.schemastore.org/clang-format-21.x.json
@@ -40,7 +40,7 @@ IndentWidth: 2
 
 See [Clang-Format Style Options](https://clang.llvm.org/docs/ClangFormatStyleOptions.html) for a complete list of options.
 
-You can trigger formatting via {#kb editor::Format} or the `editor: format` action from the command palette or by adding `format_on_save` to your Zed settings:
+You can trigger formatting via {#kb editor::Format} or the `editor: format` action from the command palette or by adding `format_on_save` to your Cherry settings:
 
 ```json [settings]
   "languages": {

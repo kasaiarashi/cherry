@@ -1305,7 +1305,7 @@ mod tests {
         "default_width": 640,
         "default_height": 320,
         "default_model": {
-            "provider": "zed.dev",
+            "provider": "kriaa.in/cherry",
             "model": "claude-sonnet-4"
         }
     }
@@ -1328,7 +1328,7 @@ mod tests {
         "default_width": 640,
         "default_height": 320,
         "default_model": {
-            "provider": "zed.dev",
+            "provider": "kriaa.in/cherry",
             "model": "claude-sonnet-4"
         }
     }

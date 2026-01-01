@@ -314,7 +314,7 @@ impl serde::Serialize for WorkflowSecret {
 }
 
 pub mod assets {
-    // NOTE: these asset names also exist in the zed.dev codebase.
+    // NOTE: these asset names also exist in the kriaa.in/cherry codebase.
     pub const MAC_AARCH64: &str = "Zed-aarch64.dmg";
     pub const MAC_X86_64: &str = "Zed-x86_64.dmg";
     pub const LINUX_AARCH64: &str = "zed-linux-aarch64.tar.gz";

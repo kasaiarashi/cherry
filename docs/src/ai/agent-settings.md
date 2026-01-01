@@ -1,12 +1,12 @@
 # Agent Settings
 
-Learn about all the settings you can customize in Zed's Agent Panel.
+Learn about all the settings you can customize in Cherry's Agent Panel.
 
 ## Model Settings {#model-settings}
 
 ### Default Model {#default-model}
 
-If you're using [Zed's hosted LLM service](./subscription.md), it sets `claude-sonnet-4` as the default model for agentic work (agent panel, inline assistant) and `gpt-5-nano` as the default "fast" model (thread summarization, git commit messages). If you're not subscribed or want to change these defaults, you can manually edit the `default_model` object in your settings:
+If you're using [Cherry's hosted LLM service](./subscription.md), it sets `claude-sonnet-4` as the default model for agentic work (agent panel, inline assistant) and `gpt-5-nano` as the default "fast" model (thread summarization, git commit messages). If you're not subscribed or want to change these defaults, you can manually edit the `default_model` object in your settings:
 
 ```json [settings]
 {
@@ -31,7 +31,7 @@ You can assign distinct and specific models for the following AI-powered feature
 {
   "agent": {
     "default_model": {
-      "provider": "zed.dev",
+      "provider": "kriaa.in/cherry",
       "model": "claude-sonnet-4"
     },
     "inline_assistant_model": {
@@ -62,12 +62,12 @@ Here's how you can customize your `settings.json` to add this functionality:
 {
   "agent": {
     "default_model": {
-      "provider": "zed.dev",
+      "provider": "kriaa.in/cherry",
       "model": "claude-sonnet-4"
     },
     "inline_alternatives": [
       {
-        "provider": "zed.dev",
+        "provider": "kriaa.in/cherry",
         "model": "gpt-4-mini"
       }
     ]
@@ -86,16 +86,16 @@ One with Claude Sonnet 4 (the default model), another with GPT-5-mini, and anoth
 {
   "agent": {
     "default_model": {
-      "provider": "zed.dev",
+      "provider": "kriaa.in/cherry",
       "model": "claude-sonnet-4"
     },
     "inline_alternatives": [
       {
-        "provider": "zed.dev",
+        "provider": "kriaa.in/cherry",
         "model": "gpt-4-mini"
       },
       {
-        "provider": "zed.dev",
+        "provider": "kriaa.in/cherry",
         "model": "gemini-2.5-flash"
       }
     ]
@@ -120,7 +120,7 @@ Specify a custom temperature for a provider and/or model:
   },
   // To set parameters for a specific provider and model:
   {
-    "provider": "zed.dev",
+    "provider": "kriaa.in/cherry",
     "model": "claude-sonnet-4",
     "temperature": 1.0
   }
@@ -254,7 +254,7 @@ It is set to `true` by default, but if set to false, the card will be fully coll
 
 ### Feedback Controls
 
-Control whether to display the thumbs up/down buttons at the bottom of each agent response, allowing you to give Zed feedback about the agent's performance.
+Control whether to display the thumbs up/down buttons at the bottom of each agent response, allowing you to give Cherry feedback about the agent's performance.
 The default value is `true`.
 
 ```json [settings]

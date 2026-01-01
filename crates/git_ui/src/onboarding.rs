@@ -42,7 +42,7 @@ impl GitOnboardingModal {
     }
 
     fn view_blog(&mut self, _: &ClickEvent, _: &mut Window, cx: &mut Context<Self>) {
-        cx.open_url("https://zed.dev/blog/git");
+        cx.open_url("https://kriaa.in/cherry/blog/git");
         cx.notify();
 
         git_onboarding_event!("Blog Link Clicked");

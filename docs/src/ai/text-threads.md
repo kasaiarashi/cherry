@@ -15,13 +15,13 @@ These roles include:
 
 To begin, type a message in a `You` block.
 
-![Asking a question](https://zed.dev/img/assistant/ask-a-question.png)
+![Asking a question](https://kriaa.in/cherry/img/assistant/ask-a-question.png)
 
 As you type, the remaining tokens count for the selected model is updated.
 
-Inserting text from an editor is as simple as highlighting the text and running `agent: add selection to thread` ({#kb agent::AddSelectionToThread}); Zed will wrap it in a fenced code block if it is code.
+Inserting text from an editor is as simple as highlighting the text and running `agent: add selection to thread` ({#kb agent::AddSelectionToThread}); Cherry will wrap it in a fenced code block if it is code.
 
-![Quoting a selection](https://zed.dev/img/assistant/quoting-a-selection.png)
+![Quoting a selection](https://kriaa.in/cherry/img/assistant/quoting-a-selection.png)
 
 To submit a message, use {#kb assistant::Assist}(`assistant: assist`).
 Unlike normal threads, where pressing <kbd>enter</kbd> would submit the message, in text threads, our goal is to make it feel as close to a regular editor as possible.
@@ -29,7 +29,7 @@ So, pressing {#kb editor::Newline} simply inserts a new line.
 
 After submitting a message, the response will be streamed below, in an `Assistant` message block.
 
-![Receiving an answer](https://zed.dev/img/assistant/receiving-an-answer.png)
+![Receiving an answer](https://kriaa.in/cherry/img/assistant/receiving-an-answer.png)
 
 The stream can be canceled at any point with <kbd>escape</kbd>.
 This is useful if you realize early on that the response is not what you were looking for.
@@ -206,16 +206,16 @@ You might want to nest rules to:
 ### Example
 
 ```plaintext
-Title: Zed-Flavored Rust
+Title: Cherry-Flavored Rust
 
-## About Zed
+## About Cherry
 
-/prompt Zed: Zed (a rule about what Zed is)
+/prompt Cherry: Cherry (a rule about what Cherry is)
 
-## Rust - Zed Style
+## Rust - Cherry Style
 
 /prompt Rust: Async - Async-std (zed doesn't use tokio)
-/prompt Rust: Zed-style Crates (we have some unique conventions)
+/prompt Rust: Cherry-style Crates (we have some unique conventions)
 /prompt Rust - Workspace deps (bias towards reusing deps from the workspace)
 ```
 
@@ -235,7 +235,7 @@ See [Extension: Slash Commands](../extensions/slash-commands.md) to learn how to
 
 ## Text Threads vs. Threads
 
-For some time, text threads were the only way to interact with AI in Zed.
+For some time, text threads were the only way to interact with AI in Cherry.
 In May 2025, we introduced a new version of the agent panel, which, as opposed to being editor-based, is optimized for readability.
 Visit [the Agent Panel page](./agent-panel.md) to learn more about it.
 
@@ -249,9 +249,9 @@ Consequently, [MCP servers](./mcp.md) and [external agents](./external-agents.md
 
 ### Rule Templates {#rule-templates}
 
-Zed uses rule templates to power internal assistant features, like the terminal assistant, or the content rules used in the inline assistant.
+Cherry uses rule templates to power internal assistant features, like the terminal assistant, or the content rules used in the inline assistant.
 
-Zed has the following internal rule templates:
+Cherry has the following internal rule templates:
 
 - `content_prompt.hbs`: Used for generating content in the editor.
 - `terminal_assistant_prompt.hbs`: Used for the terminal assistant feature.
@@ -262,7 +262,7 @@ At this point it is unknown if we will expand templates further to be user-creat
 
 > **Note:** It is not recommended to override templates unless you know what you are doing. Editing templates will break your assistant if done incorrectly.
 
-Zed allows you to override the default rules used for various assistant features by placing custom Handlebars (.hbs) templates in your `~/.config/zed/prompt_overrides` directory.
+Cherry allows you to override the default rules used for various assistant features by placing custom Handlebars (.hbs) templates in your `~/.config/zed/prompt_overrides` directory.
 
 The following templates can be overridden:
 
@@ -271,12 +271,12 @@ The following templates can be overridden:
 2. [`terminal_assistant_prompt.hbs`](https://github.com/zed-industries/zed/tree/main/assets/prompts/terminal_assistant_prompt.hbs): Used for the terminal assistant feature.
 
 > **Note:** Be sure you want to override these, as you'll miss out on iteration on our built-in features.
-> This should be primarily used when developing Zed.
+> This should be primarily used when developing Cherry.
 
-You can customize these templates to better suit your needs while maintaining the core structure and variables used by Zed.
-Zed will automatically reload your prompt overrides when they change on disk.
+You can customize these templates to better suit your needs while maintaining the core structure and variables used by Cherry.
+Cherry will automatically reload your prompt overrides when they change on disk.
 
-Consult Zed's [assets/prompts](https://github.com/zed-industries/zed/tree/main/assets/prompts) directory for current versions you can play with.
+Consult Cherry's [assets/prompts](https://github.com/zed-industries/zed/tree/main/assets/prompts) directory for current versions you can play with.
 
 ### History {#history}
 
@@ -284,8 +284,8 @@ After you submit your first message in a text thread, a name for your context is
 
 - `~/.config/zed/conversations` (macOS)
 - `~/.local/share/zed/conversations` (Linux)
-- `%LocalAppData%\Zed\conversations` (Windows)
+- `%LocalAppData%\Cherry\conversations` (Windows)
 
 You can access and load previous contexts by clicking on the history button in the top-left corner of the agent panel.
 
-![Viewing assistant history](https://zed.dev/img/assistant/assistant-history.png)
+![Viewing assistant history](https://kriaa.in/cherry/img/assistant/assistant-history.png)
