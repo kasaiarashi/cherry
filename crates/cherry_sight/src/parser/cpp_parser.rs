@@ -221,21 +221,47 @@ impl CppParser {
 
             // "declaration" nodes might contain class/struct with export macros (e.g., class MY_API MyClass)
             "declaration" => {
-                // First check if it contains a class_specifier or struct_specifier
+                // Check if this is a class/struct declaration with export macro
+                // Pattern: declaration { class_specifier("class EXPORT"), init_declarator("ClassName : Base { }") }
                 let mut cursor = node.walk();
+                let mut class_spec = None;
+                let mut struct_spec = None;
+                let mut init_declarator = None;
+
                 for child in node.children(&mut cursor) {
                     match child.kind() {
-                        "class_specifier" => {
-                            log::info!("Found class_specifier inside declaration node (likely has export macro)");
-                            return self.parse_class(child, source, file_id, false).map(Declaration::Class);
-                        }
-                        "struct_specifier" => {
-                            log::info!("Found struct_specifier inside declaration node (likely has export macro)");
-                            return self.parse_class(child, source, file_id, true).map(Declaration::Struct);
-                        }
+                        "class_specifier" => class_spec = Some(child),
+                        "struct_specifier" => struct_spec = Some(child),
+                        "init_declarator" => init_declarator = Some(child),
                         _ => {}
                     }
                 }
+
+                // If we have class_specifier + init_declarator, parse as class with export macro
+                if let (Some(_class_node), Some(init_node)) = (class_spec, init_declarator) {
+                    log::info!("Found class with export macro (declaration + init_declarator pattern)");
+                    return self.parse_class_from_init_declarator(init_node, source, file_id, false)
+                        .map(Declaration::Class);
+                }
+
+                // If we have struct_specifier + init_declarator, parse as struct with export macro
+                if let (Some(_struct_node), Some(init_node)) = (struct_spec, init_declarator) {
+                    log::info!("Found struct with export macro (declaration + init_declarator pattern)");
+                    return self.parse_class_from_init_declarator(init_node, source, file_id, true)
+                        .map(Declaration::Struct);
+                }
+
+                // If only class_specifier without init_declarator (old pattern)
+                if let Some(class_node) = class_spec {
+                    log::info!("Found class_specifier inside declaration node (likely has export macro)");
+                    return self.parse_class(class_node, source, file_id, false).map(Declaration::Class);
+                }
+
+                if let Some(struct_node) = struct_spec {
+                    log::info!("Found struct_specifier inside declaration node (likely has export macro)");
+                    return self.parse_class(struct_node, source, file_id, true).map(Declaration::Struct);
+                }
+
                 // Fall back to variable declaration
                 self.parse_variable_declaration(node, source, file_id).map(Declaration::Variable)
             }
@@ -659,6 +685,119 @@ impl CppParser {
             template_params: None,
             doc_comment,
         })
+    }
+
+    /// Parse class from init_declarator node (for export macro pattern)
+    /// init_declarator contains: "ClassName : public Base { body }"
+    fn parse_class_from_init_declarator(
+        &mut self,
+        node: Node,
+        source: &str,
+        file_id: FileId,
+        is_struct: bool,
+    ) -> Option<ClassDecl> {
+        // Extract text and parse manually
+        let text = &source[node.byte_range()];
+
+        // Find class name (before ':' or '{')
+        let name_end = text.find(':').or_else(|| text.find('{')).unwrap_or(text.len());
+        let class_name = text[..name_end].trim();
+        let name = self.interner.write().intern(class_name);
+
+        // Find base classes and body by parsing child nodes
+        let mut bases = Vec::new();
+        let mut body_node = None;
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            #[cfg(test)]
+            {
+                eprintln!("init_declarator child: kind='{}' text='{}'", child.kind(), &source[child.byte_range()]);
+            }
+
+            match child.kind() {
+                "base_class_clause" => {
+                    bases = self.parse_base_classes(child, source, file_id);
+                }
+                "ERROR" => {
+                    // ERROR node may contain base class info (": public Base")
+                    let error_text = &source[child.byte_range()];
+                    if error_text.trim().starts_with(':') {
+                        // Parse base classes from the ERROR text
+                        bases = self.parse_bases_from_text(error_text, file_id);
+                    }
+                }
+                "field_declaration_list" | "compound_statement" | "initializer_list" => {
+                    body_node = Some(child);
+                }
+                _ => {}
+            }
+        }
+
+        // Parse members from body
+        let members = if let Some(body) = body_node {
+            self.parse_class_members(body, source, file_id, is_struct)
+        } else {
+            Vec::new()
+        };
+
+        // Calculate span
+        let span = node.to_span(file_id);
+
+        Some(ClassDecl {
+            name,
+            span,
+            access: if is_struct { AccessSpecifier::Public } else { AccessSpecifier::Private },
+            bases,
+            members,
+            is_struct,
+            template_params: None,
+            doc_comment: None,
+        })
+    }
+
+    /// Parse base classes from text (for ERROR nodes)
+    fn parse_bases_from_text(&mut self, text: &str, _file_id: FileId) -> Vec<crate::ast::BaseClass> {
+        let mut bases = Vec::new();
+
+        // Remove leading ':' and split by ','
+        let text = text.trim().trim_start_matches(':').trim();
+
+        for part in text.split(',') {
+            let part = part.trim();
+            if part.is_empty() {
+                continue;
+            }
+
+            // Parse "public Base" or "protected Base" or just "Base"
+            let mut access = AccessSpecifier::Public;
+            let mut base_name = part;
+
+            if part.starts_with("public ") {
+                base_name = &part[7..];
+            } else if part.starts_with("protected ") {
+                access = AccessSpecifier::Protected;
+                base_name = &part[10..];
+            } else if part.starts_with("private ") {
+                access = AccessSpecifier::Private;
+                base_name = &part[8..];
+            }
+
+            base_name = base_name.trim();
+            if !base_name.is_empty() {
+                let interned = self.interner.write().intern(base_name);
+                bases.push(crate::ast::BaseClass {
+                    type_path: crate::ast::TypePath {
+                        segments: vec![interned],
+                        is_global: false,
+                    },
+                    access,
+                    is_virtual: false,
+                });
+            }
+        }
+
+        bases
     }
 
     /// Parse base classes
@@ -1171,16 +1310,80 @@ mod tests {
     }
 
     #[test]
-    fn test_task_sample_field_symbols() {
+    fn test_base_class_with_export_macro() {
         let interner = Arc::new(RwLock::new(Interner::new()));
         let mut parser = CppParser::new(interner.clone()).unwrap();
 
-        // Use actual Task_Sample.h content with ALL variations
+        let source = "class OWF_API ATask_Sample : public ATask { };";
+        let file_id = FileId::new(1);
+
+        let tree = parser.parser.parse(source, None).unwrap();
+        let root = tree.root_node();
+
+        eprintln!("\n=== BASE CLASS TREE STRUCTURE ===");
+        let mut cursor = root.walk();
+        for child in root.children(&mut cursor) {
+            eprintln!("Top: kind='{}' text='{}'", child.kind(), &source[child.byte_range()]);
+            let mut c2 = child.walk();
+            for c2child in child.children(&mut c2) {
+                eprintln!("  kind='{}' text='{}'", c2child.kind(), &source[c2child.byte_range()]);
+                if c2child.kind() == "ERROR" || c2child.kind() == "base_class_clause" {
+                    let mut c3 = c2child.walk();
+                    for c3child in c2child.children(&mut c3) {
+                        eprintln!("    kind='{}' text='{}'", c3child.kind(), &source[c3child.byte_range()]);
+                    }
+                }
+            }
+        }
+
+        let result = parser.parse(source, file_id);
+        assert!(result.is_ok());
+        let ast = result.unwrap();
+
+        match &ast.declarations[0] {
+            crate::ast::Declaration::Class(cls) => {
+                let name = interner.read().resolve(cls.name);
+                eprintln!("\nParsed class: {}", name);
+                eprintln!("Base classes: {}", cls.bases.len());
+                for base in &cls.bases {
+                    let base_name = base.type_path.segments.iter()
+                        .map(|&s| interner.read().resolve(s))
+                        .collect::<Vec<_>>()
+                        .join("::");
+                    eprintln!("  Base: {}", base_name);
+                }
+                assert_eq!(name, "ATask_Sample");
+                assert_eq!(cls.bases.len(), 1, "Should have 1 base class");
+            }
+            _ => panic!("Expected class"),
+        }
+    }
+
+    #[test]
+    fn test_full_task_sample_header() {
+        let interner = Arc::new(RwLock::new(Interner::new()));
+        let mut parser = CppParser::new(interner.clone()).unwrap();
+
+        // Full Task_Sample.h with multiple UCLASS definitions
         let source = r#"
-class ATask_Sample {
+#pragma once
+#include "CoreMinimal.h"
+#include "Task.h"
+#include "Task_Sample.generated.h"
+
+UCLASS()
+class OWF_MISSIONSYSTEM_API ATask_Sample : public ATask
+{
+    GENERATED_BODY()
+
 public:
+    ATask_Sample();
+
     UPROPERTY(BlueprintReadWrite)
     TObjectPtr<class USampleTaskConfig> TaskConfig;
+
+    UPROPERTY(BlueprintReadOnly)
+    TObjectPtr<class USampleTaskDebugSettings> DebugSettings;
 
     UPROPERTY()
     FName SomeName;
@@ -1191,8 +1394,34 @@ public:
     UPROPERTY(BlueprintReadWrite)
     int SomeIntProperty = 42;
 
+    virtual void Initialise_Implementation(UMissionTaskConfig* Config) override;
+    virtual void Execute_Implementation() override;
+
+    virtual void ConfigureDebugging_Implementation(UDebugSettings* DebugSettings) override;
+    virtual UDebugSettings* GetDebugSettings_Implementation() override;
+};
+
+UCLASS(BlueprintType, EditInlineNew)
+class OWF_MISSIONSYSTEM_API USampleTaskDebugSettings : public UDebugSettings
+{
+    GENERATED_BODY()
+public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     bool bPrintLogs = true;
+};
+
+UCLASS(BlueprintType, EditInlineNew)
+class OWF_MISSIONSYSTEM_API USampleTaskConfig : public UMissionTaskConfig
+{
+    GENERATED_BODY()
+public:
+    USampleTaskConfig()
+    {
+        TaskName = FText::FromString("Sample Task");
+    }
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    int SomeProperty = 42;
 };
 "#;
         let file_id = FileId::new(1);
@@ -1202,34 +1431,60 @@ public:
         assert!(result.is_ok());
         let ast = result.unwrap();
 
-        eprintln!("\n=== AST ===");
-        eprintln!("Declarations: {}", ast.declarations.len());
+        eprintln!("\n=== AST ANALYSIS ===");
+        eprintln!("Total declarations: {}", ast.declarations.len());
+
+        let mut class_count = 0;
+        for decl in &ast.declarations {
+            match decl {
+                crate::ast::Declaration::Class(_) |
+                crate::ast::Declaration::Struct(_) |
+                crate::ast::Declaration::UClass(_) |
+                crate::ast::Declaration::UStruct(_) => {
+                    class_count += 1;
+                }
+                _ => {}
+            }
+        }
+        eprintln!("Class declarations found: {}", class_count);
+
         for (i, decl) in ast.declarations.iter().enumerate() {
             match decl {
                 crate::ast::Declaration::Class(cls) => {
                     let name = interner.read().resolve(cls.name);
-                    eprintln!("  [{}] Class: {} with {} members", i, name, cls.members.len());
+                    eprintln!("\n[{}] Class: {} with {} members and {} bases",
+                        i, name, cls.members.len(), cls.bases.len());
+
+                    // Show base classes
+                    for base in &cls.bases {
+                        let base_name = base.type_path.segments.iter()
+                            .map(|&s| interner.read().resolve(s))
+                            .collect::<Vec<_>>()
+                            .join("::");
+                        eprintln!("  Base: {} (access: {:?})", base_name, base.access);
+                    }
+
+                    // Show members
                     for (j, member) in cls.members.iter().enumerate() {
                         match member {
                             crate::ast::ClassMember::Field(field) => {
                                 let fname = interner.read().resolve(field.name);
-                                eprintln!("    [{}] Field: {} (span: {}..{})", j, fname, field.span.start, field.span.end);
+                                eprintln!("  [{}] Field: {}", j, fname);
                             }
                             crate::ast::ClassMember::Method(method) => {
                                 let mname = interner.read().resolve(method.name);
-                                eprintln!("    [{}] Method: {} (span: {}..{})", j, mname, method.span.start, method.span.end);
+                                eprintln!("  [{}] Method: {}", j, mname);
                             }
-                            crate::ast::ClassMember::UProperty(uprop) => {
-                                let fname = interner.read().resolve(uprop.field.name);
-                                eprintln!("    [{}] UProperty: {} (span: {}..{})", j, fname, uprop.field.span.start, uprop.field.span.end);
+                            crate::ast::ClassMember::Constructor(_) => {
+                                eprintln!("  [{}] Constructor", j);
                             }
                             _ => {
-                                eprintln!("    [{}] Other member: {:?}", j, member);
+                                eprintln!("  [{}] Other member", j);
                             }
                         }
                     }
                 }
-                _ => eprintln!("  [{}] Other declaration", i),
+                _ => {}
             }
         }
 
