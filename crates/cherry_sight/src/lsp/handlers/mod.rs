@@ -6,12 +6,12 @@ use crate::cache::CacheManager;
 use crate::completion::{CompletionContext, CompletionProvider};
 use crate::completion::HoverProvider;
 use crate::db::Database;
-use crate::index::{AstSymbolBuilder, SymbolId, SymbolTable};
+use crate::index::{AstSymbolBuilder, SymbolId, SymbolKind, SymbolTable};
 use crate::intelligence::ReferenceFinder;
 use crate::lsp::position::{position_to_offset, span_to_range};
 use crate::parser::CppParser;
 use crate::semantic::{NameResolver, TypeInference};
-use crate::util::{FileId, Interner, Position, Span};
+use crate::util::{FileId, InternedString, Interner, Position, Span};
 use anyhow::Result;
 use dashmap::DashMap;
 use lsp_types::{self as lsp, *};
@@ -329,17 +329,26 @@ impl LspHandlers {
             None => return Ok(None),
         };
 
-        // Get the source file for the definition to convert span to range
-        let def_source = match self.database.get_source_file(symbol.file_id) {
+        // PREFER IMPLEMENTATION: If function has implementation in .cpp, jump there instead of declaration
+        let (target_span, target_file_id) = if let Some(impl_span) = symbol.implementation_span {
+            log::info!("Jumping to implementation for symbol {}", symbol_id.0);
+            (impl_span, impl_span.file_id)
+        } else {
+            log::debug!("Jumping to declaration for symbol {}", symbol_id.0);
+            (symbol.span, symbol.file_id)
+        };
+
+        // Get the source file for the target to convert span to range
+        let def_source = match self.database.get_source_file(target_file_id) {
             Some(s) => s,
             None => return Ok(None),
         };
 
         // Convert span to LSP range
-        let range = span_to_range(&def_source.content, symbol.span);
+        let range = span_to_range(&def_source.content, target_span);
 
         // Convert file_id to URI
-        let def_uri = self.get_uri_for_file_id(symbol.file_id)?;
+        let def_uri = self.get_uri_for_file_id(target_file_id)?;
 
         log::debug!("Definition: {} at {}:{}:{}", symbol_id.0, def_uri, range.start.line, range.start.character);
 
@@ -430,6 +439,13 @@ impl LspHandlers {
         let path = params.text_document.uri.to_file_path()
             .unwrap_or_else(|_| std::path::PathBuf::from(&uri));
 
+        // Check file type for special handling
+        let is_cpp_impl = if let Some(ext) = path.extension() {
+            ext == "cpp" || ext == "cc" || ext == "cxx"
+        } else {
+            false
+        };
+
         // INCREMENTAL: Check if this is a new header file not in cache
         let is_new_header = if let Some(ext) = path.extension() {
             if ext == "h" || ext == "hpp" || ext == "hxx" {
@@ -514,6 +530,11 @@ impl LspHandlers {
                         // Store results
                         self.name_resolutions.write().insert(file_id, Arc::new(name_resolution));
                         self.type_info.write().insert(file_id, Arc::new(types));
+
+                        // IMPLEMENTATION MATCHING: If this is a .cpp file, match implementations to declarations
+                        if is_cpp_impl {
+                            self.match_implementations_to_declarations(file_id);
+                        }
                     }
                     Err(e) => {
                         log::warn!("Failed to parse {}: {}", uri, e);
@@ -526,6 +547,71 @@ impl LspHandlers {
         }
 
         Ok(())
+    }
+
+    /// Match function implementations in .cpp file to their declarations in .h files
+    fn match_implementations_to_declarations(&self, cpp_file_id: FileId) {
+        // Clone necessary data from .cpp symbols
+        let cpp_symbol_data: Vec<(SymbolId, InternedString, SymbolKind, Span)> = {
+            let symbol_table = self.symbol_table.read();
+            symbol_table.symbols_in_file(cpp_file_id)
+                .iter()
+                .filter_map(|&id| {
+                    let sym = symbol_table.get_symbol(id)?;
+                    if sym.kind.is_callable() {
+                        Some((sym.id, sym.name, sym.kind, sym.span))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        };
+
+        let mut updates = Vec::new();
+
+        for (cpp_id, cpp_name, cpp_kind, cpp_span) in cpp_symbol_data {
+            // Find matching declaration in .h file
+            let symbol_table = self.symbol_table.read();
+            let interner = self.interner.read();
+            let name = interner.resolve(cpp_name);
+
+            // Find all symbols with same name
+            let candidates = symbol_table.find_all(cpp_name);
+
+            for &candidate_id in &candidates {
+                if let Some(decl_symbol) = symbol_table.get_symbol(candidate_id) {
+                    // Skip if it's the same symbol
+                    if decl_symbol.id == cpp_id {
+                        continue;
+                    }
+
+                    // Check if it's a declaration in a .h file
+                    if let Some(decl_file) = self.database.get_source_file(decl_symbol.file_id) {
+                        if let Some(ext) = decl_file.path.extension() {
+                            if (ext == "h" || ext == "hpp" || ext == "hxx") &&
+                               decl_symbol.kind == cpp_kind {
+                                // Found matching declaration!
+                                log::info!("Matched implementation: {} in {:?} -> declaration in {:?}",
+                                    name, cpp_file_id, decl_symbol.file_id);
+
+                                // Store update to apply later
+                                updates.push((candidate_id, cpp_span));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Apply all updates
+        let mut symbol_table = self.symbol_table.write();
+        for (decl_id, impl_span) in updates {
+            if let Some(symbol) = symbol_table.get_symbol_mut(decl_id) {
+                symbol.implementation_span = Some(impl_span);
+                log::debug!("Updated symbol {} with implementation span", decl_id.0);
+            }
+        }
     }
 
     /// Handle textDocument/didChange notification

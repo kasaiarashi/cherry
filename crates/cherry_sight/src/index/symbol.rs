@@ -162,6 +162,10 @@ pub struct Symbol {
 
     /// Documentation comment
     pub doc_comment: Option<String>,
+
+    /// Implementation location (for functions with separate declaration/definition)
+    /// Points to the function body in .cpp file if different from declaration
+    pub implementation_span: Option<Span>,
 }
 
 impl Symbol {
@@ -190,6 +194,7 @@ impl Symbol {
             overrides: None,
             overridden_by: Vec::new(),
             doc_comment: None,
+            implementation_span: None,
         }
     }
 
