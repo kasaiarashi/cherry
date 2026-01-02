@@ -791,16 +791,55 @@ impl CppParser {
                 }
                 // Tree-sitter may parse method declarations as "declaration" nodes
                 "declaration" => {
+                    #[cfg(test)]
+                    {
+                        let text = &source[child.byte_range()];
+                        let preview = if text.len() > 60 { &text[..60] } else { text };
+                        eprintln!("  Processing declaration: '{}'", preview);
+                    }
+
                     // Try to parse as function first
                     if let Some(func) = self.parse_function(child, source, file_id) {
+                        #[cfg(test)]
+                        {
+                            let fname = self.interner.read().resolve(func.name);
+                            eprintln!("    -> Parsed as method: {}", fname);
+                        }
                         members.push(crate::ast::ClassMember::Method(func));
                     } else if let Some(field) = self.parse_field(child, source, file_id, current_access) {
+                        #[cfg(test)]
+                        {
+                            let fname = self.interner.read().resolve(field.name);
+                            eprintln!("    -> Parsed as field: {}", fname);
+                        }
                         members.push(crate::ast::ClassMember::Field(field));
+                    } else {
+                        #[cfg(test)]
+                        {
+                            eprintln!("    -> Could not parse as function or field");
+                        }
                     }
                 }
                 "field_declaration" => {
+                    #[cfg(test)]
+                    {
+                        let text = &source[child.byte_range()];
+                        let preview = if text.len() > 60 { &text[..60] } else { text };
+                        eprintln!("  Processing field_declaration: '{}'", preview);
+                    }
+
                     if let Some(field) = self.parse_field(child, source, file_id, current_access) {
+                        #[cfg(test)]
+                        {
+                            let fname = self.interner.read().resolve(field.name);
+                            eprintln!("    -> Successfully parsed field: {}", fname);
+                        }
                         members.push(crate::ast::ClassMember::Field(field));
+                    } else {
+                        #[cfg(test)]
+                        {
+                            eprintln!("    -> parse_field returned None");
+                        }
                     }
                 }
                 _ => {}
@@ -845,13 +884,18 @@ impl CppParser {
                         is_mutable = true;
                     }
                 }
-                "type_qualifier" | "primitive_type" | "type_identifier" | "qualified_identifier" => {
+                "type_qualifier" | "primitive_type" | "type_identifier" | "qualified_identifier" | "template_type" => {
                     field_type = self.parse_type_from_node(child, source);
                 }
                 "field_declarator" | "declarator" => {
                     if let Some(id) = self.find_identifier(child, source) {
                         name = Some(id);
                     }
+                }
+                // For field names, tree-sitter uses "field_identifier"
+                "field_identifier" if name.is_none() => {
+                    let field_name = &source[child.byte_range()];
+                    name = Some(self.interner.write().intern(field_name));
                 }
                 // For simple field declarations like "int myVar;", tree-sitter gives us a plain identifier
                 "identifier" if name.is_none() => {
@@ -1100,6 +1144,113 @@ mod tests {
                 assert_eq!(name, "MyClass", "Expected class name 'MyClass', got '{}'", name);
             }
             other => panic!("Expected class declaration, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_task_sample_field_symbols() {
+        let interner = Arc::new(RwLock::new(Interner::new()));
+        let mut parser = CppParser::new(interner.clone()).unwrap();
+
+        // Use actual Task_Sample.h content
+        let source = r#"
+class ATask_Sample {
+public:
+    UPROPERTY(BlueprintReadWrite)
+    TObjectPtr<class USampleTaskConfig> TaskConfig;
+
+    UPROPERTY()
+    FName SomeName;
+
+    UPROPERTY(BlueprintReadWrite)
+    FName SomeOtherName;
+};
+"#;
+        let file_id = FileId::new(1);
+
+        // Parse the file
+        let result = parser.parse(source, file_id);
+        assert!(result.is_ok());
+        let ast = result.unwrap();
+
+        eprintln!("\n=== AST ===");
+        eprintln!("Declarations: {}", ast.declarations.len());
+        for (i, decl) in ast.declarations.iter().enumerate() {
+            match decl {
+                crate::ast::Declaration::Class(cls) => {
+                    let name = interner.read().resolve(cls.name);
+                    eprintln!("  [{}] Class: {} with {} members", i, name, cls.members.len());
+                    for (j, member) in cls.members.iter().enumerate() {
+                        match member {
+                            crate::ast::ClassMember::Field(field) => {
+                                let fname = interner.read().resolve(field.name);
+                                eprintln!("    [{}] Field: {} (span: {}..{})", j, fname, field.span.start, field.span.end);
+                            }
+                            crate::ast::ClassMember::Method(method) => {
+                                let mname = interner.read().resolve(method.name);
+                                eprintln!("    [{}] Method: {} (span: {}..{})", j, mname, method.span.start, method.span.end);
+                            }
+                            crate::ast::ClassMember::UProperty(uprop) => {
+                                let fname = interner.read().resolve(uprop.field.name);
+                                eprintln!("    [{}] UProperty: {} (span: {}..{})", j, fname, uprop.field.span.start, uprop.field.span.end);
+                            }
+                            _ => {
+                                eprintln!("    [{}] Other member: {:?}", j, member);
+                            }
+                        }
+                    }
+                }
+                _ => eprintln!("  [{}] Other declaration", i),
+            }
+        }
+
+        // Build symbol table
+        use crate::index::{AstSymbolBuilder, SymbolTable};
+        let symbol_table = Arc::new(RwLock::new(SymbolTable::new()));
+        let mut builder = AstSymbolBuilder::new(symbol_table.clone(), interner.clone());
+        builder.build_from_ast(&ast);
+
+        // Get all symbols
+        let table = symbol_table.read();
+        let symbols = table.symbols_in_file(file_id);
+
+        eprintln!("\n=== SYMBOL TABLE ===");
+        eprintln!("Total symbols: {}", symbols.len());
+
+        for &sym_id in &symbols {
+            if let Some(symbol) = table.get_symbol(sym_id) {
+                let name = interner.read().resolve(symbol.name);
+                eprintln!("Symbol #{}: {} (kind: {:?}) span: {}..{} (size: {})",
+                    sym_id.0, name, symbol.kind, symbol.span.start, symbol.span.end, symbol.span.len());
+            }
+        }
+
+        // Find the offset of "TaskConfig" identifier (around position of 'T' in TaskConfig)
+        let taskconfig_pos = source.find("TaskConfig").expect("Should find TaskConfig");
+        eprintln!("\n=== Finding symbol at offset {} (TaskConfig identifier) ===", taskconfig_pos);
+
+        // Find all symbols that contain this offset
+        let mut candidates = Vec::new();
+        for &sym_id in &symbols {
+            if let Some(symbol) = table.get_symbol(sym_id) {
+                if symbol.span.contains(taskconfig_pos as u32) {
+                    let name = interner.read().resolve(symbol.name);
+                    candidates.push((sym_id, name.to_string(), symbol.kind, symbol.span.len()));
+                }
+            }
+        }
+
+        eprintln!("Candidates containing offset {}:", taskconfig_pos);
+        for (id, name, kind, size) in &candidates {
+            eprintln!("  #{}: {} ({:?}) size={}", id.0, name, kind, size);
+        }
+
+        // The smallest span should be the field, not the class
+        if let Some((best_id, best_name, best_kind, best_size)) = candidates.iter().min_by_key(|(_, _, _, size)| size) {
+            eprintln!("\nBest match (smallest span): #{} {} ({:?}) size={}", best_id.0, best_name, best_kind, best_size);
+            assert_eq!(best_name, "TaskConfig", "Should find field symbol, not class!");
+        } else {
+            panic!("No symbols found at TaskConfig position!");
         }
     }
 

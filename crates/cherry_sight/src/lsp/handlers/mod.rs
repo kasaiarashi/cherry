@@ -485,11 +485,15 @@ impl LspHandlers {
         let symbols = symbol_table.symbols_in_file(file_id);
 
         let mut best_match: Option<(SymbolId, u32)> = None;
+        let mut candidates = Vec::new();
 
         for &symbol_id in &symbols {
             if let Some(symbol) = symbol_table.get_symbol(symbol_id) {
                 if symbol.span.contains(offset) {
                     let span_size = symbol.span.len();
+                    let name = self.interner.read().resolve(symbol.name);
+                    candidates.push((symbol_id, name.to_string(), symbol.kind, span_size, symbol.span.start, symbol.span.end));
+
                     match best_match {
                         None => best_match = Some((symbol_id, span_size)),
                         Some((_, current_size)) if span_size < current_size => {
@@ -498,6 +502,17 @@ impl LspHandlers {
                         _ => {}
                     }
                 }
+            }
+        }
+
+        // Log all candidates
+        if !candidates.is_empty() {
+            log::info!("Found {} symbol candidates at offset {}:", candidates.len(), offset);
+            for (id, name, kind, size, start, end) in &candidates {
+                log::info!("  #{}: {} ({:?}) span={}..{} size={}", id.0, name, kind, start, end, size);
+            }
+            if let Some((best_id, best_size)) = best_match {
+                log::info!("  Best match: #{} (size={})", best_id.0, best_size);
             }
         }
 
