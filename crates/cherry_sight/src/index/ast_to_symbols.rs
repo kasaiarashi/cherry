@@ -143,7 +143,12 @@ impl AstSymbolBuilder {
                 let mut param_symbol = Symbol::new(param_id, SymbolKind::Parameter, param_name, param.span, file_id);
                 param_symbol.parent = Some(function_id);
                 param_symbol.symbol_type = Some(Arc::new(param.ty.clone()));
-                table.add_symbol(param_symbol);
+                let param_symbol_id = table.add_symbol(param_symbol);
+
+                // Add parameter to function's children list
+                if let Some(func_symbol) = table.get_symbol_mut(function_id) {
+                    func_symbol.children.push(param_symbol_id);
+                }
             }
         }
     }
