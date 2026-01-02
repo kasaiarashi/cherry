@@ -20,6 +20,7 @@ pub mod diagnostics;
 pub mod refactoring;
 pub mod codegen;
 pub mod ue_integration;
+pub mod ubt;
 
 // Re-export commonly used types
 pub use ast::{TranslationUnit, Declaration};
