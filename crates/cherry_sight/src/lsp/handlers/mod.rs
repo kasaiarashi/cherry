@@ -1133,15 +1133,15 @@ impl LspHandlers {
             token,
             "begin",
             Some("Indexing Project"),
-            Some("Discovering header files..."),
+            Some("Discovering C++ files..."),
             Some(0),
         );
 
-        // Find all .h files (headers only for performance)
+        // Find all .h and .cpp files
         let mut files_to_index = Vec::new();
         self.discover_cpp_files(root, &mut files_to_index)?;
 
-        log::info!("Found {} header files to index", files_to_index.len());
+        log::info!("Found {} C++ files to index (.h and .cpp)", files_to_index.len());
 
         let total_files = files_to_index.len();
         let indexed_count = Arc::new(AtomicUsize::new(0));
@@ -1238,10 +1238,11 @@ impl LspHandlers {
             if path.is_dir() {
                 self.discover_cpp_files(&path, files)?;
             } else if let Some(ext) = path.extension() {
-                // PERFORMANCE OPTIMIZATION: Only index headers initially
-                // Headers contain declarations which are what we need for most IDE features
-                // .cpp files are much larger and slower to parse
-                if ext == "h" || ext == "hpp" || ext == "hxx" {
+                // Index both headers and implementation files
+                // Headers (.h/.hpp/.hxx) contain declarations
+                // Implementation files (.cpp/.cc/.cxx) needed for go-to-implementation
+                if ext == "h" || ext == "hpp" || ext == "hxx" ||
+                   ext == "cpp" || ext == "cc" || ext == "cxx" {
                     files.push(path);
                 }
             }
