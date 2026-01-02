@@ -622,11 +622,11 @@ impl LspHandlers {
             let interner = self.interner.read();
             let name = interner.resolve(cpp_name);
 
-            log::debug!("Looking for declaration of: {} (kind: {:?})", name, cpp_kind);
+            log::info!("Looking for declaration of: {} (kind: {:?})", name, cpp_kind);
 
             // Find all symbols with same name
             let candidates = symbol_table.find_all(cpp_name);
-            log::debug!("  Found {} candidates with name '{}'", candidates.len(), name);
+            log::info!("  Found {} candidates with name '{}'", candidates.len(), name);
 
             for &candidate_id in &candidates {
                 if let Some(decl_symbol) = symbol_table.get_symbol(candidate_id) {
@@ -639,25 +639,46 @@ impl LspHandlers {
                     if let Some(decl_file) = self.database.get_source_file(decl_symbol.file_id) {
                         if let Some(ext) = decl_file.path.extension() {
                             let is_header = ext == "h" || ext == "hpp" || ext == "hxx";
-                            let same_kind = decl_symbol.kind == cpp_kind;
 
-                            log::debug!("  Candidate #{}: is_header={}, same_kind={}, file={:?}",
-                                candidate_id.0, is_header, same_kind, decl_file.path);
+                            // Allow Function (from .cpp) to match Method (from .h)
+                            let same_kind = decl_symbol.kind == cpp_kind ||
+                                (cpp_kind == SymbolKind::Function && decl_symbol.kind == SymbolKind::Method) ||
+                                (cpp_kind == SymbolKind::Method && decl_symbol.kind == SymbolKind::Function);
+
+                            log::info!("  Candidate #{}: is_header={}, same_kind={} (cpp:{:?}, decl:{:?}), file={:?}",
+                                candidate_id.0, is_header, same_kind, cpp_kind, decl_symbol.kind, decl_file.path);
 
                             if is_header && same_kind {
-                                // For methods, also check if they belong to the same class
-                                let same_parent = if cpp_kind == SymbolKind::Method {
-                                    // Compare parent class names
-                                    if let (Some(cpp_parent_id), Some(decl_parent_id)) = (cpp_parent, decl_symbol.parent) {
-                                        if let (Some(cpp_parent_sym), Some(decl_parent_sym)) =
-                                            (symbol_table.get_symbol(cpp_parent_id), symbol_table.get_symbol(decl_parent_id)) {
-                                            // Compare parent names
-                                            cpp_parent_sym.name == decl_parent_sym.name
+                                // For methods/functions, also check if they belong to the same class
+                                // .cpp has Function with qualified_name, .h has Method with parent
+                                let same_parent = if cpp_kind == SymbolKind::Method || cpp_kind == SymbolKind::Function {
+                                    if let Some(decl_parent_id) = decl_symbol.parent {
+                                        // .h method has a parent class
+                                        if let Some(decl_parent_sym) = symbol_table.get_symbol(decl_parent_id) {
+                                            // Check if .cpp function's qualified name contains the parent class
+                                            if let Some(qualified) = cpp_qualified_name {
+                                                let qual_str = interner.resolve(qualified);
+                                                let parent_name = interner.resolve(decl_parent_sym.name);
+                                                // Check if qualified name starts with "ClassName::"
+                                                let expected_prefix = format!("{}::", parent_name);
+                                                qual_str.starts_with(&expected_prefix)
+                                            } else if let Some(cpp_parent_id) = cpp_parent {
+                                                // Both have parents, compare them
+                                                if let Some(cpp_parent_sym) = symbol_table.get_symbol(cpp_parent_id) {
+                                                    cpp_parent_sym.name == decl_parent_sym.name
+                                                } else {
+                                                    false
+                                                }
+                                            } else {
+                                                // .cpp function has no parent and no qualified name - probably wrong
+                                                false
+                                            }
                                         } else {
                                             false
                                         }
                                     } else {
-                                        false
+                                        // Declaration has no parent (standalone function)
+                                        cpp_parent.is_none()
                                     }
                                 } else {
                                     true // For non-methods, we don't need to check parent
@@ -672,7 +693,7 @@ impl LspHandlers {
                                     updates.push((candidate_id, cpp_span));
                                     break;
                                 } else {
-                                    log::debug!("  Skipping - different parent class");
+                                    log::info!("  Skipping - different parent class");
                                 }
                             }
                         }
