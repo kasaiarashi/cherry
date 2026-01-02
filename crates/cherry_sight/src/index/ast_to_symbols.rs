@@ -168,6 +168,10 @@ impl AstSymbolBuilder {
                 let id = table.next_id();
                 let mut symbol = Symbol::new(id, SymbolKind::Field, field.name, field.span, file_id);
                 symbol.parent = parent;
+                // Store field type information
+                symbol.symbol_type = Some(Arc::new(field.ty.clone()));
+                // Store flags
+                symbol.flags.is_static = field.is_static;
                 table.add_symbol(symbol);
             }
             ClassMember::Method(method) => {
@@ -180,18 +184,74 @@ impl AstSymbolBuilder {
                 self.process_enum(en, parent, file_id, SymbolKind::Enum);
             }
             ClassMember::UProperty(uprop) => {
+                // Process as a field but with UProperty kind and macro info in doc_comment
                 let mut table = self.symbol_table.write();
                 let id = table.next_id();
                 let mut symbol = Symbol::new(id, SymbolKind::UProperty, uprop.field.name, uprop.field.span, file_id);
                 symbol.parent = parent;
+                // Store field type information
+                symbol.symbol_type = Some(Arc::new(uprop.field.ty.clone()));
+                // Store UPROPERTY macro as doc comment
+                let specifiers_str = self.format_uproperty_specifiers(&uprop.specifiers);
+                let macro_text = format!("UPROPERTY({})", specifiers_str);
+                symbol.doc_comment = Some(macro_text);
+                // Store flags
+                symbol.flags.is_static = uprop.field.is_static;
                 table.add_symbol(symbol);
             }
             ClassMember::UFunction(ufunc) => {
+                // Process as a full function with UFUNCTION macro info
+                let kind = SymbolKind::UFunction;
+                let func = &ufunc.function;
+
                 let mut table = self.symbol_table.write();
                 let id = table.next_id();
-                let mut symbol = Symbol::new(id, SymbolKind::UFunction, ufunc.function.name, ufunc.function.span, file_id);
+                let mut symbol = Symbol::new(id, kind, func.name, func.span, file_id);
                 symbol.parent = parent;
-                table.add_symbol(symbol);
+
+                // Store UFUNCTION macro as doc comment
+                let specifiers_str = self.format_ufunction_specifiers(&ufunc.specifiers);
+                let macro_text = format!("UFUNCTION({})", specifiers_str);
+                symbol.doc_comment = Some(if let Some(ref doc) = func.doc_comment {
+                    format!("{}\n{}", macro_text, doc)
+                } else {
+                    macro_text
+                });
+
+                // Transfer type information - create a Function type with return type and parameters
+                let param_types: Vec<Type> = func.parameters.iter().map(|p| p.ty.clone()).collect();
+                symbol.symbol_type = Some(Arc::new(Type::Function {
+                    return_type: Box::new(func.return_type.clone()),
+                    params: param_types,
+                }));
+
+                // Transfer flags
+                symbol.flags.is_const = func.is_const;
+                symbol.flags.is_static = func.is_static;
+                symbol.flags.is_virtual = func.is_virtual;
+                symbol.flags.is_override = func.is_override;
+                symbol.flags.is_final = func.is_final;
+                symbol.flags.is_inline = func.is_inline;
+
+                let function_id = table.add_symbol(symbol);
+                drop(table);
+
+                // Create parameter symbols as children of the function
+                for param in &func.parameters {
+                    if let Some(param_name) = param.name {
+                        let mut table = self.symbol_table.write();
+                        let param_id = table.next_id();
+                        let mut param_symbol = Symbol::new(param_id, SymbolKind::Parameter, param_name, param.span, file_id);
+                        param_symbol.parent = Some(function_id);
+                        param_symbol.symbol_type = Some(Arc::new(param.ty.clone()));
+                        let param_symbol_id = table.add_symbol(param_symbol);
+
+                        // Add parameter to function's children list
+                        if let Some(func_symbol) = table.get_symbol_mut(function_id) {
+                            func_symbol.children.push(param_symbol_id);
+                        }
+                    }
+                }
             }
             _ => {} // Other members not yet supported
         }
@@ -209,6 +269,78 @@ impl AstSymbolBuilder {
         for member in &ucls.class_decl.members {
             self.process_class_member(member, Some(symbol_id), file_id);
         }
+    }
+
+    /// Format UPropertySpecifiers into a string representation
+    fn format_uproperty_specifiers(&self, specs: &crate::ast::UPropertySpecifiers) -> String {
+        let mut parts: Vec<String> = Vec::new();
+
+        if specs.edit_anywhere {
+            parts.push("EditAnywhere".to_string());
+        }
+        if specs.edit_default_only {
+            parts.push("EditDefaultsOnly".to_string());
+        }
+        if specs.edit_instance_only {
+            parts.push("EditInstanceOnly".to_string());
+        }
+        if specs.visible_anywhere {
+            parts.push("VisibleAnywhere".to_string());
+        }
+        if specs.blueprint_read_write {
+            parts.push("BlueprintReadWrite".to_string());
+        }
+        if specs.blueprint_read_only {
+            parts.push("BlueprintReadOnly".to_string());
+        }
+        if specs.replicated {
+            parts.push("Replicated".to_string());
+        }
+
+        if let Some(ref category) = specs.category {
+            parts.push(format!("Category=\"{}\"", category));
+        }
+
+        parts.join(", ")
+    }
+
+    /// Format UFunctionSpecifiers into a string representation
+    fn format_ufunction_specifiers(&self, specs: &crate::ast::UFunctionSpecifiers) -> String {
+        let mut parts: Vec<String> = Vec::new();
+
+        if specs.blueprint_callable {
+            parts.push("BlueprintCallable".to_string());
+        }
+        if specs.blueprint_pure {
+            parts.push("BlueprintPure".to_string());
+        }
+        if specs.blueprint_implementable_event {
+            parts.push("BlueprintImplementableEvent".to_string());
+        }
+        if specs.blueprint_native_event {
+            parts.push("BlueprintNativeEvent".to_string());
+        }
+        if specs.exec {
+            parts.push("Exec".to_string());
+        }
+        if specs.server {
+            parts.push("Server".to_string());
+        }
+        if specs.client {
+            parts.push("Client".to_string());
+        }
+        if specs.reliable {
+            parts.push("Reliable".to_string());
+        }
+        if specs.unreliable {
+            parts.push("Unreliable".to_string());
+        }
+
+        if let Some(ref category) = specs.category {
+            parts.push(format!("Category=\"{}\"", category));
+        }
+
+        parts.join(", ")
     }
 
     fn process_ustruct(&mut self, ust: &UStructDecl, parent: Option<crate::index::symbol::SymbolId>, file_id: FileId) {
