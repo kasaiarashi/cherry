@@ -467,18 +467,54 @@ impl NameResolver {
         // Try to resolve the path to a symbol
         if path.segments.len() == 1 {
             // Simple name lookup
+            let name = path.segments[0];
+
+            // First try local scope
             if let Some(current_scope) = self.current_scope {
-                if let Some(symbol) = self.scopes.lookup(current_scope, path.segments[0]) {
+                if let Some(symbol) = self.scopes.lookup(current_scope, name) {
                     self.references.insert(span, symbol);
+                    return;
                 }
+            }
+
+            // Fallback to global lookup for cross-file resolution
+            let table = self.symbol_table.read();
+            let candidates = table.find_all(name);
+
+            // Prefer type symbols (classes, structs, enums)
+            for &symbol_id in &candidates {
+                if let Some(symbol) = table.get_symbol(symbol_id) {
+                    if symbol.kind.is_type() {
+                        self.references.insert(span, symbol_id);
+                        return;
+                    }
+                }
+            }
+
+            // If no type symbols, use the first match
+            if let Some(&symbol_id) = candidates.first() {
+                self.references.insert(span, symbol_id);
             }
         } else {
             // Qualified name lookup - would need more sophisticated resolution
             // For now, try to find the last segment
-            if let Some(current_scope) = self.current_scope {
-                if let Some(last_name) = path.segments.last() {
+            if let Some(last_name) = path.segments.last() {
+                if let Some(current_scope) = self.current_scope {
                     if let Some(symbol) = self.scopes.lookup(current_scope, *last_name) {
                         self.references.insert(span, symbol);
+                        return;
+                    }
+                }
+
+                // Global fallback
+                let table = self.symbol_table.read();
+                let candidates = table.find_all(*last_name);
+                for &symbol_id in &candidates {
+                    if let Some(symbol) = table.get_symbol(symbol_id) {
+                        if symbol.kind.is_type() {
+                            self.references.insert(span, symbol_id);
+                            return;
+                        }
                     }
                 }
             }

@@ -108,38 +108,97 @@ impl<'a> CompletionProvider<'a> {
         }
     }
 
-    /// Add symbol completions matching prefix
+    /// Add symbol completions matching prefix with smart ranking
     fn add_symbol_completions(&self, completions: &mut Vec<CompletionItem>, prefix: &str) {
-        // Iterate through global symbols
-        for &symbol_id in self.symbol_table.global_symbols() {
+        let prefix_lower = prefix.to_lowercase();
+        let mut ranked_completions: Vec<(i32, CompletionItem)> = Vec::new();
+
+        // Iterate through ALL symbols (cross-file)
+        for symbol_id in self.symbol_table.all_symbols() {
             if let Some(symbol) = self.symbol_table.get_symbol(symbol_id) {
                 let name = self.interner.resolve(symbol.name);
-                if name.starts_with(prefix) {
-                    completions.push(symbol_to_completion(symbol, &name));
-                }
 
-                // Add children
-                self.add_children_completions(symbol_id, prefix, completions);
+                // Calculate match score
+                if let Some(score) = self.calculate_match_score(&name, prefix, &prefix_lower) {
+                    let mut item = symbol_to_completion(symbol, &name);
+
+                    // Boost UE5 types
+                    let ue_boost = if matches!(symbol.kind,
+                        SymbolKind::UClass | SymbolKind::UStruct | SymbolKind::UEnum | SymbolKind::UFunction | SymbolKind::UProperty
+                    ) { 100 } else { 0 };
+
+                    // Boost types over variables
+                    let type_boost = if symbol.kind.is_type() { 50 } else { 0 };
+
+                    let final_score = score + ue_boost + type_boost;
+
+                    // Update sort text based on score (lower = better)
+                    item.sort_text = Some(format!("{:05}{}", 100000 - final_score, name));
+
+                    ranked_completions.push((final_score, item));
+                }
             }
+        }
+
+        // Sort by score (descending) and take top results
+        ranked_completions.sort_by(|a, b| b.0.cmp(&a.0));
+
+        // Limit to top 100 completions for performance
+        for (_score, item) in ranked_completions.into_iter().take(100) {
+            completions.push(item);
         }
     }
 
-    /// Recursively add children matching prefix
-    fn add_children_completions(
-        &self,
-        parent_id: SymbolId,
-        prefix: &str,
-        completions: &mut Vec<CompletionItem>,
-    ) {
-        for &child_id in &self.symbol_table.children(parent_id) {
-            if let Some(child) = self.symbol_table.get_symbol(child_id) {
-                let name = self.interner.resolve(child.name);
-                if name.starts_with(prefix) {
-                    completions.push(symbol_to_completion(child, &name));
+    /// Calculate match score for fuzzy matching
+    /// Returns None if no match, higher score = better match
+    fn calculate_match_score(&self, name: &str, prefix: &str, prefix_lower: &str) -> Option<i32> {
+        if prefix.is_empty() {
+            return Some(0);
+        }
+
+        let name_lower = name.to_lowercase();
+
+        // Exact match - highest score
+        if name == prefix {
+            return Some(1000);
+        }
+
+        // Case-sensitive prefix match - very high score
+        if name.starts_with(prefix) {
+            return Some(500 + (100 - name.len() as i32));
+        }
+
+        // Case-insensitive prefix match - high score
+        if name_lower.starts_with(prefix_lower) {
+            return Some(300 + (100 - name.len() as i32));
+        }
+
+        // Contains match - medium score
+        if name_lower.contains(prefix_lower) {
+            return Some(100);
+        }
+
+        // Fuzzy match (all prefix chars in order) - low score
+        if self.fuzzy_match(&name_lower, prefix_lower) {
+            return Some(50);
+        }
+
+        None
+    }
+
+    /// Check if all characters in pattern appear in str in order
+    fn fuzzy_match(&self, text: &str, pattern: &str) -> bool {
+        let mut text_chars = text.chars();
+        for pattern_char in pattern.chars() {
+            loop {
+                match text_chars.next() {
+                    Some(text_char) if text_char == pattern_char => break,
+                    Some(_) => continue,
+                    None => return false,
                 }
-                self.add_children_completions(child_id, prefix, completions);
             }
         }
+        true
     }
 }
 
