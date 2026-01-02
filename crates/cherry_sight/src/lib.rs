@@ -24,6 +24,7 @@ pub mod ubt;
 pub mod advanced;
 pub mod performance;
 pub mod error_recovery;
+pub mod blueprint;
 
 // Re-export commonly used types
 pub use ast::{TranslationUnit, Declaration};
