@@ -54,6 +54,14 @@ impl LspInstaller for CLspAdapter {
 
         let binary_path = exe_dir.join(binary_name);
 
+        // Verify the binary exists
+        if !binary_path.exists() {
+            return Err(anyhow!(
+                "cherry-sight-lsp not found at {:?}. Please build it with: cargo build -p cherry_sight --bin cherry-sight-lsp",
+                binary_path
+            ));
+        }
+
         Ok(LanguageServerBinary {
             path: binary_path,
             arguments: vec![],
