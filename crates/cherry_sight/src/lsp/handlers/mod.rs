@@ -430,6 +430,41 @@ impl LspHandlers {
         let path = params.text_document.uri.to_file_path()
             .unwrap_or_else(|_| std::path::PathBuf::from(&uri));
 
+        // INCREMENTAL: Check if this is a new header file not in cache
+        let is_new_header = if let Some(ext) = path.extension() {
+            if ext == "h" || ext == "hpp" || ext == "hxx" {
+                if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                    !self.include_cache.contains_key(file_name)
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        // Add new header to include cache
+        if is_new_header {
+            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+                self.include_cache.insert(file_name.to_string(), path.clone());
+                log::info!("Added new header to include cache: {}", file_name);
+
+                // Save updated cache to disk
+                if let Some(cache_mgr) = self.cache_manager.read().as_ref() {
+                    let cache_snapshot: HashMap<String, PathBuf> = self.include_cache
+                        .iter()
+                        .map(|entry| (entry.key().clone(), entry.value().clone()))
+                        .collect();
+
+                    if let Err(e) = cache_mgr.save_include_index(&cache_snapshot) {
+                        log::warn!("Failed to save updated include cache: {}", e);
+                    }
+                }
+            }
+        }
+
         // CRITICAL: Remove old symbols if this file was already indexed
         // This ensures LSP works when switching between files
         self.symbol_table.write().remove_file_symbols(file_id);
