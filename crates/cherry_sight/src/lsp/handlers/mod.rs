@@ -30,30 +30,87 @@ impl LspHandlers {
     /// Handle textDocument/completion request
     pub fn handle_completion(
         &self,
-        _params: CompletionParams,
+        params: CompletionParams,
     ) -> Result<Option<CompletionResponse>> {
-        // Placeholder - to be implemented
-        Ok(Some(CompletionResponse::Array(vec![])))
+        let uri = params.text_document_position.text_document.uri.to_string();
+        let position = params.text_document_position.position;
+
+        // Get file content
+        let file_id = match self.database.get_file_id(&uri) {
+            Some(id) => id,
+            None => return Ok(Some(CompletionResponse::Array(vec![]))),
+        };
+
+        let _source = match self.database.get_source_file(file_id) {
+            Some(s) => s,
+            None => return Ok(Some(CompletionResponse::Array(vec![]))),
+        };
+
+        log::debug!("Completion request at {}:{}:{}", uri, position.line, position.character);
+
+        // Return basic C++ keywords for now - full provider integration in Phase 18
+        let items = vec![
+            CompletionItem {
+                label: "class".to_string(),
+                kind: Some(CompletionItemKind::KEYWORD),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "struct".to_string(),
+                kind: Some(CompletionItemKind::KEYWORD),
+                ..Default::default()
+            },
+            CompletionItem {
+                label: "void".to_string(),
+                kind: Some(CompletionItemKind::KEYWORD),
+                ..Default::default()
+            },
+        ];
+
+        Ok(Some(CompletionResponse::Array(items)))
     }
 
     /// Handle textDocument/hover request
-    pub fn handle_hover(&self, _params: HoverParams) -> Result<Option<Hover>> {
-        // Placeholder - to be implemented
-        Ok(None)
+    pub fn handle_hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+        let uri = params.text_document_position_params.text_document.uri.to_string();
+        let position = params.text_document_position_params.position;
+
+        log::debug!("Hover request at {}:{}:{}", uri, position.line, position.character);
+
+        // Return basic hover - full provider integration in Phase 18
+        let hover = Hover {
+            contents: HoverContents::Markup(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: "**C++ Symbol**\n\nHover information will be available after Phase 18".to_string(),
+            }),
+            range: None,
+        };
+
+        Ok(Some(hover))
     }
 
     /// Handle textDocument/definition request
     pub fn handle_goto_definition(
         &self,
-        _params: GotoDefinitionParams,
+        params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        // Placeholder - to be implemented
+        let uri = params.text_document_position_params.text_document.uri.to_string();
+        let position = params.text_document_position_params.position;
+
+        log::debug!("Goto definition request at {}:{}:{}", uri, position.line, position.character);
+
+        // Full provider integration in Phase 18
         Ok(None)
     }
 
     /// Handle textDocument/references request
-    pub fn handle_references(&self, _params: ReferenceParams) -> Result<Option<Vec<Location>>> {
-        // Placeholder - to be implemented
+    pub fn handle_references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        let uri = params.text_document_position.text_document.uri.to_string();
+        let position = params.text_document_position.position;
+
+        log::debug!("References request at {}:{}:{}", uri, position.line, position.character);
+
+        // Full provider integration in Phase 18
         Ok(Some(vec![]))
     }
 
