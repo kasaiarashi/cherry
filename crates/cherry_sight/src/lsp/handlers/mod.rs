@@ -506,7 +506,11 @@ impl LspHandlers {
                     Ok(ast) => {
                         log::info!("Parsed {} with {} declarations", uri, ast.declarations.len());
 
-                        // Step 1: Build symbol table from AST
+                        // Step 1: Clear old symbols for this file to avoid duplicates
+                        self.symbol_table.write().remove_file_symbols(file_id);
+                        log::info!("Cleared old symbols for FileId({:?})", file_id);
+
+                        // Step 2: Build symbol table from AST
                         let mut builder = AstSymbolBuilder::new(
                             self.symbol_table.clone(),
                             self.interner.clone(),
@@ -1242,7 +1246,11 @@ impl LspHandlers {
             Ok(mut parser) => {
                 match parser.parse(content, file_id) {
                     Ok(ast) => {
-                        // Step 1: Build symbol table from AST
+                        // Step 1: Clear old symbols for this file to avoid duplicates
+                        self.symbol_table.write().remove_file_symbols(file_id);
+                        log::info!("Cleared old symbols for FileId({:?})", file_id);
+
+                        // Step 2: Build symbol table from AST
                         let mut builder = AstSymbolBuilder::new(
                             self.symbol_table.clone(),
                             self.interner.clone(),
