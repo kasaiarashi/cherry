@@ -556,57 +556,10 @@ impl LspHandlers {
 
                                 // Try to find corresponding .cpp file in filesystem
                                 let base_name = path.file_stem().and_then(|s| s.to_str());
-                                if let (Some(base), Some(parent)) = (base_name, path.parent()) {
-                                    // Look for matching .cpp file
-                                    let mut possible_cpp_paths: Vec<PathBuf> = vec![
-                                        parent.join(format!("{}.cpp", base)),
-                                    ];
+                                log::info!("  Base name: {:?}", base_name);
+                                log::info!("  Parent dir: {:?}", path.parent());
 
-                                    if let Some(grandparent) = parent.parent() {
-                                        possible_cpp_paths.push(grandparent.join("Private").join(format!("{}.cpp", base)));
-                                        possible_cpp_paths.push(grandparent.join("Source").join(format!("{}.cpp", base)));
-                                    }
-
-                                    for cpp_path in possible_cpp_paths {
-                                        if !cpp_path.exists() {
-                                            continue;
-                                        }
-
-                                        let cpp_uri = format!("file:///{}", cpp_path.display().to_string().replace("\\", "/"));
-
-                                        // Check if already indexed
-                                        if self.database.get_file_id(&cpp_uri).is_some() {
-                                            continue;
-                                        }
-
-                                        log::info!("Found corresponding .cpp file: {}", cpp_path.display());
-
-                                        // Read and index the .cpp file
-                                        if let Ok(content) = std::fs::read_to_string(&cpp_path) {
-                                            // Create or get file ID
-                                            let cpp_file_id = self.database.get_or_create_file_id(&cpp_uri);
-
-                                            // Add source file
-                                            self.database.add_source_file(cpp_file_id, cpp_path.clone(), Arc::new(content.clone()));
-
-                                            // Parse and build symbols
-                                            if let Ok(mut parser) = CppParser::new(self.interner.clone()) {
-                                                if let Ok(ast) = parser.parse(&content, cpp_file_id) {
-                                                    self.symbol_table.write().remove_file_symbols(cpp_file_id);
-
-                                                    let mut builder = AstSymbolBuilder::new(
-                                                        self.symbol_table.clone(),
-                                                        self.interner.clone(),
-                                                    );
-                                                    builder.build_from_ast(&ast);
-
-                                                    log::info!("Indexed {} and matching implementations", cpp_path.display());
-                                                    self.match_implementations_to_declarations(cpp_file_id);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                                log::info!("  Note: Auto-indexing disabled - user must open .cpp file manually");
 
                                 // Also check existing .cpp files in database
                                 let cpp_file_ids: Vec<FileId> = {
@@ -713,6 +666,10 @@ impl LspHandlers {
                                     // Get base filenames without extension
                                     let cpp_base = cpp_src.path.file_stem().and_then(|s| s.to_str());
                                     let h_base = h_src.path.file_stem().and_then(|s| s.to_str());
+                                    log::info!("    Comparing filenames: '{}' vs '{}'",
+                                        cpp_base.unwrap_or("<none>"), h_base.unwrap_or("<none>"));
+                                    log::info!("    Full paths: cpp='{}' h='{}'",
+                                        cpp_src.path.display(), h_src.path.display());
                                     cpp_base == h_base && cpp_base.is_some()
                                 } else {
                                     false
