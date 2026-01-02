@@ -551,15 +551,17 @@ impl LspHandlers {
 
     /// Match function implementations in .cpp file to their declarations in .h files
     fn match_implementations_to_declarations(&self, cpp_file_id: FileId) {
+        log::info!("Matching implementations to declarations for file {:?}", cpp_file_id);
+
         // Clone necessary data from .cpp symbols
-        let cpp_symbol_data: Vec<(SymbolId, InternedString, SymbolKind, Span)> = {
+        let cpp_symbol_data: Vec<(SymbolId, InternedString, Option<InternedString>, SymbolKind, Span, Option<SymbolId>)> = {
             let symbol_table = self.symbol_table.read();
             symbol_table.symbols_in_file(cpp_file_id)
                 .iter()
                 .filter_map(|&id| {
                     let sym = symbol_table.get_symbol(id)?;
                     if sym.kind.is_callable() {
-                        Some((sym.id, sym.name, sym.kind, sym.span))
+                        Some((sym.id, sym.name, sym.qualified_name, sym.kind, sym.span, sym.parent))
                     } else {
                         None
                     }
@@ -567,16 +569,21 @@ impl LspHandlers {
                 .collect()
         };
 
+        log::info!("Found {} callable symbols in .cpp file", cpp_symbol_data.len());
+
         let mut updates = Vec::new();
 
-        for (cpp_id, cpp_name, cpp_kind, cpp_span) in cpp_symbol_data {
+        for (cpp_id, cpp_name, cpp_qualified_name, cpp_kind, cpp_span, cpp_parent) in cpp_symbol_data {
             // Find matching declaration in .h file
             let symbol_table = self.symbol_table.read();
             let interner = self.interner.read();
             let name = interner.resolve(cpp_name);
 
+            log::debug!("Looking for declaration of: {} (kind: {:?})", name, cpp_kind);
+
             // Find all symbols with same name
             let candidates = symbol_table.find_all(cpp_name);
+            log::debug!("  Found {} candidates with name '{}'", candidates.len(), name);
 
             for &candidate_id in &candidates {
                 if let Some(decl_symbol) = symbol_table.get_symbol(candidate_id) {
@@ -588,15 +595,42 @@ impl LspHandlers {
                     // Check if it's a declaration in a .h file
                     if let Some(decl_file) = self.database.get_source_file(decl_symbol.file_id) {
                         if let Some(ext) = decl_file.path.extension() {
-                            if (ext == "h" || ext == "hpp" || ext == "hxx") &&
-                               decl_symbol.kind == cpp_kind {
-                                // Found matching declaration!
-                                log::info!("Matched implementation: {} in {:?} -> declaration in {:?}",
-                                    name, cpp_file_id, decl_symbol.file_id);
+                            let is_header = ext == "h" || ext == "hpp" || ext == "hxx";
+                            let same_kind = decl_symbol.kind == cpp_kind;
 
-                                // Store update to apply later
-                                updates.push((candidate_id, cpp_span));
-                                break;
+                            log::debug!("  Candidate #{}: is_header={}, same_kind={}, file={:?}",
+                                candidate_id.0, is_header, same_kind, decl_file.path);
+
+                            if is_header && same_kind {
+                                // For methods, also check if they belong to the same class
+                                let same_parent = if cpp_kind == SymbolKind::Method {
+                                    // Compare parent class names
+                                    if let (Some(cpp_parent_id), Some(decl_parent_id)) = (cpp_parent, decl_symbol.parent) {
+                                        if let (Some(cpp_parent_sym), Some(decl_parent_sym)) =
+                                            (symbol_table.get_symbol(cpp_parent_id), symbol_table.get_symbol(decl_parent_id)) {
+                                            // Compare parent names
+                                            cpp_parent_sym.name == decl_parent_sym.name
+                                        } else {
+                                            false
+                                        }
+                                    } else {
+                                        false
+                                    }
+                                } else {
+                                    true // For non-methods, we don't need to check parent
+                                };
+
+                                if same_parent {
+                                    // Found matching declaration!
+                                    log::info!("✓ Matched implementation: {} in {:?} -> declaration in {:?}",
+                                        name, cpp_file_id, decl_symbol.file_id);
+
+                                    // Store update to apply later
+                                    updates.push((candidate_id, cpp_span));
+                                    break;
+                                } else {
+                                    log::debug!("  Skipping - different parent class");
+                                }
                             }
                         }
                     }
@@ -604,12 +638,14 @@ impl LspHandlers {
             }
         }
 
+        log::info!("Applying {} implementation matches", updates.len());
+
         // Apply all updates
         let mut symbol_table = self.symbol_table.write();
         for (decl_id, impl_span) in updates {
             if let Some(symbol) = symbol_table.get_symbol_mut(decl_id) {
                 symbol.implementation_span = Some(impl_span);
-                log::debug!("Updated symbol {} with implementation span", decl_id.0);
+                log::info!("  Updated symbol #{} with implementation span", decl_id.0);
             }
         }
     }
@@ -896,6 +932,33 @@ impl LspHandlers {
                                     log::info!("Saved include index to .cherry/includes.bin - navigation will be instant on restart!");
                                 }
                             }
+
+                            // MATCH IMPLEMENTATIONS: Link .cpp implementations to .h declarations
+                            log::info!("Matching implementations to declarations for all .cpp files...");
+                            let cpp_files: Vec<FileId> = indexed_files.iter()
+                                .filter_map(|path| {
+                                    if let Some(ext) = path.extension() {
+                                        if ext == "cpp" || ext == "cc" || ext == "cxx" {
+                                            // Convert path to URI to get file_id
+                                            if let Ok(uri) = lsp::Uri::from_file_path(path) {
+                                                handlers.database.get_file_id(&uri.to_string())
+                                            } else {
+                                                None
+                                            }
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect();
+
+                            log::info!("Found {} .cpp files to process", cpp_files.len());
+                            for cpp_file_id in cpp_files {
+                                handlers.match_implementations_to_declarations(cpp_file_id);
+                            }
+                            log::info!("Implementation matching complete!");
                         }
                         Err(e) => {
                             log::error!("Background indexing failed: {}", e);
