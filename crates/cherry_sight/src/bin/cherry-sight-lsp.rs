@@ -13,8 +13,11 @@ use std::time::SystemTime;
 #[tokio::main]
 async fn main() {
     // Initialize logging to both stderr and file
-    let log_file_path = std::env::current_dir()
-        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+    // Write log file next to the binary executable for consistent location
+    let log_file_path = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")))
         .join("cherry-sight-lsp.log");
 
     let log_file_path_clone = log_file_path.clone();
