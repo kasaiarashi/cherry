@@ -1,9 +1,6 @@
 // Copyright (c) 2025 Krishna Teja Mekala (Kriaa Systems). All rights reserved.
 
 //! Database for managing parsed files and queries
-//!
-//! Note: This is a simplified implementation for Phase 1.
-//! Salsa will be integrated in Phase 2 for incremental computation.
 
 pub mod inputs;
 pub mod derived;

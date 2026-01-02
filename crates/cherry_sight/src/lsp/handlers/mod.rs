@@ -37,6 +37,12 @@ pub struct LspHandlers {
 
     /// Type information per file
     type_info: Arc<RwLock<HashMap<FileId, Arc<HashMap<Span, crate::semantic::type_inference::TypeInfo>>>>>,
+
+    /// Workspace root path
+    workspace_root: Arc<RwLock<Option<String>>>,
+
+    /// Project indexing status
+    indexing_complete: Arc<RwLock<bool>>,
 }
 
 impl std::fmt::Debug for LspHandlers {
@@ -55,6 +61,8 @@ impl LspHandlers {
             interner: Arc::new(RwLock::new(Interner::new())),
             name_resolutions: Arc::new(RwLock::new(HashMap::new())),
             type_info: Arc::new(RwLock::new(HashMap::new())),
+            workspace_root: Arc::new(RwLock::new(None)),
+            indexing_complete: Arc::new(RwLock::new(false)),
         }
     }
 
@@ -262,6 +270,28 @@ impl LspHandlers {
             None => return Ok(None),
         };
 
+        // First, check if we're on an include directive
+        if let Some(include_path) = self.find_include_at_offset(file_id, offset) {
+            // Resolve the include path to an actual file
+            if let Some(resolved_path) = self.resolve_include_path(&include_path, &source.path) {
+                // Try to get the file_id for this path
+                let include_uri = lsp::Uri::from_file_path(&resolved_path)
+                    .map_err(|_| anyhow::anyhow!("Invalid include path"))?;
+
+                // Return location pointing to the start of the included file
+                let location = Location {
+                    uri: include_uri,
+                    range: lsp::Range {
+                        start: lsp::Position { line: 0, character: 0 },
+                        end: lsp::Position { line: 0, character: 0 },
+                    },
+                };
+
+                log::debug!("Include navigation to: {}", resolved_path.display());
+                return Ok(Some(GotoDefinitionResponse::Scalar(location)));
+            }
+        }
+
         // Find symbol at offset
         let symbol_id = match self.find_symbol_at_offset(file_id, offset) {
             Some(id) => id,
@@ -441,8 +471,63 @@ impl LspHandlers {
             // For full sync, just use the last change
             if let Some(change) = params.content_changes.last() {
                 let content = Arc::new(change.text.clone());
-                self.database.update_source_content(file_id, content);
-                log::debug!("Updated file: {}", uri);
+                self.database.update_source_content(file_id, content.clone());
+                log::debug!("Updated file content: {}", uri);
+
+                // Re-parse and re-index the file to keep symbols in sync
+                // Step 1: Remove old symbols for this file
+                self.symbol_table.write().remove_file_symbols(file_id);
+                log::debug!("Removed old symbols for: {}", uri);
+
+                // Step 2: Parse the new content
+                match CppParser::new(self.interner.clone()) {
+                    Ok(mut parser) => {
+                        match parser.parse(&content, file_id) {
+                            Ok(ast) => {
+                                log::debug!("Re-parsed {} with {} declarations", uri, ast.declarations.len());
+
+                                // Step 3: Build symbol table from AST
+                                let mut builder = AstSymbolBuilder::new(
+                                    self.symbol_table.clone(),
+                                    self.interner.clone(),
+                                );
+                                builder.build_from_ast(&ast);
+
+                                let symbol_count = self.symbol_table.read().symbols_in_file(file_id).len();
+                                log::debug!("Re-built {} symbols for {}", symbol_count, uri);
+
+                                // Step 4: Name resolution
+                                let mut name_resolver = NameResolver::new(
+                                    self.symbol_table.clone(),
+                                    self.interner.clone(),
+                                    file_id,
+                                );
+                                let name_resolution = name_resolver.resolve(&ast);
+                                let ref_count = name_resolution.references.len();
+                                log::debug!("Re-resolved {} identifier references", ref_count);
+
+                                // Step 5: Type inference
+                                let mut type_inference = TypeInference::new(
+                                    self.symbol_table.clone(),
+                                    self.interner.clone(),
+                                    name_resolution.clone(),
+                                );
+                                let types = type_inference.infer(&ast);
+                                log::debug!("Re-inferred types for {} expressions", types.len());
+
+                                // Store results
+                                self.name_resolutions.write().insert(file_id, Arc::new(name_resolution));
+                                self.type_info.write().insert(file_id, Arc::new(types));
+                            }
+                            Err(e) => {
+                                log::warn!("Failed to re-parse {}: {}", uri, e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Failed to create parser for re-parsing: {}", e);
+                    }
+                }
             }
         }
 
@@ -528,5 +613,250 @@ impl LspHandlers {
         // Convert path to URI
         lsp::Uri::from_file_path(&source.path)
             .map_err(|_| anyhow::anyhow!("Failed to convert path to URI: {:?}", source.path))
+    }
+
+    /// Handle initialization - store workspace info
+    pub fn handle_initialize(&self, params: lsp::InitializeParams) {
+        // Store workspace root
+        let root = params.root_uri
+            .map(|uri| uri.to_string())
+            .or_else(|| params.root_path.clone());
+
+        if let Some(root) = root {
+            log::info!("Workspace root: {}", root);
+            *self.workspace_root.write() = Some(root);
+        }
+    }
+
+    /// Handle initialized notification - start project-wide indexing
+    pub fn handle_initialized(&self) -> Result<()> {
+        log::info!("Client confirmed initialization - starting project indexing");
+
+        let workspace_root = self.workspace_root.read().clone();
+        if let Some(root) = workspace_root {
+            // Parse the root as a file path or URI
+            let root_path: Option<std::path::PathBuf> = if root.starts_with("file://") {
+                // Convert URI to path
+                use std::str::FromStr;
+                if let Ok(uri) = lsp::Uri::from_str(&root) {
+                    uri.to_file_path().ok()
+                } else {
+                    None
+                }
+            } else {
+                Some(std::path::PathBuf::from(&root))
+            };
+
+            if let Some(path) = root_path {
+                log::info!("Starting project-wide indexing from: {}", path.display());
+                self.index_project(&path)?;
+                *self.indexing_complete.write() = true;
+                log::info!("Project indexing complete!");
+            }
+        } else {
+            log::warn!("No workspace root - skipping project indexing");
+        }
+
+        Ok(())
+    }
+
+    /// Index all C++ files in the project
+    fn index_project(&self, root: &std::path::Path) -> Result<()> {
+        use std::fs;
+
+        // Find all .h and .cpp files
+        let mut files_to_index = Vec::new();
+        self.discover_cpp_files(root, &mut files_to_index)?;
+
+        log::info!("Found {} C++ files to index", files_to_index.len());
+
+        // Index each file
+        for (idx, file_path) in files_to_index.iter().enumerate() {
+            if idx % 10 == 0 {
+                log::info!("Indexing progress: {}/{}", idx, files_to_index.len());
+            }
+
+            match fs::read_to_string(file_path) {
+                Ok(content) => {
+                    let uri = lsp::Uri::from_file_path(file_path)
+                        .map_err(|_| anyhow::anyhow!("Invalid file path"))?
+                        .to_string();
+
+                    // Get or create file ID
+                    let file_id = self.database.get_or_create_file_id(&uri);
+
+                    // Store content
+                    let content_arc = Arc::new(content);
+                    self.database.add_source_file(file_id, file_path.clone(), content_arc.clone());
+
+                    // Parse and index
+                    self.parse_and_index_file(file_id, &content_arc)?;
+                }
+                Err(e) => {
+                    log::warn!("Failed to read {}: {}", file_path.display(), e);
+                }
+            }
+        }
+
+        log::info!("Indexed {} files successfully", files_to_index.len());
+        Ok(())
+    }
+
+    /// Recursively discover C++ files
+    fn discover_cpp_files(&self, dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) -> Result<()> {
+        use std::fs;
+
+        if !dir.is_dir() {
+            return Ok(());
+        }
+
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            // Skip hidden directories and common build directories
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.starts_with('.') || name == "build" || name == "Build" ||
+                   name == "Binaries" || name == "Intermediate" || name == "DerivedDataCache" {
+                    continue;
+                }
+            }
+
+            if path.is_dir() {
+                self.discover_cpp_files(&path, files)?;
+            } else if let Some(ext) = path.extension() {
+                if ext == "h" || ext == "hpp" || ext == "cpp" || ext == "cc" || ext == "cxx" {
+                    files.push(path);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Parse and index a single file
+    fn parse_and_index_file(&self, file_id: FileId, content: &Arc<String>) -> Result<()> {
+        match CppParser::new(self.interner.clone()) {
+            Ok(mut parser) => {
+                match parser.parse(content, file_id) {
+                    Ok(ast) => {
+                        // Step 1: Build symbol table from AST
+                        let mut builder = AstSymbolBuilder::new(
+                            self.symbol_table.clone(),
+                            self.interner.clone(),
+                        );
+                        builder.build_from_ast(&ast);
+
+                        // Step 2: Name resolution
+                        let mut name_resolver = NameResolver::new(
+                            self.symbol_table.clone(),
+                            self.interner.clone(),
+                            file_id,
+                        );
+                        let name_resolution = name_resolver.resolve(&ast);
+
+                        // Step 3: Type inference
+                        let mut type_inference = TypeInference::new(
+                            self.symbol_table.clone(),
+                            self.interner.clone(),
+                            name_resolution.clone(),
+                        );
+                        let types = type_inference.infer(&ast);
+
+                        // Store results
+                        self.name_resolutions.write().insert(file_id, Arc::new(name_resolution));
+                        self.type_info.write().insert(file_id, Arc::new(types));
+
+                        Ok(())
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to parse file {:?}: {}", file_id, e);
+                        Ok(()) // Don't fail the whole indexing
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to create parser: {}", e);
+                Ok(()) // Don't fail the whole indexing
+            }
+        }
+    }
+
+    /// Find include directive at the given offset
+    fn find_include_at_offset(&self, file_id: FileId, offset: u32) -> Option<String> {
+        // Parse the file to get includes
+        let source = self.database.get_source_file(file_id)?;
+        match CppParser::new(self.interner.clone()) {
+            Ok(mut parser) => match parser.parse(&source.content, file_id) {
+                Ok(ast) => {
+                    // Find include whose span contains the offset
+                    for include in &ast.includes {
+                        if include.span.contains(offset) {
+                            return Some(include.path.clone());
+                        }
+                    }
+                    None
+                }
+                Err(_) => None,
+            },
+            Err(_) => None,
+        }
+    }
+
+    /// Resolve an include path to an actual file path
+    fn resolve_include_path(&self, include_path: &str, current_file: &std::path::Path) -> Option<std::path::PathBuf> {
+        // Try relative to current file first
+        if let Some(parent) = current_file.parent() {
+            let relative_path = parent.join(include_path);
+            if relative_path.exists() {
+                return Some(relative_path);
+            }
+        }
+
+        // Try workspace-relative search
+        if let Some(root) = self.workspace_root.read().as_ref() {
+            let root_path: std::path::PathBuf = if root.starts_with("file://") {
+                use std::str::FromStr;
+                if let Ok(uri) = lsp::Uri::from_str(root) {
+                    uri.to_file_path().ok()?
+                } else {
+                    std::path::PathBuf::from(root.trim_start_matches("file://"))
+                }
+            } else {
+                std::path::PathBuf::from(root)
+            };
+
+            // Search in common UE5 directories
+            let search_paths = vec![
+                root_path.join("Source"),
+                root_path.join("Plugins"),
+                root_path.clone(),
+            ];
+
+            for search_path in search_paths {
+                if let Ok(found) = self.search_for_include(&search_path, include_path) {
+                    return Some(found);
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Recursively search for an include file
+    fn search_for_include(&self, base_path: &std::path::Path, include_name: &str) -> Result<std::path::PathBuf> {
+        use walkdir::WalkDir;
+
+        for entry in WalkDir::new(base_path).max_depth(10).into_iter().filter_map(|e| e.ok()) {
+            if entry.file_type().is_file() {
+                if let Some(file_name) = entry.path().file_name() {
+                    if file_name == include_name {
+                        return Ok(entry.path().to_path_buf());
+                    }
+                }
+            }
+        }
+
+        Err(anyhow::anyhow!("Include file not found"))
     }
 }

@@ -8,8 +8,17 @@ use crate::util::{InternedString, Span};
 #[derive(Debug, Clone)]
 pub struct TranslationUnit {
     pub file_id: crate::util::FileId,
+    pub includes: Vec<IncludeDirective>,
     pub declarations: Vec<Declaration>,
     pub errors: Vec<ParseError>,
+}
+
+/// Include directive (#include)
+#[derive(Debug, Clone)]
+pub struct IncludeDirective {
+    pub path: String,
+    pub is_system: bool,  // <header> vs "header.h"
+    pub span: Span,
 }
 
 /// Parse error information
@@ -65,6 +74,7 @@ pub struct BaseClass {
     pub type_path: TypePath,
     pub access: AccessSpecifier,
     pub is_virtual: bool,
+    pub span: Span,
 }
 
 /// Access specifier for members

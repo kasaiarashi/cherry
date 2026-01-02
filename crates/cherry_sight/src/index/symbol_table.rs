@@ -231,6 +231,35 @@ impl SymbolTable {
         self.symbols.is_empty()
     }
 
+    /// Remove all symbols for a specific file
+    pub fn remove_file_symbols(&mut self, file_id: FileId) {
+        // Get all symbol IDs for this file
+        let symbol_ids = self.symbols_in_file(file_id);
+
+        // Remove each symbol
+        for symbol_id in symbol_ids {
+            if let Some(symbol) = self.symbols.remove(&symbol_id) {
+                // Remove from name index
+                let key = (symbol.name, symbol.parent);
+                if let Some(ids) = self.name_index.get_mut(&key) {
+                    ids.retain(|&id| id != symbol_id);
+                    if ids.is_empty() {
+                        self.name_index.remove(&key);
+                    }
+                }
+
+                // Remove from type_symbols
+                self.type_symbols.retain(|&id| id != symbol_id);
+
+                // Remove from global_symbols
+                self.global_symbols.retain(|&id| id != symbol_id);
+            }
+        }
+
+        // Remove file entry
+        self.file_index.remove(&file_id);
+    }
+
     /// Clear all symbols
     pub fn clear(&mut self) {
         self.symbols.clear();

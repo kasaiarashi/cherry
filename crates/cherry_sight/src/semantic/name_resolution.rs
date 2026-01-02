@@ -123,7 +123,7 @@ impl NameResolver {
 
             // Resolve base classes
             for base in &cls.bases {
-                self.resolve_type_path(&base.type_path, cls.span);
+                self.resolve_type_path(&base.type_path, base.span);
             }
 
             // Resolve members

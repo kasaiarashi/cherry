@@ -45,6 +45,7 @@ impl CppParser {
         log::info!("Parsing file {:?} with root node kind: {}", file_id, root.kind());
 
         let mut declarations = Vec::new();
+        let mut includes = Vec::new();
         let mut cursor = root.walk();
         let mut node_kinds = std::collections::HashMap::new();
 
@@ -52,7 +53,14 @@ impl CppParser {
             let kind = child.kind();
             *node_kinds.entry(kind).or_insert(0) += 1;
 
-            if let Some(decl) = self.parse_declaration(child, source, file_id) {
+            eprintln!("Top-level node: kind='{}' at {}..{}", kind, child.start_byte(), child.end_byte());
+
+            // Parse include directives
+            if kind == "preproc_include" {
+                if let Some(include) = self.parse_include(child, source, file_id) {
+                    includes.push(include);
+                }
+            } else if let Some(decl) = self.parse_declaration(child, source, file_id) {
                 declarations.push(decl);
             } else {
                 log::debug!("Skipped node kind: '{}' at byte range {}..{}", kind, child.start_byte(), child.end_byte());
@@ -60,13 +68,49 @@ impl CppParser {
         }
 
         log::info!("Node kinds found: {:?}", node_kinds);
-        log::info!("Extracted {} declarations from {} total nodes", declarations.len(), node_kinds.values().sum::<i32>());
+        log::info!("Extracted {} includes and {} declarations from {} total nodes",
+                   includes.len(), declarations.len(), node_kinds.values().sum::<i32>());
 
         Ok(TranslationUnit {
             file_id,
+            includes,
             declarations,
             errors,
         })
+    }
+
+    /// Parse an include directive
+    fn parse_include(&mut self, node: Node, source: &str, file_id: FileId) -> Option<crate::ast::IncludeDirective> {
+        // preproc_include has children: "#include" and either string_literal or system_lib_string
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            match child.kind() {
+                "string_literal" => {
+                    // #include "header.h"
+                    let text = &source[child.byte_range()];
+                    // Remove quotes
+                    let path = text.trim_matches('"').to_string();
+                    return Some(crate::ast::IncludeDirective {
+                        path,
+                        is_system: false,
+                        span: Span::new(file_id, node.start_byte() as u32, node.end_byte() as u32),
+                    });
+                }
+                "system_lib_string" => {
+                    // #include <header>
+                    let text = &source[child.byte_range()];
+                    // Remove angle brackets
+                    let path = text.trim_start_matches('<').trim_end_matches('>').to_string();
+                    return Some(crate::ast::IncludeDirective {
+                        path,
+                        is_system: true,
+                        span: Span::new(file_id, node.start_byte() as u32, node.end_byte() as u32),
+                    });
+                }
+                _ => {}
+            }
+        }
+        None
     }
 
     /// Extract documentation comment before a node
@@ -137,7 +181,12 @@ impl CppParser {
                 let mut class_name_identifier = None;
                 let mut body = None;
 
+                eprintln!("function_definition node at {}..{} - checking if it's a class:", node.start_byte(), node.end_byte());
                 for child in node.children(&mut cursor) {
+                    let text = &source[child.byte_range()];
+                    let preview = if text.len() > 40 { &text[..40] } else { text };
+                    eprintln!("  child: kind='{}' text='{}'", child.kind(), preview);
+
                     match child.kind() {
                         "class_specifier" => class_spec = Some(child),
                         "struct_specifier" => struct_spec = Some(child),
@@ -149,66 +198,154 @@ impl CppParser {
                 }
 
                 if let Some(class_node) = class_spec {
+                    eprintln!("  -> Found class_specifier, parsing as class");
                     log::info!("Found class_specifier inside function_definition (export macro confusion)");
 
-                    // If there's an ERROR node, the class name is likely in there (before " : public")
-                    if let Some(err_node) = error_node {
-                        let err_text = &source[err_node.byte_range()];
-                        log::info!("Found ERROR node: '{}'", err_text);
+                    // Collect all children to handle complex cases (multiple base classes, etc.)
+                    let mut all_error_nodes = Vec::new();
+                    let mut all_identifiers = Vec::new();
+                    let mut init_decl = None;
 
-                        // Extract class name from error text (before " : " or " :")
-                        if let Some(class_name) = err_text.split(':').next().map(|s| s.trim()) {
-                            if !class_name.is_empty() {
-                                log::info!("Extracted class name from ERROR node: '{}'", class_name);
-                                return self.parse_class_with_export_macro_from_text(
-                                    class_node, class_name, body, source, file_id, false
-                                ).map(Declaration::Class);
-                            }
+                    let mut child_cursor = node.walk();
+                    for child in node.children(&mut child_cursor) {
+                        match child.kind() {
+                            "ERROR" => all_error_nodes.push(child),
+                            "identifier" => all_identifiers.push(child),
+                            "init_declarator" => init_decl = Some(child),
+                            _ => {}
                         }
                     }
 
-                    // Otherwise, use the identifier sibling
-                    if let Some(name_node) = class_name_identifier {
-                        let class_name = &source[name_node.byte_range()];
-                        log::info!("Real class name from identifier: '{}'", class_name);
-                        return self.parse_class_with_export_macro_from_text(
-                            class_node, class_name, body, source, file_id, false
-                        ).map(Declaration::Class);
-                    }
+                    // Determine class name and base classes
+                    let (class_name, bases) = if !all_error_nodes.is_empty() {
+                        let first_error = &source[all_error_nodes[0].byte_range()];
+                        eprintln!("  -> First ERROR: '{}'", first_error);
 
-                    // Fallback: use the old method if no identifier found
-                    return self.parse_class(class_node, source, file_id, false).map(Declaration::Class);
+                        if first_error.trim().starts_with(':') {
+                            // Pattern 1: ERROR = ": public Base[, Base2...]", identifier = ClassName
+                            // Reconstruct base class list from all siblings
+                            let base_start = all_error_nodes[0].start_byte();
+                            let base_end = if let Some(ref init) = init_decl {
+                                init.start_byte()
+                            } else if let Some(last) = all_identifiers.last() {
+                                last.end_byte()
+                            } else {
+                                all_error_nodes.last().unwrap().end_byte()
+                            };
+                            let (bases, base_text_debug) = if base_end as usize > base_start as usize {
+                                let base_text = &source[base_start as usize..base_end as usize];
+                                (self.parse_bases_from_text(base_text, file_id, base_start as u32), base_text.to_string())
+                            } else {
+                                (Vec::new(), String::new())
+                            };
+
+                            let name = all_identifiers.first()
+                                .map(|n| &source[n.byte_range()])
+                                .unwrap_or("UnknownClass");
+
+                            eprintln!("  -> Pattern 1: class='{}', {} bases from text: '{}'", name, bases.len(), base_text_debug.trim());
+                            (name.to_string(), bases)
+                        } else {
+                            // Pattern 2: ERROR = "ClassName : public[...]", followed by base classes
+                            let class_name = first_error.split(':').next()
+                                .map(|s| s.trim())
+                                .unwrap_or("UnknownClass");
+
+                            // Reconstruct base class text from first ERROR onwards
+                            let base_start = if let Some(colon_pos) = first_error.find(':') {
+                                all_error_nodes[0].start_byte() as usize + colon_pos
+                            } else {
+                                all_error_nodes[0].end_byte() as usize
+                            };
+
+                            let base_end = if let Some(ref init) = init_decl {
+                                init.end_byte() as usize
+                            } else if let Some(last) = all_identifiers.last() {
+                                last.end_byte() as usize
+                            } else if all_error_nodes.len() > 1 {
+                                all_error_nodes.last().unwrap().end_byte() as usize
+                            } else {
+                                all_error_nodes[0].end_byte() as usize
+                            };
+
+                            if base_end > base_start {
+                                let base_text = &source[base_start..base_end];
+                                let bases = self.parse_bases_from_text(base_text, file_id, base_start as u32);
+                                eprintln!("  -> Pattern 2: class='{}', {} bases from text: '{}'", class_name, bases.len(), base_text.trim());
+                                (class_name.to_string(), bases)
+                            } else {
+                                eprintln!("  -> Pattern 2: class='{}', no bases", class_name);
+                                (class_name.to_string(), Vec::new())
+                            }
+                        }
+                    } else if !all_identifiers.is_empty() {
+                        let name = &source[all_identifiers[0].byte_range()];
+                        eprintln!("  -> No ERROR, using first identifier: '{}'", name);
+                        (name.to_string(), Vec::new())
+                    } else {
+                        eprintln!("  -> No ERROR or identifiers!");
+                        ("UnknownClass".to_string(), Vec::new())
+                    };
+
+                    // Parse with base classes
+                    return self.parse_class_with_export_macro_and_bases(
+                        class_node, &class_name, bases, body, source, file_id, false
+                    ).map(Declaration::Class);
                 }
 
                 if let Some(struct_node) = struct_spec {
+                    eprintln!("  -> Found struct_specifier, parsing as struct");
                     log::info!("Found struct_specifier inside function_definition (export macro confusion)");
 
-                    // If there's an ERROR node, the struct name is likely in there
-                    if let Some(err_node) = error_node {
+                    // Determine struct name and base classes from ERROR node and identifier
+                    let (struct_name, bases) = if let Some(err_node) = error_node {
                         let err_text = &source[err_node.byte_range()];
+                        eprintln!("  -> ERROR node contains: '{}'", err_text);
                         log::info!("Found ERROR node: '{}'", err_text);
 
-                        if let Some(struct_name) = err_text.split(':').next().map(|s| s.trim()) {
-                            if !struct_name.is_empty() {
-                                log::info!("Extracted struct name from ERROR node: '{}'", struct_name);
-                                return self.parse_class_with_export_macro_from_text(
-                                    struct_node, struct_name, body, source, file_id, true
-                                ).map(Declaration::Struct);
+                        if err_text.trim().starts_with(':') {
+                            // Pattern 1: ERROR = ": public Base", identifier = StructName
+                            let bases = self.parse_bases_from_text(err_text, file_id, err_node.start_byte() as u32);
+                            let name = if let Some(name_node) = class_name_identifier {
+                                &source[name_node.byte_range()]
+                            } else {
+                                "UnknownStruct"
+                            };
+                            eprintln!("  -> Pattern 1: struct='{}', bases from ERROR", name);
+                            (name.to_string(), bases)
+                        } else {
+                            // Pattern 2: ERROR = "StructName : public", identifier = BaseName
+                            let struct_name = err_text.split(':').next()
+                                .map(|s| s.trim())
+                                .unwrap_or("UnknownStruct");
+
+                            let mut bases = Vec::new();
+                            if let Some(colon_pos) = err_text.find(':') {
+                                let after_colon = &err_text[colon_pos..];
+                                if let Some(name_node) = class_name_identifier {
+                                    let base_name = &source[name_node.byte_range()];
+                                    let full_base = format!("{} {}", after_colon.trim(), base_name);
+                                    eprintln!("  -> Pattern 2: Parsing base from: '{}'", full_base);
+                                    // Note: full_base is synthetic, so we use name_node's position for approximate spans
+                                    bases = self.parse_bases_from_text(&full_base, file_id, name_node.start_byte() as u32);
+                                }
                             }
+                            eprintln!("  -> Pattern 2: struct='{}', {} bases", struct_name, bases.len());
+                            (struct_name.to_string(), bases)
                         }
-                    }
+                    } else if let Some(name_node) = class_name_identifier {
+                        let name = &source[name_node.byte_range()];
+                        eprintln!("  -> No ERROR node, using identifier: '{}'", name);
+                        (name.to_string(), Vec::new())
+                    } else {
+                        eprintln!("  -> No ERROR or identifier!");
+                        ("UnknownStruct".to_string(), Vec::new())
+                    };
 
-                    // Otherwise, use the identifier sibling
-                    if let Some(name_node) = class_name_identifier {
-                        let struct_name = &source[name_node.byte_range()];
-                        log::info!("Real struct name from identifier: '{}'", struct_name);
-                        return self.parse_class_with_export_macro_from_text(
-                            struct_node, struct_name, body, source, file_id, true
-                        ).map(Declaration::Struct);
-                    }
-
-                    // Fallback: use the old method if no identifier found
-                    return self.parse_class(struct_node, source, file_id, true).map(Declaration::Struct);
+                    // Parse with base classes
+                    return self.parse_class_with_export_macro_and_bases(
+                        struct_node, &struct_name, bases, body, source, file_id, true
+                    ).map(Declaration::Struct);
                 }
 
                 // Actually a function
@@ -223,32 +360,116 @@ impl CppParser {
             "declaration" => {
                 // Check if this is a class/struct declaration with export macro
                 // Pattern: declaration { class_specifier("class EXPORT"), init_declarator("ClassName : Base { }") }
+                // Or with multiple bases: class_specifier, ERROR nodes, identifiers, init_declarator
                 let mut cursor = node.walk();
                 let mut class_spec = None;
                 let mut struct_spec = None;
                 let mut init_declarator = None;
+                let mut has_error_or_ident = false;
 
+                eprintln!("parse_declaration: 'declaration' node at {}..{}", node.start_byte(), node.end_byte());
                 for child in node.children(&mut cursor) {
+                    eprintln!("  child: kind='{}' at {}..{}", child.kind(), child.start_byte(), child.end_byte());
                     match child.kind() {
                         "class_specifier" => class_spec = Some(child),
                         "struct_specifier" => struct_spec = Some(child),
                         "init_declarator" => init_declarator = Some(child),
+                        "ERROR" | "identifier" => has_error_or_ident = true,
                         _ => {}
                     }
                 }
 
-                // If we have class_specifier + init_declarator, parse as class with export macro
-                if let (Some(_class_node), Some(init_node)) = (class_spec, init_declarator) {
-                    log::info!("Found class with export macro (declaration + init_declarator pattern)");
-                    return self.parse_class_from_init_declarator(init_node, source, file_id, false)
-                        .map(Declaration::Class);
+                // If we have class_specifier + init_declarator (simple case, single base or no bases)
+                if let (Some(class_node), Some(init_node)) = (class_spec, init_declarator) {
+                    if !has_error_or_ident {
+                        eprintln!("  -> Taking simple init_declarator path for class");
+                        log::info!("Found class with export macro (declaration + init_declarator pattern)");
+                        return self.parse_class_from_init_declarator(init_node, source, file_id, false)
+                            .map(Declaration::Class);
+                    } else {
+                        eprintln!("  -> Has ERROR/identifiers, parsing with multiple base class logic");
+                        // Multiple base classes - collect all relevant nodes
+                        let mut all_error_nodes = Vec::new();
+                        let mut all_identifiers = Vec::new();
+                        let mut body_node = None;
+                        let mut last_base_name_end = None;
+
+                        let mut child_cursor = node.walk();
+                        for child in node.children(&mut child_cursor) {
+                            match child.kind() {
+                                "ERROR" => all_error_nodes.push(child),
+                                "identifier" => all_identifiers.push(child),
+                                "init_declarator" => {
+                                    // Extract identifier and body from init_declarator
+                                    let mut init_cursor = child.walk();
+                                    for init_child in child.children(&mut init_cursor) {
+                                        match init_child.kind() {
+                                            "identifier" => {
+                                                // This is the last base class name
+                                                all_identifiers.push(init_child);
+                                                last_base_name_end = Some(init_child.end_byte() as usize);
+                                            }
+                                            "initializer_list" | "compound_statement" => {
+                                                body_node = Some(init_child);
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        // Extract class name and bases using the same logic as function_definition handler
+                        let (class_name, bases) = if !all_error_nodes.is_empty() {
+                            let first_error = &source[all_error_nodes[0].byte_range()];
+                            let class_name = first_error.split(':').next()
+                                .map(|s| s.trim())
+                                .unwrap_or("UnknownClass");
+
+                            // Reconstruct base class text
+                            let base_start = if let Some(colon_pos) = first_error.find(':') {
+                                all_error_nodes[0].start_byte() as usize + colon_pos
+                            } else {
+                                all_error_nodes[0].end_byte() as usize
+                            };
+
+                            // Use the last base name end position if we have it, otherwise use init_declarator start
+                            let base_end = if let Some(end) = last_base_name_end {
+                                end
+                            } else if let Some(ref init) = init_declarator {
+                                init.start_byte() as usize  // Just before the init_declarator
+                            } else if let Some(last) = all_identifiers.last() {
+                                last.end_byte() as usize
+                            } else {
+                                all_error_nodes[0].end_byte() as usize
+                            };
+
+                            let bases = if base_end > base_start {
+                                let base_text = &source[base_start..base_end];
+                                self.parse_bases_from_text(base_text, file_id, base_start as u32)
+                            } else {
+                                Vec::new()
+                            };
+
+                            (class_name.to_string(), bases)
+                        } else {
+                            ("UnknownClass".to_string(), Vec::new())
+                        };
+
+                        return self.parse_class_with_export_macro_and_bases(
+                            class_node, &class_name, bases, body_node, source, file_id, false
+                        ).map(Declaration::Class);
+                    }
                 }
 
-                // If we have struct_specifier + init_declarator, parse as struct with export macro
+                // If we have struct_specifier + init_declarator
                 if let (Some(_struct_node), Some(init_node)) = (struct_spec, init_declarator) {
-                    log::info!("Found struct with export macro (declaration + init_declarator pattern)");
-                    return self.parse_class_from_init_declarator(init_node, source, file_id, true)
-                        .map(Declaration::Struct);
+                    if !has_error_or_ident {
+                        log::info!("Found struct with export macro (declaration + init_declarator pattern)");
+                        return self.parse_class_from_init_declarator(init_node, source, file_id, true)
+                            .map(Declaration::Struct);
+                    }
                 }
 
                 // If only class_specifier without init_declarator (old pattern)
@@ -370,6 +591,28 @@ impl CppParser {
                         name = Some(func_name);
                         name_span = func_name_span;
                         parameters = params;
+                    }
+                }
+                // For pointer return types, tree-sitter wraps function_declarator in pointer_declarator
+                "pointer_declarator" | "reference_declarator" if name.is_none() => {
+                    // Look for function_declarator inside
+                    let mut decl_cursor = child.walk();
+                    for decl_child in child.children(&mut decl_cursor) {
+                        if decl_child.kind() == "function_declarator" {
+                            if let Some((func_name, func_name_span, params)) = self.parse_function_declarator(decl_child, source, file_id) {
+                                name = Some(func_name);
+                                name_span = func_name_span;
+                                parameters = params;
+
+                                // Update return type to be a pointer/reference
+                                if child.kind() == "pointer_declarator" {
+                                    return_type = Type::Pointer(Box::new(return_type), crate::ast::PointerKind::Raw);
+                                } else {
+                                    return_type = Type::Reference(Box::new(return_type), crate::ast::ReferenceKind::LValue);
+                                }
+                                break;
+                            }
+                        }
                     }
                 }
                 // Type qualifiers after parameters (const, override, final)
@@ -633,6 +876,51 @@ impl CppParser {
     }
 
     /// Parse a class that was misidentified as a function_definition due to export macros
+    /// Parse class with export macro and pre-parsed base classes
+    fn parse_class_with_export_macro_and_bases(
+        &mut self,
+        class_spec_node: Node,
+        class_name: &str,
+        bases: Vec<crate::ast::BaseClass>,
+        body_node: Option<Node>,
+        source: &str,
+        file_id: FileId,
+        is_struct: bool,
+    ) -> Option<ClassDecl> {
+        // Use the provided class name
+        let name = self.interner.write().intern(class_name);
+
+        // Extract doc comment from the class_specifier node
+        let doc_comment = self.extract_doc_comment(class_spec_node, source);
+
+        // Parse class members from the compound_statement (body)
+        let members = if let Some(body) = body_node {
+            self.parse_class_members(body, source, file_id, is_struct)
+        } else {
+            Vec::new()
+        };
+
+        // Calculate span: from class_specifier start to body end (or class_spec end if no body)
+        let start = class_spec_node.start_byte();
+        let end = body_node
+            .map(|b| b.end_byte())
+            .unwrap_or_else(|| class_spec_node.end_byte() + class_name.len());
+        let span = Span::new(file_id, start as u32, end as u32);
+
+        eprintln!("  -> Created class '{}' with {} bases and {} members", class_name, bases.len(), members.len());
+
+        Some(ClassDecl {
+            name,
+            span,
+            access: if is_struct { AccessSpecifier::Public } else { AccessSpecifier::Private },
+            bases,
+            members,
+            is_struct,
+            template_params: None,
+            doc_comment,
+        })
+    }
+
     /// Example: "class EXPORT_API ClassName : Base { ... }" is parsed as function_definition with:
     /// - class_specifier: "class EXPORT_API"
     /// - ERROR or identifier: contains "ClassName" (the real class name!)
@@ -724,7 +1012,7 @@ impl CppParser {
                     let error_text = &source[child.byte_range()];
                     if error_text.trim().starts_with(':') {
                         // Parse base classes from the ERROR text
-                        bases = self.parse_bases_from_text(error_text, file_id);
+                        bases = self.parse_bases_from_text(error_text, file_id, child.start_byte() as u32);
                     }
                 }
                 "field_declaration_list" | "compound_statement" | "initializer_list" => {
@@ -757,35 +1045,57 @@ impl CppParser {
     }
 
     /// Parse base classes from text (for ERROR nodes)
-    fn parse_bases_from_text(&mut self, text: &str, _file_id: FileId) -> Vec<crate::ast::BaseClass> {
+    fn parse_bases_from_text(&mut self, text: &str, file_id: FileId, text_offset: u32) -> Vec<crate::ast::BaseClass> {
         let mut bases = Vec::new();
 
         // Remove leading ':' and split by ','
-        let text = text.trim().trim_start_matches(':').trim();
+        let text = text.trim();
+        let trimmed_start = text.len() - text.trim_start_matches(':').trim().len();
+        let text = text.trim_start_matches(':').trim();
+
+        let mut current_offset = text_offset + trimmed_start as u32;
 
         for part in text.split(',') {
             let part = part.trim();
             if part.is_empty() {
+                // Skip empty parts but advance offset past the comma
+                current_offset += 1;
                 continue;
             }
+
+            // Find where this part starts in the original text
+            let part_offset = current_offset;
 
             // Parse "public Base" or "protected Base" or just "Base"
             let mut access = AccessSpecifier::Public;
             let mut base_name = part;
+            let mut base_name_offset = part_offset;
 
             if part.starts_with("public ") {
                 base_name = &part[7..];
+                base_name_offset = part_offset + 7;
             } else if part.starts_with("protected ") {
                 access = AccessSpecifier::Protected;
                 base_name = &part[10..];
+                base_name_offset = part_offset + 10;
             } else if part.starts_with("private ") {
                 access = AccessSpecifier::Private;
                 base_name = &part[8..];
+                base_name_offset = part_offset + 8;
             }
 
             base_name = base_name.trim();
+            // Adjust offset if there was whitespace trimmed
+            let trim_offset = (part.len() - part.trim_start().len()) as u32;
+            base_name_offset += trim_offset;
+
             if !base_name.is_empty() {
                 let interned = self.interner.write().intern(base_name);
+                let span = Span::new(
+                    file_id,
+                    base_name_offset,
+                    base_name_offset + base_name.len() as u32,
+                );
                 bases.push(crate::ast::BaseClass {
                     type_path: crate::ast::TypePath {
                         segments: vec![interned],
@@ -793,8 +1103,12 @@ impl CppParser {
                     },
                     access,
                     is_virtual: false,
+                    span,
                 });
             }
+
+            // Advance offset past this part and the comma
+            current_offset += part.len() as u32 + 1;
         }
 
         bases
@@ -810,6 +1124,7 @@ impl CppParser {
                 let mut access = AccessSpecifier::Public;
                 let mut is_virtual = false;
                 let mut type_path = None;
+                let mut type_span = None;
 
                 let mut spec_cursor = child.walk();
                 for spec_child in child.children(&mut spec_cursor) {
@@ -833,16 +1148,23 @@ impl CppParser {
                                 segments: vec![interned],
                                 is_global: false,
                             });
+                            // Capture the span of the type identifier
+                            type_span = Some(Span::new(
+                                file_id,
+                                spec_child.start_byte() as u32,
+                                spec_child.end_byte() as u32,
+                            ));
                         }
                         _ => {}
                     }
                 }
 
-                if let Some(tp) = type_path {
+                if let (Some(tp), Some(span)) = (type_path, type_span) {
                     bases.push(crate::ast::BaseClass {
                         type_path: tp,
                         access,
                         is_virtual,
+                        span,
                     });
                 }
             }
@@ -1052,6 +1374,15 @@ impl CppParser {
                 "field_declarator" | "declarator" => {
                     if let Some(id) = self.find_identifier(child, source) {
                         name = Some(id);
+                    }
+                }
+                // For fields with initializers like "int x = 42", tree-sitter creates init_declarator
+                "init_declarator" if name.is_none() => {
+                    // Find identifier inside init_declarator
+                    if let Some(id) = self.find_identifier(child, source) {
+                        name = Some(id);
+                        #[cfg(test)]
+                        eprintln!("    -> Extracted name from init_declarator: {}", self.interner.read().resolve(id));
                     }
                 }
                 // For field names, tree-sitter uses "field_identifier"
@@ -1356,6 +1687,81 @@ mod tests {
                 assert_eq!(cls.bases.len(), 1, "Should have 1 base class");
             }
             _ => panic!("Expected class"),
+        }
+    }
+
+    #[test]
+    fn test_multiple_base_classes() {
+        let interner = Arc::new(RwLock::new(Interner::new()));
+        let mut parser = CppParser::new(interner.clone()).unwrap();
+
+        // Test class with multiple base classes (including interfaces)
+        let source = r#"UCLASS()
+class OWF_MISSIONSYSTEM_API ATask : public AActor, public IMissionTask, public IDebugSettingsInterface
+{
+    GENERATED_BODY()
+public:
+    void Execute();
+};"#;
+        let file_id = FileId::new(1);
+
+        // First check tree structure
+        let tree = parser.parser.parse(source, None).unwrap();
+        let root = tree.root_node();
+
+        eprintln!("\n=== MULTIPLE BASE CLASSES TREE ===");
+        let mut cursor = root.walk();
+        for child in root.children(&mut cursor) {
+            let text = &source[child.byte_range()];
+            let preview = if text.len() > 60 { &text[..60] } else { text };
+            eprintln!("Top: kind='{}' text='{}'", child.kind(), preview);
+
+            let mut child_cursor = child.walk();
+            for grandchild in child.children(&mut child_cursor) {
+                let gc_text = &source[grandchild.byte_range()];
+                let gc_preview = if gc_text.len() > 60 { &gc_text[..60] } else { gc_text };
+                eprintln!("  kind='{}' text='{}'", grandchild.kind(), gc_preview);
+            }
+        }
+
+        let result = parser.parse(source, file_id);
+        assert!(result.is_ok());
+
+        let ast = result.unwrap();
+        assert_eq!(ast.declarations.len(), 1);
+
+        match &ast.declarations[0] {
+            crate::ast::Declaration::Class(cls) => {
+                let name = interner.read().resolve(cls.name);
+                assert_eq!(name, "ATask");
+
+                // Should have 3 base classes
+                eprintln!("\nClass: {} with {} bases", name, cls.bases.len());
+                for base in &cls.bases {
+                    let base_name = base.type_path.segments.iter()
+                        .map(|&s| interner.read().resolve(s))
+                        .collect::<Vec<_>>()
+                        .join("::");
+                    eprintln!("  Base: {}", base_name);
+                }
+
+                assert_eq!(cls.bases.len(), 3, "Should have 3 base classes");
+
+                // Check base class names
+                let base_names: Vec<String> = cls.bases.iter()
+                    .map(|b| interner.read().resolve(b.type_path.segments[0]).to_string())
+                    .collect();
+
+                eprintln!("\nBase names collected:");
+                for (i, name) in base_names.iter().enumerate() {
+                    eprintln!("  [{}]: '{}'", i, name);
+                }
+
+                assert!(base_names.contains(&"AActor".to_string()), "Missing AActor");
+                assert!(base_names.contains(&"IMissionTask".to_string()), "Missing IMissionTask");
+                assert!(base_names.contains(&"IDebugSettingsInterface".to_string()), "Missing IDebugSettingsInterface");
+            }
+            _ => panic!("Expected class declaration"),
         }
     }
 

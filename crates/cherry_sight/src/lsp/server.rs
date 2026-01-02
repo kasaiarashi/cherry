@@ -127,7 +127,11 @@ impl LspServer {
 
         match method {
             "initialize" => {
-                let _init_params: InitializeParams = from_value(params)?;
+                let init_params: InitializeParams = from_value(params)?;
+
+                // Store initialization parameters
+                self.handlers.handle_initialize(init_params);
+
                 let result = InitializeResult {
                     capabilities: ServerCapabilities {
                         text_document_sync: Some(TextDocumentSyncCapability::Options(
@@ -160,6 +164,10 @@ impl LspServer {
             }
             "initialized" => {
                 log::info!("Client confirmed initialization");
+                // Start project-wide indexing
+                if let Err(e) = self.handlers.handle_initialized() {
+                    log::error!("Project indexing failed: {}", e);
+                }
                 Ok(None)
             }
             "shutdown" => {
