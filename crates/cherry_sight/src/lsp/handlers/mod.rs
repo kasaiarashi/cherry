@@ -653,9 +653,9 @@ impl LspHandlers {
         }
     }
 
-    /// Handle initialized notification - start project-wide indexing
+    /// Handle initialized notification - start project-wide indexing in background
     pub fn handle_initialized(&self) -> Result<()> {
-        log::info!("Client confirmed initialization - starting project indexing");
+        log::info!("Client confirmed initialization - starting background indexing");
 
         let workspace_root = self.workspace_root.read().clone();
         if let Some(root) = workspace_root {
@@ -673,10 +673,31 @@ impl LspHandlers {
             };
 
             if let Some(path) = root_path {
-                log::info!("Starting project-wide indexing from: {}", path.display());
-                self.index_project(&path)?;
-                *self.indexing_complete.write() = true;
-                log::info!("Project indexing complete!");
+                log::info!("Spawning background indexing task from: {}", path.display());
+
+                // Clone what we need for the background task
+                let handlers = Self {
+                    database: self.database.clone(),
+                    symbol_table: self.symbol_table.clone(),
+                    interner: self.interner.clone(),
+                    name_resolutions: self.name_resolutions.clone(),
+                    type_info: self.type_info.clone(),
+                    workspace_root: self.workspace_root.clone(),
+                    indexing_complete: self.indexing_complete.clone(),
+                    notification_tx: self.notification_tx.clone(),
+                    include_cache: self.include_cache.clone(),
+                };
+
+                // Spawn indexing in background thread (not async task to avoid blocking tokio runtime)
+                std::thread::spawn(move || {
+                    log::info!("Background indexing thread started");
+                    if let Err(e) = handlers.index_project(&path) {
+                        log::error!("Background indexing failed: {}", e);
+                    } else {
+                        *handlers.indexing_complete.write() = true;
+                        log::info!("Background indexing complete!");
+                    }
+                });
             }
         } else {
             log::warn!("No workspace root - skipping project indexing");
@@ -687,31 +708,47 @@ impl LspHandlers {
 
     /// Send a progress notification to the client
     fn send_progress(&self, token: &str, kind: &str, title: Option<&str>, message: Option<&str>, percentage: Option<u32>) {
-        let mut params = serde_json::Map::new();
-        params.insert("token".to_string(), Value::String(token.to_string()));
+        let value = match kind {
+            "begin" => {
+                serde_json::json!({
+                    "kind": "begin",
+                    "title": title.unwrap_or("CherrySight"),
+                    "message": message,
+                    "percentage": percentage,
+                })
+            }
+            "report" => {
+                serde_json::json!({
+                    "kind": "report",
+                    "message": message,
+                    "percentage": percentage,
+                })
+            }
+            "end" => {
+                serde_json::json!({
+                    "kind": "end",
+                    "message": message,
+                })
+            }
+            _ => return,
+        };
 
-        let mut value = serde_json::Map::new();
-        value.insert("kind".to_string(), Value::String(kind.to_string()));
-
-        if let Some(t) = title {
-            value.insert("title".to_string(), Value::String(t.to_string()));
-        }
-        if let Some(m) = message {
-            value.insert("message".to_string(), Value::String(m.to_string()));
-        }
-        if let Some(p) = percentage {
-            value.insert("percentage".to_string(), Value::Number(p.into()));
-        }
-
-        params.insert("value".to_string(), Value::Object(value));
+        let params = serde_json::json!({
+            "token": token,
+            "value": value,
+        });
 
         let notification = Notification {
             method: "$/progress".to_string(),
-            params: Value::Object(params),
+            params,
         };
 
-        // Send notification (ignore errors since it's non-critical)
-        let _ = self.notification_tx.send(notification);
+        // Send notification (log if it fails)
+        if let Err(e) = self.notification_tx.send(notification) {
+            log::warn!("Failed to send progress notification: {}", e);
+        } else {
+            log::debug!("Sent progress notification: {} - {:?}", kind, message);
+        }
     }
 
     /// Index all C++ files in the project (with parallel processing)
@@ -720,14 +757,14 @@ impl LspHandlers {
         use std::fs;
         use std::sync::atomic::{AtomicUsize, Ordering};
 
-        // Progress token
-        let token = "cherry-sight-indexing";
+        // Progress token - use a unique identifier
+        let token = "cherry-sight-index";
 
-        // Send begin progress
+        // Send begin progress with clear title
         self.send_progress(
             token,
             "begin",
-            Some("CherrySight"),
+            Some("Indexing Project"),
             Some("Discovering header files..."),
             Some(0),
         );
