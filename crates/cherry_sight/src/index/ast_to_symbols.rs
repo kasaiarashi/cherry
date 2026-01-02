@@ -132,7 +132,20 @@ impl AstSymbolBuilder {
         symbol.flags.is_final = func.is_final;
         symbol.flags.is_inline = func.is_inline;
 
-        table.add_symbol(symbol);
+        let function_id = table.add_symbol(symbol);
+        drop(table);
+
+        // Create parameter symbols as children of the function
+        for param in &func.parameters {
+            if let Some(param_name) = param.name {
+                let mut table = self.symbol_table.write();
+                let param_id = table.next_id();
+                let mut param_symbol = Symbol::new(param_id, SymbolKind::Parameter, param_name, param.span, file_id);
+                param_symbol.parent = Some(function_id);
+                param_symbol.symbol_type = Some(Arc::new(param.ty.clone()));
+                table.add_symbol(param_symbol);
+            }
+        }
     }
 
     fn process_variable(&mut self, var: &VariableDecl, parent: Option<crate::index::symbol::SymbolId>, file_id: FileId) {
