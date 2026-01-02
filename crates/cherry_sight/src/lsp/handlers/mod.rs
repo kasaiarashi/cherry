@@ -539,11 +539,44 @@ impl LspHandlers {
                         self.name_resolutions.write().insert(file_id, Arc::new(name_resolution));
                         self.type_info.write().insert(file_id, Arc::new(types));
 
-                        // IMPLEMENTATION MATCHING: If this is a .cpp file, match implementations to declarations
+                        // IMPLEMENTATION MATCHING
                         log::info!("File {} is_cpp_impl={}", uri, is_cpp_impl);
                         if is_cpp_impl {
-                            log::info!("=== TRIGGERING IMPLEMENTATION MATCHING FOR {} ===", uri);
+                            // .cpp file opened - match its implementations to any existing .h declarations
+                            log::info!("=== TRIGGERING IMPLEMENTATION MATCHING FOR {} (cpp opened) ===", uri);
                             self.match_implementations_to_declarations(file_id);
+                        } else if let Some(ext) = path.extension() {
+                            // .h file opened - check if there are any .cpp files that need matching
+                            if ext == "h" || ext == "hpp" || ext == "hxx" {
+                                log::info!("=== HEADER FILE OPENED: {} ===", uri);
+                                log::info!("Checking for corresponding .cpp files to rematch...");
+
+                                // Find all .cpp files in the database and re-match them
+                                let cpp_file_ids: Vec<FileId> = {
+                                    let db = &self.database;
+                                    (0..1000).filter_map(|i| {
+                                        let fid = FileId::new(i);
+                                        if let Some(src) = db.get_source_file(fid) {
+                                            if let Some(e) = src.path.extension() {
+                                                if e == "cpp" || e == "cc" || e == "cxx" {
+                                                    Some(fid)
+                                                } else {
+                                                    None
+                                                }
+                                            } else {
+                                                None
+                                            }
+                                        } else {
+                                            None
+                                        }
+                                    }).collect()
+                                };
+
+                                log::info!("Found {} .cpp files to rematch", cpp_file_ids.len());
+                                for cpp_fid in cpp_file_ids {
+                                    self.match_implementations_to_declarations(cpp_fid);
+                                }
+                            }
                         }
                     }
                     Err(e) => {
