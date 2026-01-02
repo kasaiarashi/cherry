@@ -406,11 +406,17 @@ impl LspHandlers {
         let path = params.text_document.uri.to_file_path()
             .unwrap_or_else(|_| std::path::PathBuf::from(&uri));
 
+        // CRITICAL: Remove old symbols if this file was already indexed
+        // This ensures LSP works when switching between files
+        self.symbol_table.write().remove_file_symbols(file_id);
+        self.name_resolutions.write().remove(&file_id);
+        self.type_info.write().remove(&file_id);
+
         // Add to database
         self.database.add_source_file(file_id, path.clone(), content.clone());
 
         // Full semantic analysis pipeline
-        log::info!("Parsing and analyzing file: {} (FileId: {:?})", uri, file_id);
+        log::warn!("CherrySight: Analyzing {} (FileId: {:?})", uri, file_id);
         match CppParser::new(self.interner.clone()) {
             Ok(mut parser) => {
                 match parser.parse(&content, file_id) {
@@ -672,8 +678,9 @@ impl LspHandlers {
 
         // Index each file
         for (idx, file_path) in files_to_index.iter().enumerate() {
-            if idx % 10 == 0 {
-                log::info!("Indexing progress: {}/{}", idx, files_to_index.len());
+            // Log every 10 files for progress tracking
+            if idx % 10 == 0 || idx == files_to_index.len() - 1 {
+                log::warn!("CherrySight: Indexing {}/{} files...", idx + 1, files_to_index.len());
             }
 
             match fs::read_to_string(file_path) {
@@ -826,12 +833,17 @@ impl LspHandlers {
                 std::path::PathBuf::from(root)
             };
 
-            // Search in common UE5 directories
-            let search_paths = vec![
+            // Search in common UE5 project directories
+            let mut search_paths = vec![
                 root_path.join("Source"),
                 root_path.join("Plugins"),
                 root_path.clone(),
             ];
+
+            // Add UE5 engine source paths
+            if let Some(engine_paths) = self.get_ue5_engine_paths() {
+                search_paths.extend(engine_paths);
+            }
 
             for search_path in search_paths {
                 if let Ok(found) = self.search_for_include(&search_path, include_path) {
@@ -841,6 +853,55 @@ impl LspHandlers {
         }
 
         None
+    }
+
+    /// Get UE5 engine source paths from common install locations
+    fn get_ue5_engine_paths(&self) -> Option<Vec<std::path::PathBuf>> {
+        let mut paths = Vec::new();
+
+        // Try UE_ROOT environment variable first
+        if let Ok(ue_root) = std::env::var("UE_ROOT") {
+            let engine_path = std::path::PathBuf::from(ue_root);
+            paths.push(engine_path.join("Engine/Source/Runtime"));
+            paths.push(engine_path.join("Engine/Source/Editor"));
+            paths.push(engine_path.join("Engine/Source/Developer"));
+            paths.push(engine_path.join("Engine/Plugins"));
+            paths.push(engine_path.join("Engine/Source"));
+        }
+
+        // Try common Windows install locations
+        let common_locations = vec![
+            "C:/Program Files/Epic Games",
+            "D:/Program Files/Epic Games",
+            "W:/Softwares",
+        ];
+
+        for base in common_locations {
+            let base_path = std::path::Path::new(base);
+            if base_path.exists() {
+                // Look for UE_5.x directories
+                if let Ok(entries) = std::fs::read_dir(base_path) {
+                    for entry in entries.filter_map(|e| e.ok()) {
+                        let name = entry.file_name();
+                        let name_str = name.to_string_lossy();
+                        if name_str.starts_with("UE_5") || name_str.starts_with("UnrealEngine-5") {
+                            let engine_path = entry.path();
+                            paths.push(engine_path.join("Engine/Source/Runtime"));
+                            paths.push(engine_path.join("Engine/Source/Editor"));
+                            paths.push(engine_path.join("Engine/Source/Developer"));
+                            paths.push(engine_path.join("Engine/Plugins"));
+                            paths.push(engine_path.join("Engine/Source"));
+                        }
+                    }
+                }
+            }
+        }
+
+        if paths.is_empty() {
+            None
+        } else {
+            Some(paths)
+        }
     }
 
     /// Recursively search for an include file
