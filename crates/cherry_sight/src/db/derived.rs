@@ -5,6 +5,8 @@
 use crate::ast::{ParseError, TranslationUnit};
 use crate::db::SourceFile;
 use crate::parser::CppParser;
+use crate::util::Interner;
+use parking_lot::RwLock;
 use std::sync::Arc;
 
 /// Parse a source file into a translation unit
@@ -12,8 +14,10 @@ pub fn parse(source: &SourceFile) -> Arc<TranslationUnit> {
     let content = &source.content;
     let file_id = source.file_id;
 
-    // Parse the source code
-    let mut parser = CppParser::new().expect("Failed to create parser");
+    // Parse the source code with a temporary interner
+    // Note: For LSP usage, use the shared interner via LspHandlers instead
+    let interner = Arc::new(RwLock::new(Interner::new()));
+    let mut parser = CppParser::new(interner).expect("Failed to create parser");
     let result = parser.parse(content, file_id).expect("Failed to parse");
 
     Arc::new(result)

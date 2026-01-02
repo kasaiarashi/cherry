@@ -26,6 +26,7 @@ pub mod performance;
 pub mod error_recovery;
 pub mod blueprint;
 pub mod project_analysis;
+pub mod semantic;
 
 // Re-export commonly used types
 pub use ast::{TranslationUnit, Declaration};

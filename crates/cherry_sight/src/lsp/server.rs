@@ -44,12 +44,25 @@ impl LspServer {
         let mut stdin = tokio::io::BufReader::new(stdin);
         let mut stdout = tokio::io::stdout();
 
+        log::info!("LSP server ready, waiting for messages on stdin...");
+
         loop {
             // Read Content-Length header
             let mut header = String::new();
-            if stdin.read_line(&mut header).await? == 0 {
-                log::info!("EOF on stdin, shutting down");
-                break;
+            log::info!("Waiting to read next message...");
+
+            match stdin.read_line(&mut header).await {
+                Ok(0) => {
+                    log::info!("EOF on stdin, shutting down");
+                    break;
+                }
+                Ok(n) => {
+                    log::info!("Read {} bytes for header: {:?}", n, header);
+                }
+                Err(e) => {
+                    log::error!("Error reading header: {}", e);
+                    return Err(e.into());
+                }
             }
 
             let content_length = header
@@ -58,6 +71,8 @@ impl LspServer {
                 .context("Missing Content-Length header")?
                 .parse::<usize>()
                 .context("Invalid Content-Length")?;
+
+            log::info!("Content-Length: {}", content_length);
 
             // Read empty line
             let mut empty = String::new();
@@ -68,23 +83,31 @@ impl LspServer {
             tokio::io::AsyncReadExt::read_exact(&mut stdin, &mut body).await?;
 
             let message = String::from_utf8(body)?;
-            log::debug!("Received: {}", message);
+            log::info!("Received message: {}", message);
 
             // Parse JSON-RPC message
             let json: Value = serde_json::from_str(&message)?;
 
             // Handle the message
-            if let Some(response) = self.handle_message(json).await? {
-                let response_str = to_string(&response)?;
-                log::debug!("Sending: {}", response_str);
+            match self.handle_message(json).await {
+                Ok(Some(response)) => {
+                    let response_str = to_string(&response)?;
+                    log::info!("Sending response: {}", response_str);
 
-                // Write response
-                let response_bytes = response_str.as_bytes();
-                stdout
-                    .write_all(format!("Content-Length: {}\r\n\r\n", response_bytes.len()).as_bytes())
-                    .await?;
-                stdout.write_all(response_bytes).await?;
-                stdout.flush().await?;
+                    // Write response
+                    let response_bytes = response_str.as_bytes();
+                    stdout
+                        .write_all(format!("Content-Length: {}\r\n\r\n", response_bytes.len()).as_bytes())
+                        .await?;
+                    stdout.write_all(response_bytes).await?;
+                    stdout.flush().await?;
+                }
+                Ok(None) => {
+                    log::info!("No response to send (notification handled)");
+                }
+                Err(e) => {
+                    log::error!("Error handling message: {}", e);
+                }
             }
         }
 
@@ -100,7 +123,7 @@ impl LspServer {
         let id = message.get("id").cloned();
         let params = message.get("params").cloned().unwrap_or(Value::Null);
 
-        log::debug!("Method: {}, ID: {:?}", method, id);
+        log::info!("Handling method: {}, ID: {:?}", method, id);
 
         match method {
             "initialize" => {

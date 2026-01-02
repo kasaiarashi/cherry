@@ -126,6 +126,11 @@ impl SymbolTable {
         &self.global_symbols
     }
 
+    /// Get all symbol IDs
+    pub fn all_symbols(&self) -> impl Iterator<Item = SymbolId> + '_ {
+        self.symbols.keys().copied()
+    }
+
     /// Get children of a symbol
     pub fn children(&self, parent_id: SymbolId) -> Vec<SymbolId> {
         self.symbols

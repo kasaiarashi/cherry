@@ -149,6 +149,7 @@ mod tests {
                     members: vec![],
                     is_struct: false,
                     template_params: None,
+                    doc_comment: None,
                 }),
                 Declaration::Function(FunctionDecl {
                     name: lasso::Spur::default(),
@@ -162,6 +163,7 @@ mod tests {
                     is_final: false,
                     is_inline: false,
                     body: None,
+                    doc_comment: None,
                 }),
             ],
             errors: vec![],

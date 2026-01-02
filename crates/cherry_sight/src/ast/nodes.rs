@@ -56,6 +56,7 @@ pub struct ClassDecl {
     pub members: Vec<ClassMember>,
     pub is_struct: bool, // true if declared with 'struct' keyword
     pub template_params: Option<Vec<TemplateParam>>,
+    pub doc_comment: Option<String>,
 }
 
 /// Base class specification
@@ -123,6 +124,7 @@ pub struct FunctionDecl {
     pub is_final: bool,
     pub is_inline: bool,
     pub body: Option<FunctionBody>,
+    pub doc_comment: Option<String>,
 }
 
 /// Function parameter
@@ -134,11 +136,11 @@ pub struct Parameter {
     pub span: Span,
 }
 
-/// Function body (simplified for now)
+/// Function body
 #[derive(Debug, Clone)]
 pub struct FunctionBody {
     pub span: Span,
-    // Body content is tracked by span, actual statements parsed later
+    pub statements: Vec<Stmt>,
 }
 
 /// Constructor declaration
@@ -333,17 +335,27 @@ pub struct Expr {
 
 #[derive(Debug, Clone)]
 pub enum ExprKind {
+    // Literals
     Literal(Literal),
+
+    // Names and paths
     Identifier(InternedString),
+    QualifiedName(TypePath),
+
+    // Function calls and invocations
     Call {
         callee: Box<Expr>,
         args: Vec<Expr>,
     },
+
+    // Member access
     MemberAccess {
         object: Box<Expr>,
         member: InternedString,
-        is_arrow: bool,
+        is_arrow: bool, // true for ->, false for .
     },
+
+    // Operators
     Binary {
         op: BinaryOp,
         left: Box<Expr>,
@@ -353,8 +365,80 @@ pub enum ExprKind {
         op: UnaryOp,
         operand: Box<Expr>,
     },
-    // Simplified - expand in later phases
-    Other,
+
+    // Increment/decrement
+    PostIncrement(Box<Expr>),
+    PostDecrement(Box<Expr>),
+    PreIncrement(Box<Expr>),
+    PreDecrement(Box<Expr>),
+
+    // Assignment
+    Assign {
+        left: Box<Expr>,
+        right: Box<Expr>,
+    },
+    CompoundAssign {
+        op: BinaryOp,
+        left: Box<Expr>,
+        right: Box<Expr>,
+    },
+
+    // Conditional
+    Ternary {
+        condition: Box<Expr>,
+        then_expr: Box<Expr>,
+        else_expr: Box<Expr>,
+    },
+
+    // Type operations
+    Cast {
+        ty: Type,
+        expr: Box<Expr>,
+    },
+    SizeOf(Box<Type>),
+    SizeOfExpr(Box<Expr>),
+    AlignOf(Box<Type>),
+    TypeId(Box<Type>),
+
+    // Array/subscript
+    Index {
+        array: Box<Expr>,
+        index: Box<Expr>,
+    },
+
+    // Lambda
+    Lambda {
+        captures: Vec<LambdaCapture>,
+        params: Vec<Parameter>,
+        return_type: Option<Type>,
+        body: Vec<Stmt>,
+    },
+
+    // Constructors
+    NewExpr {
+        ty: Type,
+        args: Vec<Expr>,
+        is_array: bool,
+    },
+    DeleteExpr {
+        expr: Box<Expr>,
+        is_array: bool,
+    },
+
+    // Initializer list
+    InitializerList(Vec<Expr>),
+
+    // Parenthesized expression
+    Paren(Box<Expr>),
+
+    // Comma operator
+    Comma(Vec<Expr>),
+
+    // This pointer
+    This,
+
+    // Error placeholder
+    Error,
 }
 
 #[derive(Debug, Clone)]
@@ -367,14 +451,135 @@ pub enum Literal {
     Nullptr,
 }
 
+/// Lambda capture
+#[derive(Debug, Clone)]
+pub struct LambdaCapture {
+    pub name: InternedString,
+    pub kind: CaptureKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CaptureKind {
+    ByValue,
+    ByReference,
+    ByMove,
+}
+
+/// Statement
+#[derive(Debug, Clone)]
+pub struct Stmt {
+    pub span: Span,
+    pub kind: StmtKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum StmtKind {
+    // Declarations
+    VarDecl {
+        name: InternedString,
+        ty: Option<Type>,
+        init: Option<Expr>,
+    },
+
+    // Expression statement
+    Expr(Expr),
+
+    // Control flow
+    If {
+        condition: Expr,
+        then_block: Vec<Stmt>,
+        else_block: Option<Vec<Stmt>>,
+    },
+    While {
+        condition: Expr,
+        body: Vec<Stmt>,
+    },
+    DoWhile {
+        body: Vec<Stmt>,
+        condition: Expr,
+    },
+    For {
+        init: Option<Box<Stmt>>,
+        condition: Option<Expr>,
+        increment: Option<Expr>,
+        body: Vec<Stmt>,
+    },
+    RangeFor {
+        var: InternedString,
+        ty: Option<Type>,
+        range: Expr,
+        body: Vec<Stmt>,
+    },
+    Switch {
+        condition: Expr,
+        cases: Vec<SwitchCase>,
+    },
+
+    // Jump statements
+    Return(Option<Expr>),
+    Break,
+    Continue,
+    Goto(InternedString),
+    Label(InternedString),
+
+    // Exception handling
+    Try {
+        body: Vec<Stmt>,
+        catch_clauses: Vec<CatchClause>,
+    },
+    Throw(Option<Expr>),
+
+    // Block
+    Block(Vec<Stmt>),
+
+    // Empty statement
+    Empty,
+}
+
+#[derive(Debug, Clone)]
+pub struct SwitchCase {
+    pub pattern: Option<Expr>, // None for default case
+    pub stmts: Vec<Stmt>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CatchClause {
+    pub exception_type: Option<Type>,
+    pub name: Option<InternedString>,
+    pub body: Vec<Stmt>,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum BinaryOp {
+    // Arithmetic
     Add,
     Sub,
     Mul,
     Div,
     Mod,
-    // Add more as needed
+
+    // Comparison
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+
+    // Logical
+    And,
+    Or,
+
+    // Bitwise
+    BitAnd,
+    BitOr,
+    BitXor,
+    Shl,
+    Shr,
+
+    // Pointer-to-member
+    PtrToMember,      // .*
+    PtrToMemberArrow, // ->*
 }
 
 #[derive(Debug, Clone, Copy)]
