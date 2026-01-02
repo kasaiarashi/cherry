@@ -3,23 +3,37 @@
 //! LSP server core
 
 use crate::db::Database;
-use crate::lsp::handlers::LspHandlers;
+use crate::lsp::handlers::{LspHandlers, Notification};
 use anyhow::{Context, Result};
 use lsp_types::*;
 use serde_json::{from_value, to_string, Value};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+use tokio::sync::mpsc;
 
 /// LSP server for cherry-sight
-#[derive(Debug)]
 pub struct LspServer {
     handlers: Arc<LspHandlers>,
+    notification_tx: mpsc::UnboundedSender<Notification>,
+    notification_rx: Arc<parking_lot::Mutex<mpsc::UnboundedReceiver<Notification>>>,
+}
+
+impl std::fmt::Debug for LspServer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LspServer")
+            .field("handlers", &self.handlers)
+            .finish()
+    }
 }
 
 impl LspServer {
     pub fn new(database: Arc<Database>) -> Self {
+        let (notification_tx, notification_rx) = mpsc::unbounded_channel();
+
         Self {
-            handlers: Arc::new(LspHandlers::new(database)),
+            handlers: Arc::new(LspHandlers::new(database, notification_tx.clone())),
+            notification_tx,
+            notification_rx: Arc::new(parking_lot::Mutex::new(notification_rx)),
         }
     }
 
@@ -47,6 +61,11 @@ impl LspServer {
         log::info!("LSP server ready, waiting for messages on stdin...");
 
         loop {
+            // Check for pending notifications and send them
+            while let Ok(notification) = self.notification_rx.lock().try_recv() {
+                self.send_notification(&mut stdout, &notification).await?;
+            }
+
             // Read Content-Length header
             let mut header = String::new();
             log::info!("Waiting to read next message...");
@@ -109,8 +128,38 @@ impl LspServer {
                     log::error!("Error handling message: {}", e);
                 }
             }
+
+            // Send any pending notifications after handling message
+            while let Ok(notification) = self.notification_rx.lock().try_recv() {
+                self.send_notification(&mut stdout, &notification).await?;
+            }
         }
 
+        Ok(())
+    }
+
+    /// Send a notification to the client
+    async fn send_notification<W: AsyncWriteExt + Unpin>(
+        &self,
+        writer: &mut W,
+        notification: &Notification,
+    ) -> Result<()> {
+        let notification_json = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": notification.method,
+            "params": notification.params
+        });
+
+        let notification_str = to_string(&notification_json)?;
+        let notification_bytes = notification_str.as_bytes();
+
+        writer
+            .write_all(format!("Content-Length: {}\r\n\r\n", notification_bytes.len()).as_bytes())
+            .await?;
+        writer.write_all(notification_bytes).await?;
+        writer.flush().await?;
+
+        log::debug!("Sent notification: {}", notification.method);
         Ok(())
     }
 

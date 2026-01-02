@@ -12,10 +12,14 @@ use crate::parser::CppParser;
 use crate::semantic::{NameResolver, TypeInference};
 use crate::util::{FileId, Interner, Position, Span};
 use anyhow::Result;
+use dashmap::DashMap;
 use lsp_types::{self as lsp, *};
 use parking_lot::RwLock;
+use serde_json::Value;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 pub mod initialize;
 pub mod text_sync;
@@ -25,6 +29,13 @@ pub mod references;
 pub mod hover;
 pub mod diagnostics;
 pub mod rename;
+
+/// Notification message to send to client
+#[derive(Debug, Clone)]
+pub struct Notification {
+    pub method: String,
+    pub params: Value,
+}
 
 /// Main LSP handlers struct
 pub struct LspHandlers {
@@ -43,6 +54,12 @@ pub struct LspHandlers {
 
     /// Project indexing status
     indexing_complete: Arc<RwLock<bool>>,
+
+    /// Notification sender
+    notification_tx: mpsc::UnboundedSender<Notification>,
+
+    /// PERFORMANCE: Cache for include path resolutions (include_name -> resolved_path)
+    include_cache: Arc<DashMap<String, PathBuf>>,
 }
 
 impl std::fmt::Debug for LspHandlers {
@@ -54,7 +71,7 @@ impl std::fmt::Debug for LspHandlers {
 }
 
 impl LspHandlers {
-    pub fn new(database: Arc<Database>) -> Self {
+    pub fn new(database: Arc<Database>, notification_tx: mpsc::UnboundedSender<Notification>) -> Self {
         Self {
             database,
             symbol_table: Arc::new(RwLock::new(SymbolTable::new())),
@@ -63,6 +80,8 @@ impl LspHandlers {
             type_info: Arc::new(RwLock::new(HashMap::new())),
             workspace_root: Arc::new(RwLock::new(None)),
             indexing_complete: Arc::new(RwLock::new(false)),
+            notification_tx,
+            include_cache: Arc::new(DashMap::new()),
         }
     }
 
@@ -666,50 +685,132 @@ impl LspHandlers {
         Ok(())
     }
 
-    /// Index all C++ files in the project
-    fn index_project(&self, root: &std::path::Path) -> Result<()> {
-        use std::fs;
+    /// Send a progress notification to the client
+    fn send_progress(&self, token: &str, kind: &str, title: Option<&str>, message: Option<&str>, percentage: Option<u32>) {
+        let mut params = serde_json::Map::new();
+        params.insert("token".to_string(), Value::String(token.to_string()));
 
-        // Find all .h and .cpp files
+        let mut value = serde_json::Map::new();
+        value.insert("kind".to_string(), Value::String(kind.to_string()));
+
+        if let Some(t) = title {
+            value.insert("title".to_string(), Value::String(t.to_string()));
+        }
+        if let Some(m) = message {
+            value.insert("message".to_string(), Value::String(m.to_string()));
+        }
+        if let Some(p) = percentage {
+            value.insert("percentage".to_string(), Value::Number(p.into()));
+        }
+
+        params.insert("value".to_string(), Value::Object(value));
+
+        let notification = Notification {
+            method: "$/progress".to_string(),
+            params: Value::Object(params),
+        };
+
+        // Send notification (ignore errors since it's non-critical)
+        let _ = self.notification_tx.send(notification);
+    }
+
+    /// Index all C++ files in the project (with parallel processing)
+    fn index_project(&self, root: &std::path::Path) -> Result<()> {
+        use rayon::prelude::*;
+        use std::fs;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        // Progress token
+        let token = "cherry-sight-indexing";
+
+        // Send begin progress
+        self.send_progress(
+            token,
+            "begin",
+            Some("CherrySight"),
+            Some("Discovering header files..."),
+            Some(0),
+        );
+
+        // Find all .h files (headers only for performance)
         let mut files_to_index = Vec::new();
         self.discover_cpp_files(root, &mut files_to_index)?;
 
-        log::info!("Found {} C++ files to index", files_to_index.len());
+        log::info!("Found {} header files to index", files_to_index.len());
 
-        // Index each file
-        for (idx, file_path) in files_to_index.iter().enumerate() {
-            // Log every 10 files for progress tracking
-            if idx % 10 == 0 || idx == files_to_index.len() - 1 {
-                log::warn!("CherrySight: Indexing {}/{} files...", idx + 1, files_to_index.len());
-            }
+        let total_files = files_to_index.len();
+        let indexed_count = Arc::new(AtomicUsize::new(0));
 
-            match fs::read_to_string(file_path) {
-                Ok(content) => {
-                    let uri = lsp::Uri::from_file_path(file_path)
-                        .map_err(|_| anyhow::anyhow!("Invalid file path"))?
-                        .to_string();
+        // PERFORMANCE OPTIMIZATION: Use rayon for parallel file processing
+        // Process files in parallel batches to maximize CPU utilization
+        let batch_size = 50; // Send progress every 50 files
 
-                    // Get or create file ID
-                    let file_id = self.database.get_or_create_file_id(&uri);
+        for (batch_idx, chunk) in files_to_index.chunks(batch_size).enumerate() {
+            let chunk_results: Vec<_> = chunk.par_iter().filter_map(|file_path| {
+                // Read file
+                let content = match fs::read_to_string(file_path) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        log::warn!("Failed to read {}: {}", file_path.display(), e);
+                        return None;
+                    }
+                };
 
-                    // Store content
-                    let content_arc = Arc::new(content);
-                    self.database.add_source_file(file_id, file_path.clone(), content_arc.clone());
+                // Create URI
+                let uri = match lsp::Uri::from_file_path(file_path) {
+                    Ok(u) => u.to_string(),
+                    Err(_) => {
+                        log::warn!("Invalid file path: {}", file_path.display());
+                        return None;
+                    }
+                };
 
-                    // Parse and index
-                    self.parse_and_index_file(file_id, &content_arc)?;
+                Some((file_path.clone(), uri, content))
+            }).collect();
+
+            // Process results sequentially to avoid lock contention
+            for (file_path, uri, content) in chunk_results {
+                let file_id = self.database.get_or_create_file_id(&uri);
+                let content_arc = Arc::new(content);
+                self.database.add_source_file(file_id, file_path.clone(), content_arc.clone());
+
+                // Parse and index
+                if let Err(e) = self.parse_and_index_file(file_id, &content_arc) {
+                    log::warn!("Failed to index {}: {}", file_path.display(), e);
                 }
-                Err(e) => {
-                    log::warn!("Failed to read {}: {}", file_path.display(), e);
-                }
+
+                let current = indexed_count.fetch_add(1, Ordering::Relaxed) + 1;
+
+                // Send progress report every file
+                let percentage = ((current as f64 / total_files as f64) * 100.0) as u32;
+                let file_name = file_path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("unknown");
+
+                self.send_progress(
+                    token,
+                    "report",
+                    None,
+                    Some(&format!("Indexed {}/{}: {}", current, total_files, file_name)),
+                    Some(percentage),
+                );
             }
         }
 
-        log::info!("Indexed {} files successfully", files_to_index.len());
+        // Send end progress
+        self.send_progress(
+            token,
+            "end",
+            None,
+            Some(&format!("Indexed {} header files", total_files)),
+            None,
+        );
+
+        log::info!("Indexed {} header files successfully", total_files);
         Ok(())
     }
 
-    /// Recursively discover C++ files
+    /// Recursively discover C++ files (headers only for performance)
     fn discover_cpp_files(&self, dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) -> Result<()> {
         use std::fs;
 
@@ -732,7 +833,10 @@ impl LspHandlers {
             if path.is_dir() {
                 self.discover_cpp_files(&path, files)?;
             } else if let Some(ext) = path.extension() {
-                if ext == "h" || ext == "hpp" || ext == "cpp" || ext == "cc" || ext == "cxx" {
+                // PERFORMANCE OPTIMIZATION: Only index headers initially
+                // Headers contain declarations which are what we need for most IDE features
+                // .cpp files are much larger and slower to parse
+                if ext == "h" || ext == "hpp" || ext == "hxx" {
                     files.push(path);
                 }
             }
@@ -810,12 +914,19 @@ impl LspHandlers {
         }
     }
 
-    /// Resolve an include path to an actual file path
+    /// Resolve an include path to an actual file path (with caching)
     fn resolve_include_path(&self, include_path: &str, current_file: &std::path::Path) -> Option<std::path::PathBuf> {
+        // PERFORMANCE: Check cache first
+        if let Some(cached_path) = self.include_cache.get(include_path) {
+            return Some(cached_path.clone());
+        }
+
         // Try relative to current file first
         if let Some(parent) = current_file.parent() {
             let relative_path = parent.join(include_path);
             if relative_path.exists() {
+                // Cache the result
+                self.include_cache.insert(include_path.to_string(), relative_path.clone());
                 return Some(relative_path);
             }
         }
@@ -847,6 +958,8 @@ impl LspHandlers {
 
             for search_path in search_paths {
                 if let Ok(found) = self.search_for_include(&search_path, include_path) {
+                    // Cache the successful resolution
+                    self.include_cache.insert(include_path.to_string(), found.clone());
                     return Some(found);
                 }
             }
