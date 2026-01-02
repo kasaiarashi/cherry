@@ -22,6 +22,8 @@ use std::sync::Arc;
 pub struct Database {
     interner: Arc<RwLock<Interner>>,
     source_files: Arc<RwLock<HashMap<FileId, SourceFile>>>,
+    uri_to_file_id: Arc<RwLock<HashMap<String, FileId>>>,
+    next_file_id: Arc<RwLock<u32>>,
 }
 
 impl Database {
@@ -30,7 +32,28 @@ impl Database {
         Self {
             interner: Arc::new(RwLock::new(Interner::new())),
             source_files: Arc::new(RwLock::new(HashMap::new())),
+            uri_to_file_id: Arc::new(RwLock::new(HashMap::new())),
+            next_file_id: Arc::new(RwLock::new(1)),
         }
+    }
+
+    /// Get or create a FileId for a URI
+    pub fn get_or_create_file_id(&self, uri: &str) -> FileId {
+        if let Some(&file_id) = self.uri_to_file_id.read().get(uri) {
+            return file_id;
+        }
+
+        let mut next_id = self.next_file_id.write();
+        let file_id = FileId::new(*next_id);
+        *next_id += 1;
+
+        self.uri_to_file_id.write().insert(uri.to_string(), file_id);
+        file_id
+    }
+
+    /// Get FileId for a URI
+    pub fn get_file_id(&self, uri: &str) -> Option<FileId> {
+        self.uri_to_file_id.read().get(uri).copied()
     }
 
     /// Add a source file to the database

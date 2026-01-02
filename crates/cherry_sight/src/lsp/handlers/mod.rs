@@ -58,26 +58,56 @@ impl LspHandlers {
     }
 
     /// Handle textDocument/didOpen notification
-    pub fn handle_did_open(&self, _params: DidOpenTextDocumentParams) -> Result<()> {
-        // Placeholder - to be implemented
+    pub fn handle_did_open(&self, params: DidOpenTextDocumentParams) -> Result<()> {
+        let uri = params.text_document.uri.to_string();
+        let content = Arc::new(params.text_document.text);
+
+        // Get or create file ID
+        let file_id = self.database.get_or_create_file_id(&uri);
+
+        // Parse URI to path
+        let path = params.text_document.uri.to_file_path()
+            .unwrap_or_else(|_| std::path::PathBuf::from(&uri));
+
+        // Add to database
+        self.database.add_source_file(file_id, path, content);
+
+        log::info!("Opened file: {} (FileId: {:?})", uri, file_id);
         Ok(())
     }
 
     /// Handle textDocument/didChange notification
-    pub fn handle_did_change(&self, _params: DidChangeTextDocumentParams) -> Result<()> {
-        // Placeholder - to be implemented
+    pub fn handle_did_change(&self, params: DidChangeTextDocumentParams) -> Result<()> {
+        let uri = params.text_document.uri.to_string();
+
+        if let Some(file_id) = self.database.get_file_id(&uri) {
+            // For full sync, just use the last change
+            if let Some(change) = params.content_changes.last() {
+                let content = Arc::new(change.text.clone());
+                self.database.update_source_content(file_id, content);
+                log::debug!("Updated file: {}", uri);
+            }
+        }
+
         Ok(())
     }
 
     /// Handle textDocument/didSave notification
-    pub fn handle_did_save(&self, _params: DidSaveTextDocumentParams) -> Result<()> {
-        // Placeholder - to be implemented
+    pub fn handle_did_save(&self, params: DidSaveTextDocumentParams) -> Result<()> {
+        let uri = params.text_document.uri.to_string();
+        log::debug!("Saved file: {}", uri);
         Ok(())
     }
 
     /// Handle textDocument/didClose notification
-    pub fn handle_did_close(&self, _params: DidCloseTextDocumentParams) -> Result<()> {
-        // Placeholder - to be implemented
+    pub fn handle_did_close(&self, params: DidCloseTextDocumentParams) -> Result<()> {
+        let uri = params.text_document.uri.to_string();
+
+        if let Some(file_id) = self.database.get_file_id(&uri) {
+            self.database.remove_source_file(file_id);
+            log::info!("Closed file: {}", uri);
+        }
+
         Ok(())
     }
 }
