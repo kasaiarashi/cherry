@@ -1323,16 +1323,67 @@ impl LspHandlers {
             }
         }
 
-        // INSTANT LOOKUP: Check cached index by filename
+        // SMART LOOKUP: Check cached index with prioritization
         // Extract just the filename from the include path
         let file_name = std::path::Path::new(include_path)
             .file_name()
             .and_then(|n| n.to_str())?;
 
-        // Try exact filename match from cache (instant!)
-        if let Some(cached_path) = self.include_cache.get(file_name) {
-            log::debug!("Include cache HIT: {} -> {}", include_path, cached_path.display());
-            return Some(cached_path.clone());
+        // Find ALL matches in cache
+        let matches: Vec<std::path::PathBuf> = self.include_cache
+            .iter()
+            .filter(|entry| entry.key() == file_name)
+            .map(|entry| entry.value().clone())
+            .collect();
+
+        if !matches.is_empty() {
+            // PRIORITIZATION LOGIC:
+            // 1. Same module/plugin as current file (check path similarity)
+            // 2. Project files over engine files
+            // 3. Shortest path (closest)
+
+            let current_path_str = current_file.to_string_lossy();
+            let is_engine_current = current_path_str.contains("\\Engine\\") || current_path_str.contains("/Engine/");
+
+            // Find best match
+            let best_match = matches.iter().min_by_key(|path| {
+                let path_str = path.to_string_lossy();
+                let is_engine = path_str.contains("\\Engine\\") || path_str.contains("/Engine/");
+
+                // Calculate priority score (lower is better)
+                let mut score = 0;
+
+                // Prefer non-engine files UNLESS current file is also in engine
+                if is_engine && !is_engine_current {
+                    score += 1000; // Heavy penalty for engine files when current is project
+                }
+
+                // Check if in same module/plugin
+                let same_module = if let Some(current_plugin) = current_path_str.find("\\Plugins\\") {
+                    let current_plugin_path = &current_path_str[..current_plugin + 9];
+                    path_str.starts_with(current_plugin_path)
+                } else if let Some(current_source) = current_path_str.find("\\Source\\") {
+                    let current_source_path = &current_path_str[..current_source + 8];
+                    path_str.starts_with(current_source_path)
+                } else {
+                    false
+                };
+
+                if !same_module {
+                    score += 100; // Penalty for different module
+                }
+
+                // Add path length as tiebreaker (prefer shorter/closer paths)
+                score += path_str.len();
+
+                score
+            });
+
+            if let Some(best) = best_match {
+                log::info!("Include resolved: {} -> {} (from {} candidates)",
+                    include_path, best.display(), matches.len());
+                return Some(best.clone());
+            }
         }
 
         // If not in cache yet, try workspace-relative search
