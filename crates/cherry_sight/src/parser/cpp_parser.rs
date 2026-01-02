@@ -800,12 +800,24 @@ impl CppParser {
 
                     // Try to parse as function first
                     if let Some(func) = self.parse_function(child, source, file_id) {
-                        #[cfg(test)]
-                        {
-                            let fname = self.interner.read().resolve(func.name);
-                            eprintln!("    -> Parsed as method: {}", fname);
+                        let func_name = self.interner.read().resolve(func.name);
+
+                        // Skip UE5 macros that look like function calls (UPROPERTY, UFUNCTION, etc.)
+                        if func_name.starts_with("UPROPERTY") || func_name.starts_with("UFUNCTION") ||
+                           func_name.starts_with("UCLASS") || func_name.starts_with("USTRUCT") ||
+                           func_name.starts_with("UENUM") || func_name == "GENERATED_BODY" {
+                            #[cfg(test)]
+                            {
+                                eprintln!("    -> Skipping UE5 macro: {}", func_name);
+                            }
+                            // Skip this - it's a macro, not a real method
+                        } else {
+                            #[cfg(test)]
+                            {
+                                eprintln!("    -> Parsed as method: {}", func_name);
+                            }
+                            members.push(crate::ast::ClassMember::Method(func));
                         }
-                        members.push(crate::ast::ClassMember::Method(func));
                     } else if let Some(field) = self.parse_field(child, source, file_id, current_access) {
                         #[cfg(test)]
                         {
@@ -826,6 +838,17 @@ impl CppParser {
                         let text = &source[child.byte_range()];
                         let preview = if text.len() > 60 { &text[..60] } else { text };
                         eprintln!("  Processing field_declaration: '{}'", preview);
+                    }
+
+                    // Check if this is actually a UE5 macro call (UPROPERTY, etc.)
+                    let text = &source[child.byte_range()];
+                    if text.trim().starts_with("UPROPERTY") || text.trim().starts_with("UFUNCTION") {
+                        #[cfg(test)]
+                        {
+                            eprintln!("    -> Skipping UE5 macro field_declaration");
+                        }
+                        // Skip macro calls
+                        continue;
                     }
 
                     if let Some(field) = self.parse_field(child, source, file_id, current_access) {
@@ -1152,7 +1175,7 @@ mod tests {
         let interner = Arc::new(RwLock::new(Interner::new()));
         let mut parser = CppParser::new(interner.clone()).unwrap();
 
-        // Use actual Task_Sample.h content
+        // Use actual Task_Sample.h content with ALL variations
         let source = r#"
 class ATask_Sample {
 public:
@@ -1164,6 +1187,12 @@ public:
 
     UPROPERTY(BlueprintReadWrite)
     FName SomeOtherName;
+
+    UPROPERTY(BlueprintReadWrite)
+    int SomeIntProperty = 42;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    bool bPrintLogs = true;
 };
 "#;
         let file_id = FileId::new(1);
