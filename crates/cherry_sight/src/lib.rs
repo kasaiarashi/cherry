@@ -23,6 +23,7 @@ pub mod ue_integration;
 pub mod ubt;
 pub mod advanced;
 pub mod performance;
+pub mod error_recovery;
 
 // Re-export commonly used types
 pub use ast::{TranslationUnit, Declaration};
