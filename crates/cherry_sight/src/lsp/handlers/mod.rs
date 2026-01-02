@@ -5,7 +5,7 @@
 use crate::cache::CacheManager;
 use crate::completion::{CompletionContext, CompletionProvider};
 use crate::completion::HoverProvider;
-use crate::db::Database;
+use crate::db::{Database, DatabaseManager};
 use crate::index::{AstSymbolBuilder, SymbolId, SymbolKind, SymbolTable};
 use crate::intelligence::ReferenceFinder;
 use crate::lsp::position::{position_to_offset, span_to_range};
@@ -44,6 +44,11 @@ pub struct LspHandlers {
     symbol_table: Arc<RwLock<SymbolTable>>,
     interner: Arc<RwLock<Interner>>,
 
+    // TODO: CherrySight 2.0 SQLite database manager (persistent storage)
+    // Temporarily disabled because rusqlite::Connection is not Send
+    // Will implement with connection pool or message passing architecture
+    // db_manager: Option<Arc<DatabaseManager>>,
+
     /// Name resolution results per file
     name_resolutions: Arc<RwLock<HashMap<FileId, Arc<crate::semantic::name_resolution::NameResolution>>>>,
 
@@ -76,10 +81,16 @@ impl std::fmt::Debug for LspHandlers {
 
 impl LspHandlers {
     pub fn new(database: Arc<Database>, notification_tx: mpsc::UnboundedSender<Notification>) -> Self {
+        // TODO: Initialize DatabaseManager once we have a Send-safe implementation
+        // let db_path = std::env::temp_dir().join("cherry-sight-default.db");
+        // let db_manager = DatabaseManager::new(&db_path)
+        //     .expect("Failed to initialize DatabaseManager");
+
         Self {
             database,
             symbol_table: Arc::new(RwLock::new(SymbolTable::new())),
             interner: Arc::new(RwLock::new(Interner::new())),
+            // db_manager: Some(Arc::new(db_manager)),
             name_resolutions: Arc::new(RwLock::new(HashMap::new())),
             type_info: Arc::new(RwLock::new(HashMap::new())),
             workspace_root: Arc::new(RwLock::new(None)),
@@ -1040,6 +1051,7 @@ impl LspHandlers {
                     database: self.database.clone(),
                     symbol_table: self.symbol_table.clone(),
                     interner: self.interner.clone(),
+                    // db_manager: None,  // Temporarily disabled
                     name_resolutions: self.name_resolutions.clone(),
                     type_info: self.type_info.clone(),
                     workspace_root: self.workspace_root.clone(),

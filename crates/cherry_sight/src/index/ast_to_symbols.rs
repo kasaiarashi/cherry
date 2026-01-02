@@ -23,6 +23,40 @@ impl AstSymbolBuilder {
         }
     }
 
+    /// Compute qualified name from parent chain
+    /// e.g., "Namespace::Class::Method"
+    fn compute_qualified_name(&self, name: crate::util::InternedString, parent: Option<crate::index::symbol::SymbolId>) -> crate::util::InternedString {
+        let interner = self.interner.write();
+        let name_str = interner.resolve(name);
+
+        let qualified = if let Some(parent_id) = parent {
+            let table = self.symbol_table.read();
+            // Build the parent chain
+            let mut parts = vec![name_str.clone()];
+            let mut current = parent_id;
+
+            while let Some(parent_sym) = table.get_symbol(current) {
+                let parent_name = interner.resolve(parent_sym.name);
+                // Skip anonymous namespaces
+                if !parent_name.starts_with("<anonymous>") {
+                    parts.insert(0, parent_name);
+                }
+                if let Some(grandparent) = parent_sym.parent {
+                    current = grandparent;
+                } else {
+                    break;
+                }
+            }
+
+            parts.join("::")
+        } else {
+            name_str
+        };
+
+        drop(interner);
+        self.interner.write().intern(&qualified)
+    }
+
     /// Build symbols from a translation unit
     pub fn build_from_ast(&mut self, ast: &TranslationUnit) {
         let file_id = ast.file_id;
@@ -52,10 +86,13 @@ impl AstSymbolBuilder {
             None => self.interner.write().intern("<anonymous>"),
         };
 
+        let qualified_name = self.compute_qualified_name(name, parent);
+
         let mut table = self.symbol_table.write();
         let id = table.next_id();
         let mut symbol = Symbol::new(id, SymbolKind::Namespace, name, ns.span, file_id);
         symbol.parent = parent;
+        symbol.qualified_name = Some(qualified_name);
         let symbol_id = table.add_symbol(symbol);
         drop(table);
 
@@ -66,10 +103,13 @@ impl AstSymbolBuilder {
     }
 
     fn process_class(&mut self, cls: &ClassDecl, parent: Option<crate::index::symbol::SymbolId>, file_id: FileId, kind: SymbolKind) {
+        let qualified_name = self.compute_qualified_name(cls.name, parent);
+
         let mut table = self.symbol_table.write();
         let id = table.next_id();
         let mut symbol = Symbol::new(id, kind, cls.name, cls.span, file_id);
         symbol.parent = parent;
+        symbol.qualified_name = Some(qualified_name);
         symbol.doc_comment = cls.doc_comment.clone();
 
         // Set visibility from access specifier
@@ -85,19 +125,25 @@ impl AstSymbolBuilder {
     }
 
     fn process_enum(&mut self, en: &EnumDecl, parent: Option<crate::index::symbol::SymbolId>, file_id: FileId, kind: SymbolKind) {
+        let qualified_name = self.compute_qualified_name(en.name, parent);
+
         let mut table = self.symbol_table.write();
         let id = table.next_id();
         let mut symbol = Symbol::new(id, kind, en.name, en.span, file_id);
         symbol.parent = parent;
+        symbol.qualified_name = Some(qualified_name);
         let symbol_id = table.add_symbol(symbol);
         drop(table);
 
         // Process enum variants
         for variant in &en.variants {
+            let variant_qualified_name = self.compute_qualified_name(variant.name, Some(symbol_id));
+
             let mut table = self.symbol_table.write();
             let id = table.next_id();
             let mut symbol = Symbol::new(id, SymbolKind::EnumVariant, variant.name, variant.span, file_id);
             symbol.parent = Some(symbol_id);
+            symbol.qualified_name = Some(variant_qualified_name);
             table.add_symbol(symbol);
         }
     }
@@ -109,10 +155,13 @@ impl AstSymbolBuilder {
             SymbolKind::Function
         };
 
+        let qualified_name = self.compute_qualified_name(func.name, parent);
+
         let mut table = self.symbol_table.write();
         let id = table.next_id();
         let mut symbol = Symbol::new(id, kind, func.name, func.span, file_id);
         symbol.parent = parent;
+        symbol.qualified_name = Some(qualified_name);
 
         // Transfer documentation
         symbol.doc_comment = func.doc_comment.clone();
@@ -138,10 +187,13 @@ impl AstSymbolBuilder {
         // Create parameter symbols as children of the function
         for param in &func.parameters {
             if let Some(param_name) = param.name {
+                let param_qualified_name = self.compute_qualified_name(param_name, Some(function_id));
+
                 let mut table = self.symbol_table.write();
                 let param_id = table.next_id();
                 let mut param_symbol = Symbol::new(param_id, SymbolKind::Parameter, param_name, param.span, file_id);
                 param_symbol.parent = Some(function_id);
+                param_symbol.qualified_name = Some(param_qualified_name);
                 param_symbol.symbol_type = Some(Arc::new(param.ty.clone()));
                 let param_symbol_id = table.add_symbol(param_symbol);
 
@@ -154,20 +206,26 @@ impl AstSymbolBuilder {
     }
 
     fn process_variable(&mut self, var: &VariableDecl, parent: Option<crate::index::symbol::SymbolId>, file_id: FileId) {
+        let qualified_name = self.compute_qualified_name(var.name, parent);
+
         let mut table = self.symbol_table.write();
         let id = table.next_id();
         let mut symbol = Symbol::new(id, SymbolKind::Variable, var.name, var.span, file_id);
         symbol.parent = parent;
+        symbol.qualified_name = Some(qualified_name);
         table.add_symbol(symbol);
     }
 
     fn process_class_member(&mut self, member: &ClassMember, parent: Option<crate::index::symbol::SymbolId>, file_id: FileId) {
         match member {
             ClassMember::Field(field) => {
+                let qualified_name = self.compute_qualified_name(field.name, parent);
+
                 let mut table = self.symbol_table.write();
                 let id = table.next_id();
                 let mut symbol = Symbol::new(id, SymbolKind::Field, field.name, field.span, file_id);
                 symbol.parent = parent;
+                symbol.qualified_name = Some(qualified_name);
                 // Store field type information
                 symbol.symbol_type = Some(Arc::new(field.ty.clone()));
                 // Store flags
@@ -185,10 +243,13 @@ impl AstSymbolBuilder {
             }
             ClassMember::UProperty(uprop) => {
                 // Process as a field but with UProperty kind and macro info in doc_comment
+                let qualified_name = self.compute_qualified_name(uprop.field.name, parent);
+
                 let mut table = self.symbol_table.write();
                 let id = table.next_id();
                 let mut symbol = Symbol::new(id, SymbolKind::UProperty, uprop.field.name, uprop.field.span, file_id);
                 symbol.parent = parent;
+                symbol.qualified_name = Some(qualified_name);
                 // Store field type information
                 symbol.symbol_type = Some(Arc::new(uprop.field.ty.clone()));
                 // Store UPROPERTY macro as doc comment
@@ -204,10 +265,13 @@ impl AstSymbolBuilder {
                 let kind = SymbolKind::UFunction;
                 let func = &ufunc.function;
 
+                let qualified_name = self.compute_qualified_name(func.name, parent);
+
                 let mut table = self.symbol_table.write();
                 let id = table.next_id();
                 let mut symbol = Symbol::new(id, kind, func.name, func.span, file_id);
                 symbol.parent = parent;
+                symbol.qualified_name = Some(qualified_name);
 
                 // Store UFUNCTION macro as doc comment
                 let specifiers_str = self.format_ufunction_specifiers(&ufunc.specifiers);
@@ -239,10 +303,13 @@ impl AstSymbolBuilder {
                 // Create parameter symbols as children of the function
                 for param in &func.parameters {
                     if let Some(param_name) = param.name {
+                        let param_qualified_name = self.compute_qualified_name(param_name, Some(function_id));
+
                         let mut table = self.symbol_table.write();
                         let param_id = table.next_id();
                         let mut param_symbol = Symbol::new(param_id, SymbolKind::Parameter, param_name, param.span, file_id);
                         param_symbol.parent = Some(function_id);
+                        param_symbol.qualified_name = Some(param_qualified_name);
                         param_symbol.symbol_type = Some(Arc::new(param.ty.clone()));
                         let param_symbol_id = table.add_symbol(param_symbol);
 
@@ -258,10 +325,13 @@ impl AstSymbolBuilder {
     }
 
     fn process_uclass(&mut self, ucls: &UClassDecl, parent: Option<crate::index::symbol::SymbolId>, file_id: FileId) {
+        let qualified_name = self.compute_qualified_name(ucls.class_decl.name, parent);
+
         let mut table = self.symbol_table.write();
         let id = table.next_id();
         let mut symbol = Symbol::new(id, SymbolKind::UClass, ucls.class_decl.name, ucls.class_decl.span, file_id);
         symbol.parent = parent;
+        symbol.qualified_name = Some(qualified_name);
         let symbol_id = table.add_symbol(symbol);
         drop(table);
 
@@ -344,10 +414,13 @@ impl AstSymbolBuilder {
     }
 
     fn process_ustruct(&mut self, ust: &UStructDecl, parent: Option<crate::index::symbol::SymbolId>, file_id: FileId) {
+        let qualified_name = self.compute_qualified_name(ust.struct_decl.name, parent);
+
         let mut table = self.symbol_table.write();
         let id = table.next_id();
         let mut symbol = Symbol::new(id, SymbolKind::UStruct, ust.struct_decl.name, ust.struct_decl.span, file_id);
         symbol.parent = parent;
+        symbol.qualified_name = Some(qualified_name);
         let symbol_id = table.add_symbol(symbol);
         drop(table);
 
