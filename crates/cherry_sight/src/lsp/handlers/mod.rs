@@ -649,9 +649,27 @@ impl LspHandlers {
                                 candidate_id.0, is_header, same_kind, cpp_kind, decl_symbol.kind, decl_file.path);
 
                             if is_header && same_kind {
-                                // For methods/functions, also check if they belong to the same class
-                                // .cpp has Function with qualified_name, .h has Method with parent
-                                let same_parent = if cpp_kind == SymbolKind::Method || cpp_kind == SymbolKind::Function {
+                                // FALLBACK HEURISTIC: Match by filename
+                                // If Task_Sample.cpp has Execute_Implementation, match to Task_Sample.h
+                                let cpp_file = self.database.get_source_file(cpp_file_id);
+                                let matching_files = if let (Some(cpp_src), Some(h_src)) = (cpp_file, Some(decl_file)) {
+                                    // Get base filenames without extension
+                                    let cpp_base = cpp_src.path.file_stem().and_then(|s| s.to_str());
+                                    let h_base = h_src.path.file_stem().and_then(|s| s.to_str());
+                                    cpp_base == h_base && cpp_base.is_some()
+                                } else {
+                                    false
+                                };
+
+                                log::info!("    Filename heuristic: cpp and h match = {}", matching_files);
+
+                                // For methods/functions, check if they belong to the same class
+                                // OR if the filenames match (Task_Sample.cpp <-> Task_Sample.h)
+                                let same_parent = if matching_files {
+                                    // Files have matching names - assume same class!
+                                    log::info!("    ✓ Accepting match based on filename heuristic");
+                                    true
+                                } else if cpp_kind == SymbolKind::Method || cpp_kind == SymbolKind::Function {
                                     if let Some(decl_parent_id) = decl_symbol.parent {
                                         // .h method has a parent class
                                         if let Some(decl_parent_sym) = symbol_table.get_symbol(decl_parent_id) {
@@ -661,7 +679,10 @@ impl LspHandlers {
                                                 let parent_name = interner.resolve(decl_parent_sym.name);
                                                 // Check if qualified name starts with "ClassName::"
                                                 let expected_prefix = format!("{}::", parent_name);
-                                                qual_str.starts_with(&expected_prefix)
+                                                let matches = qual_str.starts_with(&expected_prefix);
+                                                log::info!("    Checking qualified: '{}' starts_with '{}' = {}",
+                                                    qual_str, expected_prefix, matches);
+                                                matches
                                             } else if let Some(cpp_parent_id) = cpp_parent {
                                                 // Both have parents, compare them
                                                 if let Some(cpp_parent_sym) = symbol_table.get_symbol(cpp_parent_id) {
@@ -670,7 +691,8 @@ impl LspHandlers {
                                                     false
                                                 }
                                             } else {
-                                                // .cpp function has no parent and no qualified name - probably wrong
+                                                // .cpp function has no parent and no qualified name - fallback failed
+                                                log::info!("    No qualified_name and no cpp_parent for .cpp function");
                                                 false
                                             }
                                         } else {
