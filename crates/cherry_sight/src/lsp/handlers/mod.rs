@@ -2,6 +2,7 @@
 
 //! LSP protocol handlers
 
+use crate::cache::CacheManager;
 use crate::completion::{CompletionContext, CompletionProvider};
 use crate::completion::HoverProvider;
 use crate::db::Database;
@@ -60,6 +61,9 @@ pub struct LspHandlers {
 
     /// PERFORMANCE: Cache for include path resolutions (include_name -> resolved_path)
     include_cache: Arc<DashMap<String, PathBuf>>,
+
+    /// Cache manager for persistent storage
+    cache_manager: Arc<RwLock<Option<CacheManager>>>,
 }
 
 impl std::fmt::Debug for LspHandlers {
@@ -82,6 +86,7 @@ impl LspHandlers {
             indexing_complete: Arc::new(RwLock::new(false)),
             notification_tx,
             include_cache: Arc::new(DashMap::new()),
+            cache_manager: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -640,7 +645,7 @@ impl LspHandlers {
             .map_err(|_| anyhow::anyhow!("Failed to convert path to URI: {:?}", source.path))
     }
 
-    /// Handle initialization - store workspace info
+    /// Handle initialization - store workspace info and setup cache
     pub fn handle_initialize(&self, params: lsp::InitializeParams) {
         // Store workspace root
         let root = params.root_uri
@@ -649,7 +654,30 @@ impl LspHandlers {
 
         if let Some(root) = root {
             log::info!("Workspace root: {}", root);
-            *self.workspace_root.write() = Some(root);
+            *self.workspace_root.write() = Some(root.clone());
+
+            // Parse root path for cache manager
+            let root_path: Option<std::path::PathBuf> = if root.starts_with("file://") {
+                use std::str::FromStr;
+                if let Ok(uri) = lsp::Uri::from_str(&root) {
+                    uri.to_file_path().ok()
+                } else {
+                    None
+                }
+            } else {
+                Some(std::path::PathBuf::from(&root))
+            };
+
+            // Initialize cache manager
+            if let Some(path) = root_path {
+                let cache_mgr = CacheManager::new(&path);
+                if let Err(e) = cache_mgr.ensure_cache_dir() {
+                    log::warn!("Failed to create cache directory: {}", e);
+                } else {
+                    log::info!("Cache directory: {}", cache_mgr.cache_dir().display());
+                }
+                *self.cache_manager.write() = Some(cache_mgr);
+            }
         }
     }
 
@@ -686,16 +714,29 @@ impl LspHandlers {
                     indexing_complete: self.indexing_complete.clone(),
                     notification_tx: self.notification_tx.clone(),
                     include_cache: self.include_cache.clone(),
+                    cache_manager: self.cache_manager.clone(),
                 };
 
                 // Spawn indexing in background thread (not async task to avoid blocking tokio runtime)
                 std::thread::spawn(move || {
                     log::info!("Background indexing thread started");
-                    if let Err(e) = handlers.index_project(&path) {
-                        log::error!("Background indexing failed: {}", e);
-                    } else {
-                        *handlers.indexing_complete.write() = true;
-                        log::info!("Background indexing complete!");
+                    match handlers.index_project(&path) {
+                        Ok(indexed_files) => {
+                            *handlers.indexing_complete.write() = true;
+                            log::info!("Background indexing complete! Indexed {} files", indexed_files.len());
+
+                            // Save cache metadata
+                            if let Some(cache_mgr) = handlers.cache_manager.read().as_ref() {
+                                if let Err(e) = cache_mgr.save_metadata(&indexed_files) {
+                                    log::warn!("Failed to save cache metadata: {}", e);
+                                } else {
+                                    log::info!("Saved cache metadata to .cherry directory");
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Background indexing failed: {}", e);
+                        }
                     }
                 });
             }
@@ -752,7 +793,8 @@ impl LspHandlers {
     }
 
     /// Index all C++ files in the project (with parallel processing)
-    fn index_project(&self, root: &std::path::Path) -> Result<()> {
+    /// Returns the list of indexed file paths for caching
+    fn index_project(&self, root: &std::path::Path) -> Result<Vec<PathBuf>> {
         use rayon::prelude::*;
         use std::fs;
         use std::sync::atomic::{AtomicUsize, Ordering};
@@ -782,7 +824,7 @@ impl LspHandlers {
         // Process files in parallel batches to maximize CPU utilization
         let batch_size = 50; // Send progress every 50 files
 
-        for (batch_idx, chunk) in files_to_index.chunks(batch_size).enumerate() {
+        for (_batch_idx, chunk) in files_to_index.chunks(batch_size).enumerate() {
             let chunk_results: Vec<_> = chunk.par_iter().filter_map(|file_path| {
                 // Read file
                 let content = match fs::read_to_string(file_path) {
@@ -844,7 +886,7 @@ impl LspHandlers {
         );
 
         log::info!("Indexed {} header files successfully", total_files);
-        Ok(())
+        Ok(files_to_index)
     }
 
     /// Recursively discover C++ files (headers only for performance)
