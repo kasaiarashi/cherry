@@ -4,9 +4,11 @@
 
 pub mod inputs;
 pub mod derived;
+pub mod sqlite;
 
 pub use inputs::SourceFile;
 pub use derived::{parse, syntax_errors, line_index, LineIndex};
+pub use sqlite::DatabaseManager;
 
 use crate::util::{FileId, Interner};
 use parking_lot::RwLock;

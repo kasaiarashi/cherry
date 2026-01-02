@@ -232,6 +232,70 @@ impl SymbolTable {
     }
 
     /// Remove all symbols for a specific file
+    /// Remove symbols from a file, preserving implementation_span data
+    /// Only removes symbols where BOTH declaration and implementation are in the same file
+    /// This prevents losing .cpp implementation links when .h files are reparsed
+    pub fn remove_file_declarations(&mut self, file_id: FileId) {
+        // Get all symbol IDs for this file
+        let symbol_ids = self.symbols_in_file(file_id);
+
+        // Separate symbols into two groups:
+        // 1. Can be removed (no implementation_span or implementation is in same file)
+        // 2. Must be preserved (implementation_span points to different file)
+        let mut to_remove = Vec::new();
+        let mut to_update = Vec::new();
+
+        for &symbol_id in &symbol_ids {
+            if let Some(symbol) = self.symbols.get(&symbol_id) {
+                // Check if symbol has implementation in a different file
+                if let Some(impl_span) = &symbol.implementation_span {
+                    if impl_span.file_id != file_id {
+                        // Implementation is in different file (.cpp) - preserve the symbol but update it
+                        to_update.push(symbol_id);
+                        continue;
+                    }
+                }
+                // Symbol can be safely removed
+                to_remove.push(symbol_id);
+            }
+        }
+
+        // Remove symbols that don't have external implementations
+        for symbol_id in to_remove {
+            if let Some(symbol) = self.symbols.remove(&symbol_id) {
+                // Remove from name index
+                let key = (symbol.name, symbol.parent);
+                if let Some(ids) = self.name_index.get_mut(&key) {
+                    ids.retain(|&id| id != symbol_id);
+                    if ids.is_empty() {
+                        self.name_index.remove(&key);
+                    }
+                }
+
+                // Remove from type_symbols
+                self.type_symbols.retain(|&id| id != symbol_id);
+
+                // Remove from global_symbols
+                self.global_symbols.retain(|&id| id != symbol_id);
+            }
+        }
+
+        // For symbols with external implementations, we DON'T remove them
+        // but we need to remove them from the file_index since their declaration is being replaced
+        // The new declaration will be added when the file is re-parsed
+
+        // Update file entry to only contain symbols with external implementations
+        if let Some(file_symbols) = self.file_index.get_mut(&file_id) {
+            file_symbols.retain(|id| to_update.contains(id));
+            if file_symbols.is_empty() {
+                self.file_index.remove(&file_id);
+            }
+        }
+    }
+
+    /// Remove all symbols from a file (legacy method - use remove_file_declarations instead)
+    /// WARNING: This will lose implementation_span data!
+    #[deprecated(note = "Use remove_file_declarations() to preserve implementation_span data")]
     pub fn remove_file_symbols(&mut self, file_id: FileId) {
         // Get all symbol IDs for this file
         let symbol_ids = self.symbols_in_file(file_id);

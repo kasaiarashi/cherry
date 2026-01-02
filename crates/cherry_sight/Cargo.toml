@@ -36,6 +36,10 @@ indexmap.workspace = true
 smallvec.workspace = true
 rustc-hash.workspace = true
 
+# Database
+rusqlite = { version = "0.32", features = ["bundled", "blob", "backup"] }
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+
 # Serialization
 serde.workspace = true
 serde_json.workspace = true

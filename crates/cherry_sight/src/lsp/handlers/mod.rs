@@ -549,9 +549,9 @@ impl LspHandlers {
             }
         }
 
-        // CRITICAL: Remove old symbols if this file was already indexed
-        // This ensures LSP works when switching between files
-        self.symbol_table.write().remove_file_symbols(file_id);
+        // CRITICAL: Remove old symbol declarations preserving implementation spans
+        // This ensures LSP works when switching between files without losing .cpp implementations
+        self.symbol_table.write().remove_file_declarations(file_id);
         self.name_resolutions.write().remove(&file_id);
         self.type_info.write().remove(&file_id);
 
@@ -566,9 +566,9 @@ impl LspHandlers {
                     Ok(ast) => {
                         log::info!("Parsed {} with {} declarations", uri, ast.declarations.len());
 
-                        // Step 1: Clear old symbols for this file to avoid duplicates
-                        self.symbol_table.write().remove_file_symbols(file_id);
-                        log::info!("Cleared old symbols for FileId({:?})", file_id);
+                        // Step 1: Clear old symbol declarations for this file (preserves implementations)
+                        self.symbol_table.write().remove_file_declarations(file_id);
+                        log::info!("Cleared old symbol declarations for FileId({:?})", file_id);
 
                         // Step 2: Build symbol table from AST
                         let mut builder = AstSymbolBuilder::new(
@@ -1317,9 +1317,9 @@ impl LspHandlers {
             Ok(mut parser) => {
                 match parser.parse(content, file_id) {
                     Ok(ast) => {
-                        // Step 1: Clear old symbols for this file to avoid duplicates
-                        self.symbol_table.write().remove_file_symbols(file_id);
-                        log::info!("Cleared old symbols for FileId({:?})", file_id);
+                        // Step 1: Clear old symbol declarations for this file (preserves implementations)
+                        self.symbol_table.write().remove_file_declarations(file_id);
+                        log::info!("Cleared old symbol declarations for FileId({:?})", file_id);
 
                         // Step 2: Build symbol table from AST
                         let mut builder = AstSymbolBuilder::new(
