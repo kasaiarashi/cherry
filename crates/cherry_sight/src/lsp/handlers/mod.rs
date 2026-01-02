@@ -275,7 +275,8 @@ impl LspHandlers {
         let uri = params.text_document_position_params.text_document.uri.to_string();
         let position = params.text_document_position_params.position;
 
-        log::debug!("Goto definition request at {}:{}:{}", uri, position.line, position.character);
+        log::info!("=== GOTO DEFINITION REQUEST ===");
+        log::info!("Goto definition request at {}:{}:{}", uri, position.line, position.character);
 
         // Get file content
         let file_id = match self.database.get_file_id(&uri) {
@@ -329,12 +330,19 @@ impl LspHandlers {
             None => return Ok(None),
         };
 
+        // Log symbol details
+        let symbol_name = self.interner.read().resolve(symbol.name);
+        log::info!("Found symbol #{}: {} (kind: {:?})", symbol_id.0, symbol_name, symbol.kind);
+        log::info!("  Symbol file: {:?}", symbol.file_id);
+        log::info!("  Symbol parent: {:?}", symbol.parent);
+        log::info!("  Implementation span: {:?}", symbol.implementation_span);
+
         // PREFER IMPLEMENTATION: If function has implementation in .cpp, jump there instead of declaration
         let (target_span, target_file_id) = if let Some(impl_span) = symbol.implementation_span {
-            log::info!("Jumping to implementation for symbol {}", symbol_id.0);
+            log::info!("✓ JUMPING TO IMPLEMENTATION for symbol {} at {:?}", symbol_id.0, impl_span);
             (impl_span, impl_span.file_id)
         } else {
-            log::debug!("Jumping to declaration for symbol {}", symbol_id.0);
+            log::info!("✗ NO IMPLEMENTATION SPAN - jumping to declaration for symbol {}", symbol_id.0);
             (symbol.span, symbol.file_id)
         };
 
@@ -532,7 +540,9 @@ impl LspHandlers {
                         self.type_info.write().insert(file_id, Arc::new(types));
 
                         // IMPLEMENTATION MATCHING: If this is a .cpp file, match implementations to declarations
+                        log::info!("File {} is_cpp_impl={}", uri, is_cpp_impl);
                         if is_cpp_impl {
+                            log::info!("=== TRIGGERING IMPLEMENTATION MATCHING FOR {} ===", uri);
                             self.match_implementations_to_declarations(file_id);
                         }
                     }
