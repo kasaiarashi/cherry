@@ -337,13 +337,73 @@ impl LspHandlers {
         log::info!("  Symbol parent: {:?}", symbol.parent);
         log::info!("  Implementation span: {:?}", symbol.implementation_span);
 
-        // PREFER IMPLEMENTATION: If function has implementation in .cpp, jump there instead of declaration
-        let (target_span, target_file_id) = if let Some(impl_span) = symbol.implementation_span {
-            log::info!("✓ JUMPING TO IMPLEMENTATION for symbol {} at {:?}", symbol_id.0, impl_span);
-            (impl_span, impl_span.file_id)
+        // Smart navigation:
+        // - If in .h file and has implementation -> jump to .cpp
+        // - If in .cpp file -> search for declaration in .h
+        let current_file_is_header = source.path.extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext == "h" || ext == "hpp" || ext == "hxx")
+            .unwrap_or(false);
+
+        let (target_span, target_file_id) = if current_file_is_header {
+            // In header file - prefer implementation if available
+            if let Some(impl_span) = symbol.implementation_span {
+                log::info!("✓ JUMPING TO IMPLEMENTATION for symbol {} at {:?}", symbol_id.0, impl_span);
+                (impl_span, impl_span.file_id)
+            } else {
+                log::info!("✗ NO IMPLEMENTATION SPAN - staying at declaration for symbol {}", symbol_id.0);
+                (symbol.span, symbol.file_id)
+            }
         } else {
-            log::info!("✗ NO IMPLEMENTATION SPAN - jumping to declaration for symbol {}", symbol_id.0);
-            (symbol.span, symbol.file_id)
+            // In .cpp file - search for declaration in .h
+            log::info!("In .cpp file - searching for declaration of {}", symbol_name);
+
+            // Find all symbols with the same name
+            let candidates = symbol_table.find_all(symbol.name);
+            log::info!("  Found {} candidates with name '{}'", candidates.len(), symbol_name);
+
+            // Look for a declaration in a .h file
+            let mut declaration = None;
+            for &candidate_id in &candidates {
+                if let Some(candidate) = symbol_table.get_symbol(candidate_id) {
+                    if let Some(candidate_file) = self.database.get_source_file(candidate.file_id) {
+                        let is_header = candidate_file.path.extension()
+                            .and_then(|ext| ext.to_str())
+                            .map(|ext| ext == "h" || ext == "hpp" || ext == "hxx")
+                            .unwrap_or(false);
+
+                        if is_header {
+                            // Check if it's the matching declaration (same class)
+                            if let (Some(sym_parent), Some(cand_parent)) = (symbol.parent, candidate.parent) {
+                                if let (Some(sp), Some(cp)) = (symbol_table.get_symbol(sym_parent), symbol_table.get_symbol(cand_parent)) {
+                                    if sp.name == cp.name {
+                                        log::info!("  ✓ Found matching declaration in {}", candidate_file.path.display());
+                                        declaration = Some((candidate.span, candidate.file_id));
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // No parent - check if filenames match (Task_Sample.cpp -> Task_Sample.h)
+                                let cpp_base = source.path.file_stem().and_then(|s| s.to_str());
+                                let h_base = candidate_file.path.file_stem().and_then(|s| s.to_str());
+                                if cpp_base == h_base && cpp_base.is_some() {
+                                    log::info!("  ✓ Found declaration via filename match in {}", candidate_file.path.display());
+                                    declaration = Some((candidate.span, candidate.file_id));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Some((decl_span, decl_file_id)) = declaration {
+                log::info!("✓ JUMPING TO DECLARATION");
+                (decl_span, decl_file_id)
+            } else {
+                log::info!("✗ NO DECLARATION FOUND - staying at current location");
+                (symbol.span, symbol.file_id)
+            }
         };
 
         // Get the source file for the target to convert span to range
