@@ -718,6 +718,17 @@ impl CppParser {
         let mut cursor = node.walk();
         let mut current_access = if is_struct { AccessSpecifier::Public } else { AccessSpecifier::Private };
 
+        #[cfg(test)]
+        {
+            eprintln!("parse_class_members: node kind='{}' bytes={}..{}", node.kind(), node.start_byte(), node.end_byte());
+            let mut debug_cursor = node.walk();
+            for child in node.children(&mut debug_cursor) {
+                let text = &source[child.byte_range()];
+                let preview = if text.len() > 60 { &text[..60] } else { text };
+                eprintln!("  child: kind='{}' text='{}'", child.kind(), preview);
+            }
+        }
+
         for child in node.children(&mut cursor) {
             match child.kind() {
                 "access_specifier" => {
@@ -729,9 +740,62 @@ impl CppParser {
                         _ => current_access,
                     };
                 }
+                // Tree-sitter sometimes creates labeled_statement for access specifiers like "public:"
+                "labeled_statement" => {
+                    let text = &source[child.byte_range()];
+                    // Check if this is an access specifier (public:, protected:, private:)
+                    if text.trim_start().starts_with("public:") {
+                        current_access = AccessSpecifier::Public;
+                    } else if text.trim_start().starts_with("protected:") {
+                        current_access = AccessSpecifier::Protected;
+                    } else if text.trim_start().starts_with("private:") {
+                        current_access = AccessSpecifier::Private;
+                    }
+
+                    #[cfg(test)]
+                    {
+                        eprintln!("  labeled_statement children:");
+                        let mut debug_cursor = child.walk();
+                        for lc in child.children(&mut debug_cursor) {
+                            let ltext = &source[lc.byte_range()];
+                            let lpreview = if ltext.len() > 40 { &ltext[..40] } else { ltext };
+                            eprintln!("    kind='{}' text='{}'", lc.kind(), lpreview);
+                        }
+                    }
+
+                    // Parse members inside the labeled statement
+                    let mut labeled_cursor = child.walk();
+                    for labeled_child in child.children(&mut labeled_cursor) {
+                        match labeled_child.kind() {
+                            "function_definition" | "declaration" => {
+                                // Try to parse as function first
+                                if let Some(func) = self.parse_function(labeled_child, source, file_id) {
+                                    members.push(crate::ast::ClassMember::Method(func));
+                                } else if let Some(field) = self.parse_field(labeled_child, source, file_id, current_access) {
+                                    members.push(crate::ast::ClassMember::Field(field));
+                                }
+                            }
+                            "field_declaration" => {
+                                if let Some(field) = self.parse_field(labeled_child, source, file_id, current_access) {
+                                    members.push(crate::ast::ClassMember::Field(field));
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
                 "function_definition" => {
                     if let Some(func) = self.parse_function(child, source, file_id) {
                         members.push(crate::ast::ClassMember::Method(func));
+                    }
+                }
+                // Tree-sitter may parse method declarations as "declaration" nodes
+                "declaration" => {
+                    // Try to parse as function first
+                    if let Some(func) = self.parse_function(child, source, file_id) {
+                        members.push(crate::ast::ClassMember::Method(func));
+                    } else if let Some(field) = self.parse_field(child, source, file_id, current_access) {
+                        members.push(crate::ast::ClassMember::Field(field));
                     }
                 }
                 "field_declaration" => {
@@ -748,12 +812,28 @@ impl CppParser {
 
     /// Parse a field declaration
     fn parse_field(&mut self, node: Node, source: &str, file_id: FileId, access: AccessSpecifier) -> Option<crate::ast::FieldDecl> {
+        #[cfg(test)]
+        {
+            eprintln!("parse_field called on node kind='{}' text='{}'", node.kind(), &source[node.byte_range()]);
+        }
+
         let span = node.to_span(file_id);
         let mut cursor = node.walk();
         let mut field_type = Type::Auto;
         let mut name = None;
         let mut is_static = false;
         let mut is_mutable = false;
+
+        #[cfg(test)]
+        {
+            eprintln!("  parse_field children:");
+            let mut debug_cursor = node.walk();
+            for child in node.children(&mut debug_cursor) {
+                let text = &source[child.byte_range()];
+                let preview = if text.len() > 30 { &text[..30] } else { text };
+                eprintln!("    kind='{}' text='{}'", child.kind(), preview);
+            }
+        }
 
         for child in node.children(&mut cursor) {
             match child.kind() {
@@ -772,6 +852,11 @@ impl CppParser {
                     if let Some(id) = self.find_identifier(child, source) {
                         name = Some(id);
                     }
+                }
+                // For simple field declarations like "int myVar;", tree-sitter gives us a plain identifier
+                "identifier" if name.is_none() => {
+                    let field_name = &source[child.byte_range()];
+                    name = Some(self.interner.write().intern(field_name));
                 }
                 _ => {}
             }
@@ -1111,5 +1196,131 @@ public:
         let class_name = interner.read().resolve(main_class.name);
         assert_eq!(class_name, "UMissionManagerSystem",
             "Expected class name 'UMissionManagerSystem', got '{}'", class_name);
+
+        // Verify class members are parsed
+        eprintln!("\nClass members ({}):", main_class.members.len());
+        for (i, member) in main_class.members.iter().enumerate() {
+            match member {
+                crate::ast::ClassMember::Method(m) => {
+                    let method_name = interner.read().resolve(m.name);
+                    eprintln!("  [{}] Method: {}", i, method_name);
+                }
+                crate::ast::ClassMember::Field(f) => {
+                    let field_name = interner.read().resolve(f.name);
+                    eprintln!("  [{}] Field: {}", i, field_name);
+                }
+                _ => eprintln!("  [{}] Other", i),
+            }
+        }
+
+        // Should have at least Initialize and Initialise methods
+        let has_initialize = main_class.members.iter().any(|m| {
+            if let crate::ast::ClassMember::Method(method) = m {
+                interner.read().resolve(method.name) == "Initialize"
+            } else {
+                false
+            }
+        });
+
+        let has_initialise = main_class.members.iter().any(|m| {
+            if let crate::ast::ClassMember::Method(method) = m {
+                interner.read().resolve(method.name) == "Initialise"
+            } else {
+                false
+            }
+        });
+
+        assert!(has_initialize, "Should have parsed Initialize method");
+        assert!(has_initialise, "Should have parsed Initialise method");
+    }
+
+    #[test]
+    fn test_parse_ue5_class_with_fields() {
+        let interner = Arc::new(RwLock::new(Interner::new()));
+        let mut parser = CppParser::new(interner.clone()).unwrap();
+
+        // Test class with fields and methods
+        let source = r#"
+class MY_API MyClass
+{
+public:
+    int MyVariable;
+    FString MyString;
+
+    void MyMethod(int Param1, FString Param2);
+};
+"#;
+        let file_id = FileId::new(1);
+
+        let result = parser.parse(source, file_id);
+        assert!(result.is_ok(), "Failed to parse: {:?}", result.err());
+
+        let unit = result.unwrap();
+        assert_eq!(unit.declarations.len(), 1);
+
+        match &unit.declarations[0] {
+            Declaration::Class(class) => {
+                let class_name = interner.read().resolve(class.name);
+                assert_eq!(class_name, "MyClass");
+
+                eprintln!("\nClass '{}' has {} members:", class_name, class.members.len());
+                for (i, member) in class.members.iter().enumerate() {
+                    match member {
+                        crate::ast::ClassMember::Method(m) => {
+                            let method_name = interner.read().resolve(m.name);
+                            eprintln!("  [{}] Method: {} with {} params", i, method_name, m.parameters.len());
+                            for (j, param) in m.parameters.iter().enumerate() {
+                                if let Some(param_name) = param.name {
+                                    let pname = interner.read().resolve(param_name);
+                                    eprintln!("      Param[{}]: {}", j, pname);
+                                } else {
+                                    eprintln!("      Param[{}]: (unnamed)", j);
+                                }
+                            }
+                        }
+                        crate::ast::ClassMember::Field(f) => {
+                            let field_name = interner.read().resolve(f.name);
+                            eprintln!("  [{}] Field: {}", i, field_name);
+                        }
+                        _ => eprintln!("  [{}] Other", i),
+                    }
+                }
+
+                // Should have 2 fields
+                let field_count = class.members.iter().filter(|m| matches!(m, crate::ast::ClassMember::Field(_))).count();
+                assert_eq!(field_count, 2, "Expected 2 fields, got {}", field_count);
+
+                // Should have 1 method
+                let method_count = class.members.iter().filter(|m| matches!(m, crate::ast::ClassMember::Method(_))).count();
+                assert_eq!(method_count, 1, "Expected 1 method, got {}", method_count);
+
+                // Check MyMethod has parameters with names
+                let my_method = class.members.iter().find_map(|m| {
+                    if let crate::ast::ClassMember::Method(method) = m {
+                        if interner.read().resolve(method.name) == "MyMethod" {
+                            Some(method)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                });
+
+                assert!(my_method.is_some(), "Should have MyMethod");
+                let my_method = my_method.unwrap();
+                assert_eq!(my_method.parameters.len(), 2, "MyMethod should have 2 parameters");
+
+                // Check parameter names
+                let param1_name = my_method.parameters[0].name
+                    .map(|n| interner.read().resolve(n).to_string());
+                let param2_name = my_method.parameters[1].name
+                    .map(|n| interner.read().resolve(n).to_string());
+
+                assert_eq!(param1_name, Some("Param1".to_string()), "First param should be named 'Param1'");
+                assert_eq!(param2_name, Some("Param2".to_string()), "Second param should be named 'Param2'");
+            }
+            _ => panic!("Expected class declaration"),
+        }
     }
 }

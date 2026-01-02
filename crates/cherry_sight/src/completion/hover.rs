@@ -94,9 +94,31 @@ impl<'a> HoverProvider<'a> {
                 // Format return type
                 let ret_type_str = self.format_type(return_type);
 
-                // Format function name with parameters
-                let params_str: Vec<String> = params.iter()
-                    .map(|p| self.format_type(p))
+                // Get parameter names from child symbols
+                let param_symbols: Vec<_> = symbol.children.iter()
+                    .filter_map(|&child_id| {
+                        let child = self.symbol_table.get_symbol(child_id)?;
+                        if child.kind == SymbolKind::Parameter {
+                            Some(child)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                // Format parameters with both type and name
+                let params_str: Vec<String> = params.iter().enumerate()
+                    .map(|(i, param_type)| {
+                        let type_str = self.format_type(param_type);
+                        // Try to get parameter name from child symbol
+                        if let Some(param_sym) = param_symbols.get(i) {
+                            let param_name = self.interner.resolve(param_sym.name);
+                            format!("{} {}", type_str, param_name)
+                        } else {
+                            // No name available, just show type
+                            type_str
+                        }
+                    })
                     .collect();
 
                 let signature = format!("{}({})", name, params_str.join(", "));
