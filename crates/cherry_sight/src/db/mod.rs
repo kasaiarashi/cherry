@@ -18,7 +18,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 /// The main database for cherry-sight
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Database {
     interner: Arc<RwLock<Interner>>,
     source_files: Arc<RwLock<HashMap<FileId, SourceFile>>>,

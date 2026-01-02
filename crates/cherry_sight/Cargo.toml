@@ -10,6 +10,10 @@ description = "ReSharper-level C++ code intelligence for Unreal Engine 5"
 path = "src/lib.rs"
 doctest = false
 
+[[bin]]
+name = "cherry-sight-lsp"
+path = "src/bin/cherry-sight-lsp.rs"
+
 [features]
 test-support = []
 
@@ -43,6 +47,7 @@ thiserror.workspace = true
 # Logging
 log.workspace = true
 tracing = "0.1"
+env_logger = "0.11"
 
 # LSP types
 lsp-types.workspace = true

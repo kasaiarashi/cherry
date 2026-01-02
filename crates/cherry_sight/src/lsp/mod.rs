@@ -15,3 +15,4 @@ pub mod handlers;
 
 pub use server::LspServer;
 pub use capabilities::ServerCapabilities;
+pub use handlers::LspHandlers;

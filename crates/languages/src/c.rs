@@ -20,7 +20,7 @@ impl CLspAdapter {
     const SERVER_NAME: LanguageServerName = LanguageServerName::new_static("cherry-sight");
 }
 
-// Cherry-sight doesn't need installation - it's built into the IDE
+// Cherry-sight is built into the Cherry IDE - find it in the IDE's bin directory
 impl LspInstaller for CLspAdapter {
     type BinaryVersion = ();
 
@@ -30,8 +30,8 @@ impl LspInstaller for CLspAdapter {
         _: bool,
         _: &mut AsyncApp,
     ) -> Result<Self::BinaryVersion> {
-        // cherry-sight is built-in, no external version to fetch
-        Err(anyhow!("cherry-sight is built-in, no external server to fetch"))
+        // cherry-sight is built-in with the IDE
+        Ok(())
     }
 
     async fn fetch_server_binary(
@@ -40,8 +40,25 @@ impl LspInstaller for CLspAdapter {
         _: PathBuf,
         _: &dyn LspAdapterDelegate,
     ) -> Result<LanguageServerBinary> {
-        // cherry-sight is built-in, no binary to fetch
-        Err(anyhow!("cherry-sight is built-in, no external binary to fetch"))
+        // Find cherry-sight-lsp in the IDE's installation directory
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|path| path.parent().map(|p| p.to_path_buf()))
+            .ok_or_else(|| anyhow!("Failed to get executable directory"))?;
+
+        let binary_name = if cfg!(windows) {
+            "cherry-sight-lsp.exe"
+        } else {
+            "cherry-sight-lsp"
+        };
+
+        let binary_path = exe_dir.join(binary_name);
+
+        Ok(LanguageServerBinary {
+            path: binary_path,
+            arguments: vec![],
+            env: None,
+        })
     }
 
     async fn cached_server_binary(
@@ -49,8 +66,28 @@ impl LspInstaller for CLspAdapter {
         _: PathBuf,
         _: &dyn LspAdapterDelegate,
     ) -> Option<LanguageServerBinary> {
-        // cherry-sight is built-in, no cached binary
-        None
+        // Try to find cherry-sight-lsp in the IDE's directory
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|path| path.parent().map(|p| p.to_path_buf()))?;
+
+        let binary_name = if cfg!(windows) {
+            "cherry-sight-lsp.exe"
+        } else {
+            "cherry-sight-lsp"
+        };
+
+        let binary_path = exe_dir.join(binary_name);
+
+        if binary_path.exists() {
+            Some(LanguageServerBinary {
+                path: binary_path,
+                arguments: vec![],
+                env: None,
+            })
+        } else {
+            None
+        }
     }
 }
 
