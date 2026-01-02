@@ -3103,6 +3103,7 @@ name = "cherry_sight"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "collections",
  "criterion",
  "crossbeam",

@@ -668,13 +668,28 @@ impl LspHandlers {
                 Some(std::path::PathBuf::from(&root))
             };
 
-            // Initialize cache manager
+            // Initialize cache manager and load cached include index
             if let Some(path) = root_path {
                 let cache_mgr = CacheManager::new(&path);
                 if let Err(e) = cache_mgr.ensure_cache_dir() {
                     log::warn!("Failed to create cache directory: {}", e);
                 } else {
                     log::info!("Cache directory: {}", cache_mgr.cache_dir().display());
+
+                    // Try to load cached include index
+                    match cache_mgr.load_include_index() {
+                        Ok(index) if !index.is_empty() => {
+                            log::info!("Loading {} cached include paths...", index.len());
+                            CacheManager::populate_dashmap(&self.include_cache, index);
+                            log::info!("Loaded include cache - navigation will be instant!");
+                        }
+                        Ok(_) => {
+                            log::info!("No cached include index found - will build during indexing");
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to load include cache: {}", e);
+                        }
+                    }
                 }
                 *self.cache_manager.write() = Some(cache_mgr);
             }
@@ -725,12 +740,39 @@ impl LspHandlers {
                             *handlers.indexing_complete.write() = true;
                             log::info!("Background indexing complete! Indexed {} files", indexed_files.len());
 
-                            // Save cache metadata
+                            // Build complete include index (project + engine headers)
+                            log::info!("Building complete include index...");
+                            let mut all_headers = indexed_files.clone();
+
+                            // Discover engine headers too
+                            if let Some(engine_paths) = handlers.get_ue5_engine_paths() {
+                                for engine_path in &engine_paths {
+                                    let mut engine_headers = Vec::new();
+                                    if handlers.discover_cpp_files(engine_path, &mut engine_headers).is_ok() {
+                                        log::info!("Found {} engine headers in {}", engine_headers.len(), engine_path.display());
+                                        all_headers.extend(engine_headers);
+                                    }
+                                }
+                            }
+
+                            log::info!("Total headers for include index: {}", all_headers.len());
+
+                            // Build and save include index
+                            let include_index = CacheManager::build_include_index(&all_headers);
+
+                            // Populate runtime cache
+                            CacheManager::populate_dashmap(&handlers.include_cache, include_index.clone());
+
+                            // Save to disk for next startup
                             if let Some(cache_mgr) = handlers.cache_manager.read().as_ref() {
                                 if let Err(e) = cache_mgr.save_metadata(&indexed_files) {
                                     log::warn!("Failed to save cache metadata: {}", e);
+                                }
+
+                                if let Err(e) = cache_mgr.save_include_index(&include_index) {
+                                    log::warn!("Failed to save include index: {}", e);
                                 } else {
-                                    log::info!("Saved cache metadata to .cherry directory");
+                                    log::info!("Saved include index to .cherry/includes.bin - navigation will be instant on restart!");
                                 }
                             }
                         }
@@ -993,24 +1035,31 @@ impl LspHandlers {
         }
     }
 
-    /// Resolve an include path to an actual file path (with caching)
+    /// Resolve an include path to an actual file path (with instant cached lookup)
     fn resolve_include_path(&self, include_path: &str, current_file: &std::path::Path) -> Option<std::path::PathBuf> {
-        // PERFORMANCE: Check cache first
-        if let Some(cached_path) = self.include_cache.get(include_path) {
-            return Some(cached_path.clone());
-        }
-
         // Try relative to current file first
         if let Some(parent) = current_file.parent() {
             let relative_path = parent.join(include_path);
             if relative_path.exists() {
-                // Cache the result
-                self.include_cache.insert(include_path.to_string(), relative_path.clone());
                 return Some(relative_path);
             }
         }
 
-        // Try workspace-relative search
+        // INSTANT LOOKUP: Check cached index by filename
+        // Extract just the filename from the include path
+        let file_name = std::path::Path::new(include_path)
+            .file_name()
+            .and_then(|n| n.to_str())?;
+
+        // Try exact filename match from cache (instant!)
+        if let Some(cached_path) = self.include_cache.get(file_name) {
+            log::debug!("Include cache HIT: {} -> {}", include_path, cached_path.display());
+            return Some(cached_path.clone());
+        }
+
+        // If not in cache yet, try workspace-relative search
+        log::warn!("Include cache MISS: {} - will search filesystem", include_path);
+
         if let Some(root) = self.workspace_root.read().as_ref() {
             let root_path: std::path::PathBuf = if root.starts_with("file://") {
                 use std::str::FromStr;
@@ -1037,8 +1086,9 @@ impl LspHandlers {
 
             for search_path in search_paths {
                 if let Ok(found) = self.search_for_include(&search_path, include_path) {
-                    // Cache the successful resolution
-                    self.include_cache.insert(include_path.to_string(), found.clone());
+                    // Cache the successful resolution for next time
+                    self.include_cache.insert(file_name.to_string(), found.clone());
+                    log::info!("Cached new include: {} -> {}", file_name, found.display());
                     return Some(found);
                 }
             }

@@ -2,10 +2,8 @@
 
 //! Persistent cache system for symbol tables and parsed data
 
-use crate::index::SymbolTable;
-use crate::util::{FileId, Interner};
 use anyhow::Result;
-use parking_lot::RwLock;
+use dashmap::DashMap;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -62,6 +60,11 @@ impl CacheManager {
     /// Get interner cache path
     fn interner_path(&self) -> PathBuf {
         self.cache_dir.join("interner.bin")
+    }
+
+    /// Get include index cache path
+    fn include_index_path(&self) -> PathBuf {
+        self.cache_dir.join("includes.bin")
     }
 
     /// Check if cache is valid for the given files
@@ -141,5 +144,57 @@ impl CacheManager {
             log::info!("Cleared cache directory");
         }
         Ok(())
+    }
+
+    /// Build include index from file paths
+    /// Maps filename -> full path for instant lookup
+    pub fn build_include_index(files: &[PathBuf]) -> HashMap<String, PathBuf> {
+        let mut index = HashMap::new();
+
+        for path in files {
+            if let Some(file_name) = path.file_name() {
+                if let Some(name_str) = file_name.to_str() {
+                    // Store by filename for quick lookup
+                    index.insert(name_str.to_string(), path.clone());
+                }
+            }
+        }
+
+        log::info!("Built include index with {} entries", index.len());
+        index
+    }
+
+    /// Save include index to disk using bincode for speed
+    pub fn save_include_index(&self, index: &HashMap<String, PathBuf>) -> Result<()> {
+        self.ensure_cache_dir()?;
+
+        let data = bincode::serialize(index)?;
+        fs::write(self.include_index_path(), data)?;
+
+        log::info!("Saved include index with {} entries to {}",
+            index.len(), self.include_index_path().display());
+        Ok(())
+    }
+
+    /// Load include index from disk
+    pub fn load_include_index(&self) -> Result<HashMap<String, PathBuf>> {
+        let path = self.include_index_path();
+        if !path.exists() {
+            return Ok(HashMap::new());
+        }
+
+        let data = fs::read(&path)?;
+        let index: HashMap<String, PathBuf> = bincode::deserialize(&data)?;
+
+        log::info!("Loaded include index with {} entries from {}",
+            index.len(), path.display());
+        Ok(index)
+    }
+
+    /// Populate DashMap from HashMap for runtime use
+    pub fn populate_dashmap(dashmap: &DashMap<String, PathBuf>, hashmap: HashMap<String, PathBuf>) {
+        for (key, value) in hashmap {
+            dashmap.insert(key, value);
+        }
     }
 }
