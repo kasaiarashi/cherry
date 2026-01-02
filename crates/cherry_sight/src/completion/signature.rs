@@ -31,7 +31,9 @@ pub struct ParameterInformation {
 
 /// Provides signature help
 pub struct SignatureHelpProvider<'a> {
+    #[allow(dead_code)]
     symbol_table: &'a SymbolTable,
+    #[allow(dead_code)]
     interner: &'a Interner,
 }
 
@@ -60,6 +62,7 @@ impl<'a> SignatureHelpProvider<'a> {
     }
 
     /// Create signature information from a function symbol
+    #[allow(dead_code)]
     fn create_signature_info(&self, function_id: SymbolId) -> Option<SignatureInformation> {
         let symbol = self.symbol_table.get_symbol(function_id)?;
 

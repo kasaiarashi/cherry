@@ -159,7 +159,7 @@ impl<'a> CodeLensProvider<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::index::symbol::Symbol;
+    use crate::index::symbol::{Symbol, SymbolKind};
 
     #[test]
     fn test_code_lens_creation() {

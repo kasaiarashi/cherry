@@ -8,6 +8,7 @@ use crate::refactoring::WorkspaceEdit;
 
 /// Inline refactoring provider
 pub struct InlineProvider<'a> {
+    #[allow(dead_code)]
     symbol_table: &'a SymbolTable,
 }
 

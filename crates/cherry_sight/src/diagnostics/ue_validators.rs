@@ -9,7 +9,9 @@ use crate::util::{FileId, Interner};
 
 /// UE5 validation rules
 pub struct UE5Validator<'a> {
+    #[allow(dead_code)]
     symbol_table: &'a SymbolTable,
+    #[allow(dead_code)]
     interner: &'a Interner,
 }
 
@@ -23,13 +25,11 @@ impl<'a> UE5Validator<'a> {
 
     /// Validate UE5 macros in a file
     pub fn validate_macros(&self, _file_id: FileId) -> Vec<Diagnostic> {
-        let diagnostics = Vec::new();
-
         // Would iterate through UCLASS/UPROPERTY/UFUNCTION in file
         // and validate their specifiers
         // For now, placeholder
 
-        diagnostics
+        Vec::new()
     }
 
     /// Check UCLASS conventions

@@ -3112,6 +3112,7 @@ dependencies = [
  "lasso",
  "log",
  "lsp-types",
+ "num_cpus",
  "parking_lot",
  "pretty_assertions",
  "rayon",

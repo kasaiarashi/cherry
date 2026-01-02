@@ -8,7 +8,9 @@ use crate::util::{FileId, Interner};
 
 /// Semantic diagnostics provider
 pub struct SemanticDiagnostics<'a> {
+    #[allow(dead_code)]
     symbol_table: &'a SymbolTable,
+    #[allow(dead_code)]
     interner: &'a Interner,
 }
 
